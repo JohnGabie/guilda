@@ -54,12 +54,7 @@ Rule:  Give each Acceptance scenario exactly one result, `PASSED`, `FAILED` or `
 Why:   A merged or skipped result hides the scenario that failed.
 Check: gate — The report validator and the Reviewer reject a report with a scenario that has no result.
 
-### QA2 — Missing tool means not verified
-Rule:  If a scenario needs a tool that you do not have, mark the scenario `NOT VERIFIED` and name the tool.
-Why:   A scenario that passes without its tool is a guess, not a test.
-Check: gate — The Reviewer rejects a `PASSED` result whose evidence does not come from the named tool.
-
-### QA3 — Local environment only
+### QA2 — Local environment only
 Rule:  Test only on a local or test environment, with seed data, never on production.
 Why:   A test on production can change real data or expose real personal data.
 Check: judgment — No hook can see where a test sends its requests, so this rule is text only.

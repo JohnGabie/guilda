@@ -13,7 +13,7 @@ Read `.guilda/config.json` first. This skill calls it `config`.
 ## Rules
 
 ### ARC1 — One question at a time
-Rule:  Ask the user one question at a time, through AskUserQuestion, with the recommended option first.
+Rule:  Ask the user one question at a time, and follow R13 for the form of each question.
 Why:   A list of questions gets partial answers, and the gaps become guesses in the spec.
 Check: judgment — No hook and no Reviewer sees the questions, so this rule is text only.
 
