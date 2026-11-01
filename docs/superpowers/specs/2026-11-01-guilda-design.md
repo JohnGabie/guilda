@@ -1,6 +1,6 @@
 # guilda — design
 
-Status: draft, waiting for USER's approval.
+Status: approved by USER on 2026-11-01.
 Date: 2026-11-01.
 
 Tags: `[USER]` = USER decided this in the brainstorm. `[builder call]` = the brainstorm agent decided this; USER can
