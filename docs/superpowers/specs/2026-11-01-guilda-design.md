@@ -303,7 +303,7 @@ decision to promote them. `[builder call]`
 15. One concern per agent. Two agents never edit the same file.
 16. A failed agent counts as nothing delivered. The integrator runs the checks again.
 
-From HealthAurora, proposed for the core. USER's approval of this document is the decision to promote them.
+From HealthAurora (items 17 to 21, 23) and from USER (item 22), proposed for the core. USER's approval of this document is the decision to promote them.
 `[builder call]`
 
 17. **Security role, optional.** It runs only on tasks that touch a risk area, in parallel with the Reviewer, and
@@ -319,7 +319,17 @@ From HealthAurora, proposed for the core. USER's approval of this document is th
 20. **QA in two phases.** Phase 1: test exactly what was asked, one criterion at a time. Phase 2: test around the
     change (neighbor screens, integrations, visual and UX consistency); findings there are out-of-scope notes for the
     Architect. QA follows a method, not a fixed list of screens.
-21. **The user's fears.** `guilda:init` asks what must never happen in the project. The answers become hard rules
+22. **Memory is a guess, never evidence.** `[USER]` The Architect and the Reviewer can start from a guess that
+    comes from model memory, but they verify it before they use it. `[USER]`
+    - Architect: verifies on the internet, in current sources (official docs, release notes, the library's
+      repository). `[USER]`
+    - Reviewer: verifies in the project: reads the files, runs the tests and the checks, reads the installed package
+      types and the real output. `[USER]`
+    - Until it is verified, a claim is labeled "guess (memory)" in the spec, the brief or the verdict. A verdict or a
+      spec decision never rests on an unverified guess. `[builder call]`
+    - This extends the existing rule "verify APIs in a real source" from `dev-grind` and `smart-pets-mod` to every
+      claim: versions, limits, prices, behavior, best practices.
+23. **The user's fears.** `guilda:init` asks what must never happen in the project. The answers become hard rules
     in the project layer, with a check level (6.13).
 
 ### 7.1 `guilda:init` adapts the plugin to the project `[USER]`
