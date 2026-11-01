@@ -58,10 +58,20 @@ test('executor dispatch with a complete brief -> allow', () => {
   assert.equal(records(dir).length, 0);
 });
 
-test('executor dispatch with a missing prompt -> deny (all fields missing)', () => {
+test('executor dispatch without prompt -> allow, notice on stderr, no record', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const r = runHook(HOOK, { tool_name: 'Agent', tool_input: { subagent_type: 'guilda:executor' } }, dir);
-  assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+  assert.equal(r.stderr, 'guilda: brief check skipped: tool_input.prompt not found\n');
+  assert.equal(records(dir).length, 0);
+});
+
+test('executor dispatch with a non-string prompt -> allow', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r = runHook(HOOK, { tool_name: 'Agent', tool_input: { subagent_type: 'guilda:executor', prompt: 42 } }, dir);
+  assert.equal(r.stdout, '');
+  assert.equal(r.code, 0);
 });
 
 test('dispatch of another agent type -> allow', () => {

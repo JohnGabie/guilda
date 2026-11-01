@@ -83,10 +83,10 @@ test('malformed input JSON -> exit 0', () => {
   assert.equal(records(dir).length, 0);
 });
 
-test('hooks.json registers SubagentStop for reviewer and security in exec form', () => {
+test('hooks.json registers SubagentStop for reviewer, security and qa in exec form', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const entry = hooks.SubagentStop[0];
-  assert.equal(entry.matcher, '^guilda:(reviewer|security)$');
+  assert.equal(entry.matcher, '^guilda:(reviewer|security|qa)$');
   assert.equal(entry.hooks[0].command, 'node');
   assert.deepEqual(entry.hooks[0].args, ['${CLAUDE_PLUGIN_ROOT}/scripts/hooks/subagent-stop.mjs']);
 });
