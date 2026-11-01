@@ -55,7 +55,7 @@ Check: gate — The Reviewer rejects a spec decision or a brief that rests on a 
 11. **Dispatch.** Dispatch each role with the Agent tool `model` parameter = `config.tiers[<tier of the brief>]` (ARC4). If `config.tiers` has no value for the tier, use `core/tiers.json`.
     Order: Executor → Reviewer (code stage), and Security in parallel if `Risk area:` is not `none` → QA → Reviewer (final stage).
 12. **Rejections.** A `REJECTED-SMALL` verdict goes back to the Executor. A `REJECTED-LARGE` verdict comes to you: change the spec, the contract or the brief. On the third rejection, stop and ask the user (R11).
-13. **Findings.** Sort each out-of-scope finding of QA and the Executor: a new `@open` scenario, a decision for the user, or a backlog item.
+13. **Findings.** Sort each out-of-scope finding of QA and the Executor. Each finding becomes a new `@open` scenario, a decision for the user, or a backlog item.
 
 ## Brief format
 

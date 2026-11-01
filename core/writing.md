@@ -1,7 +1,7 @@
 # Writing rules (ASD-STE100)
 
 Scope: every text that agents read or write. This includes replies to the user, briefs, specs, plans, ADRs, role files, verdicts, reports and diaries.
-Free (out of scope): code, and text that the end user of the product reads: UI copy, blog, product messages, the instructions of the product's own AI.
+Free (out of scope): code, and text that the end user of the product reads. The end-user text is UI copy, blog, product messages and the instructions of the product's own AI.
 The rules apply in every language. A project can add a free document type in its project layer, with a reason that the user approves.
 
 1. Write one idea in each sentence. An instruction has 20 words or fewer. A description has 25 words or fewer.

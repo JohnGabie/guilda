@@ -56,7 +56,7 @@ Check: gate — The Reviewer rejects a third attempt that runs at the tier of th
 ### R11 — Small or large rejection; 3 rejections escalate
 Rule:  Send small rejections to the Executor, large to the Architect, and the third to the Architect and the user.
 Why:   A large fix changes a spec scenario, an Acceptance criterion, a contract or the file list, and only the Architect owns them.
-Check: gate — The verdict states `REJECTED-SMALL` or `REJECTED-LARGE`, the controller counts the rejections of each task, and QA sends its report to the Reviewer, never to the Executor.
+Check: gate — The verdict states `REJECTED-SMALL` or `REJECTED-LARGE`. The controller counts the rejections of each task. QA sends its report to the Reviewer, never to the Executor.
 
 ### R12 — The human decides
 Rule:  Ask the user before any decision on taste, scope, numbers, merge, release or an irreversible action.
