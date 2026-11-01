@@ -265,6 +265,17 @@ repository, `guilda` injects nothing. `guilda:init` creates the project config. 
 every repository on the machine; a project that has not migrated keeps its own rules, and two active rule sets
 would disagree (anti-goal 2).
 
+Install scope does not change the behavior. `[USER]` The plugin can be installed at user scope (global) or at
+project scope (`.claude/settings.json`). In both cases, every project needs `guilda:init` to adapt the core rules,
+the roles and the project rules to that project. `[USER]` The difference is only where the plugin is available:
+
+| Install scope | Without project config | With project config |
+|---|---|---|
+| User (global) | `guilda` skills can be called; nothing is injected; no reminder | Core active |
+| Project | Same as user scope, for everyone who clones the repository | Core active |
+
+The project config is committed, so a clone of a project with `guilda` gets the same project layer. `[builder call]`
+
 ## 8. Left to the builder
 
 These are builder calls. The builder decides and writes the reason in the plan.
