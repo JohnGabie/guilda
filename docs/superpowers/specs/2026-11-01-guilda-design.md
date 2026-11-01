@@ -288,7 +288,7 @@ It catches failures without depending on an agent to notice them:
 |---|---|---|
 | Law | The hook that blocks the action writes the attempt: rule ID, date, action, branch. | Yes |
 | Gate | A script reads each reviewer verdict and records every "violates R<n>". The verdict format is fixed. | Yes, once the verdict format is fixed |
-| Judgment | A `Stop` hook of prompt or agent type checks the end of each turn against the rules (the Claude Code docs confirm both types exist); a correction from the user in the next message is also recorded. | No. It lowers the miss rate only. |
+| Judgment | A `Stop` hook checks the end of each turn against the rules; a correction from the user in the next message is also recorded. Not verified: whether `Stop` accepts prompt or agent hook types (two reads of the hooks docs on 2026-11-01 disagreed). A command hook that reads `last_assistant_message` works. Verify before build. | No. It lowers the miss rate only. |
 
 - The escalation rule reads this log. When a rule reaches 2 violations, `guilda` proposes to move it up one level.
 - If the rule is a core rule, the proposal becomes a candidate PR to the `guilda` repository (6.2).
@@ -552,3 +552,413 @@ done. `[builder call]`
   runs the eval with a local fix (a reader thread, as `agent-creator` does) and does not skip the eval. `[builder call]`
 - No absolute machine paths and no personal data in repository files.
 - Deletion safety rules from USER's global `CLAUDE.md` apply to any script that deletes files.
+
+---
+
+## Plan: Part 1 — skeleton, core, roles, hooks, init, update
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** A `guilda` plugin that installs from its own marketplace, injects the core rules only into projects with a
+`.guilda/config.json`, ships the core roles, enforces the proven laws with hooks, logs violations, and has
+`guilda:init` and `guilda:update`.
+
+**Architecture:** Plugin files at the repository root (standard layout). Core text in `core/`. Roles: subagents in
+`agents/`, and the Architect as a skill, because it runs in the main session and subagents cannot use
+AskUserQuestion. Hooks are Node.js scripts with zero dependencies, called in exec form (`node` + `args`), so no shell
+quoting on Windows. Every hook first looks for `<project>/.guilda/config.json`; without it, the hook prints nothing
+and exits 0.
+
+**Tech stack:** Node.js ≥ 20 (ESM `.mjs`, `node:test`, no npm dependencies), Claude Code plugin format, Markdown.
+
+**Spec:** this document, sections 1–11.
+
+Facts verified on 2026-11-01 in `code.claude.com/docs` (hooks, plugins-reference, sub-agents): hook input carries
+`cwd`, `hook_event_name`, `agent_type`; `SessionStart` matchers `startup|resume|clear|compact` and
+`hookSpecificOutput.additionalContext`; `SubagentStart` exists, matcher = agent type, `additionalContext`;
+`SubagentStop` input has `last_assistant_message`; `PreCompact` blocks with exit 2, input field `trigger`;
+`PreToolUse` denies with exit 2 or `permissionDecision: "deny"`; hook processes get `CLAUDE_PROJECT_DIR`,
+`CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`; plugin agents ignore `hooks`, `mcpServers`, `permissionMode`; agent
+`model` accepts `opus|sonnet|haiku|fable`, a full ID or `inherit`; the Agent tool `model` parameter takes aliases
+only; plugin agents are namespaced `guilda:<name>`.
+
+## Global Constraints
+
+- Plugin name `guilda`; marketplace name `guilda`; first version `0.1.0`.
+- All repository text in English. Prose follows ASD-STE100 (design 6.4).
+- No absolute machine paths, no personal data, no real secrets in any file. Test fixtures use fake tokens.
+- Scripts never delete files. Tests create temp dirs with `fs.mkdtempSync(path.join(os.tmpdir(), 'guilda test '))`
+  (the name has a space) and never remove them.
+- Hooks: exec form only: `"command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/<name>.mjs"]`.
+- A hook never crashes the session: any internal error → exit 0, at most one line `guilda: <reason>` on stderr.
+- A violation record holds only `ts`, `rule`, `level`, `source`, `action`, `branch`. Never file content.
+- Model names appear only in `core/tiers.json` and in the `model:` frontmatter line of `agents/*.md`.
+- Always-on injected text (core rules + writing rules + project rules + notices) ≤ 150 lines. Subagent text ≤ 60
+  lines.
+- Run `npm test` and `claude plugin validate --strict .` before every commit; both exit 0.
+
+## Review Focus
+
+1. A repository with no `.guilda/config.json`: every hook prints nothing and exits 0 (Tasks 5–8 each test it).
+2. A `.guilda/config.json` that is not valid JSON or fails the schema: `session-start` prints one notice line and
+   injects nothing else; the other hooks exit 0 silently (Tasks 2 and 5 test it).
+3. A project path with a space: all hook tests run in a temp dir whose name has a space (Global Constraints).
+4. The commit scan on a repository with fake tokens in test fixtures: paths in `config.scan.ignore` are skipped
+   (Task 7 tests it; Task 11 dogfoods it on this repository).
+5. `git commit` outside a git repository, or with nothing staged: the scan allows the call (Task 7 tests it).
+
+---
+
+### Task 1: Plugin skeleton, marketplace, release check
+
+**Files:**
+- Create: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `package.json`, `CHANGELOG.md`,
+  `README.md`, `RELEASING.md`, `.gitignore`
+- Test: `tests/manifest.test.mjs`
+
+**Interfaces:**
+- Produces: `npm test` = `node --test tests/`. `plugin.json`: `name: "guilda"`, `version: "0.1.0"`, `description`,
+  `author: { "name": "USER" }`, `repository: "https://github.com/JohnGabie/guilda"`, `license: "MIT"`.
+  `marketplace.json`: `name: "guilda"`, `owner: { "name": "USER" }`,
+  `plugins: [{ "name": "guilda", "source": "./" }]`. `CHANGELOG.md` top entry heading `## <version> — <YYYY-MM-DD>`.
+
+- [ ] **Step 1: Write the failing test** `tests/manifest.test.mjs`: `plugin name is guilda`; `version is semver`
+  (`/^\d+\.\d+\.\d+$/`); `marketplace entry name equals plugin name and source is "./"`; `CHANGELOG top entry
+  equals plugin version`.
+- [ ] **Step 2:** Run `npm test`. Expected: FAIL (files missing).
+- [ ] **Step 3:** Create the files. `RELEASING.md` lists: raise `version` (semver rules, design 6.14 item 1), add the
+  CHANGELOG entry with the changed rule IDs, `npm test`, `claude plugin validate --strict .`,
+  `claude plugin tag --push`. `README.md`: install commands (`claude plugin marketplace add JohnGabie/guilda`,
+  `claude plugin install guilda@guilda`), the auto-update recommendation, `guilda:init`.
+- [ ] **Step 4:** Run `npm test` → PASS. Run `claude plugin validate --strict .` → `Validation passed`.
+- [ ] **Step 5:** Commit `chore: add plugin skeleton and marketplace`.
+
+### Task 2: Project config and violation log library
+
+**Files:**
+- Create: `scripts/lib/project.mjs`, `scripts/lib/violations.mjs`, `scripts/config-check.mjs` (CLI)
+- Test: `tests/project.test.mjs`, `tests/violations.test.mjs`, `tests/helpers.mjs`
+
+**Interfaces:**
+- Produces:
+  - `loadConfig(projectDir: string): { ok: true, config } | { ok: false, reason: string } | null` — `null` when
+    `.guilda/config.json` does not exist.
+  - Config schema (all required unless marked optional): `guildaVersion: string` (semver);
+    `languages: { replies: string, docs: string }`; `tiers: { master, journeyman, apprentice }` (aliases);
+    `writing: { free: string[], exceptions: { docType, level, reason }[] }`;
+    `security: { enabled: boolean, riskAreas: string[] }`; `checks: { name: string, command: string }[]`;
+    `scan: { ignore: string[] }` (optional; globs with `*` and `**` only).
+  - `readProjectRules(projectDir): string` — `.guilda/rules.md` content, or `""`.
+  - `appendViolation(projectDir, { rule, level, source, action }): void` — adds `ts` (ISO) and `branch`
+    (`git rev-parse --abbrev-ref HEAD`, `"unknown"` on error); appends one JSON line to `.guilda/violations.jsonl`;
+    creates `.guilda/.gitignore` with `violations.jsonl` when absent; never throws.
+  - `countViolations(projectDir): Map<string, number>` — by rule ID; malformed lines skipped.
+  - `scripts/config-check.mjs <projectDir>` — exit 0 and print `ok`, or exit 1 and print the reason.
+  - `tests/helpers.mjs`: `tempProject({ config?, rules?, git? }): string`;
+    `runHook(script, input, projectDir): { code, stdout, stderr }` (spawns `node`, sets `CLAUDE_PROJECT_DIR`,
+    `CLAUDE_PLUGIN_ROOT` = repository root, writes `input` as JSON to stdin).
+
+- [ ] **Step 1: Write the failing tests:** `loadConfig returns null without config`; `loadConfig rejects invalid
+  JSON with a reason`; `loadConfig rejects a missing tiers.master`; `loadConfig accepts the minimal valid config`;
+  `appendViolation writes one line without content fields`; `appendViolation creates .guilda/.gitignore`;
+  `appendViolation does not throw when .guilda is a file`; `countViolations skips malformed lines`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement the signatures above. The schema check is hand-written (no dependencies).
+- [ ] **Step 4:** Run `npm test` → PASS.
+- [ ] **Step 5:** Commit `feat: add project config and violation log library`.
+
+### Task 3: Core rules, writing rules, glossary, tiers, rule lint
+
+**Files:**
+- Create: `core/rules.md`, `core/writing.md`, `core/subagent.md`, `core/glossary.md`, `core/tiers.json`,
+  `core/deletion-safety.md`, `scripts/lint-rules.mjs`
+- Test: `tests/lint-rules.test.mjs`, `tests/core-content.test.mjs`
+
+**Interfaces:**
+- Produces:
+  - Rule block format (design 6.13), exactly:
+    ```
+    ### R<n> — <title>
+    Rule:  <one sentence>
+    Why:   <one sentence>
+    Check: <law|gate|judgment> — <mechanism>
+    ```
+  - `lintRules(markdown: string, { prefix }): string[]` — error list. Checks: block format, unique IDs, `Rule` is
+    one sentence of 20 words or fewer, `Why` is one sentence, the `Check` level is one of the three words.
+  - `lintModelNames(files: string[]): string[]` — an error for `opus|sonnet|haiku|fable|claude-` outside
+    `core/tiers.json` and outside a `model:` frontmatter line.
+  - `core/tiers.json`: `{ "master": "opus", "journeyman": "sonnet", "apprentice": "haiku" }`.
+- Rule IDs and levels for `core/rules.md`. The executor writes `Rule` and `Why` from the source section:
+
+  | ID | Title | Level | Source |
+  |---|---|---|---|
+  | R1 | Source of truth | gate | §7 item 1 |
+  | R2 | Stop and ask on a conflict or a vague spec | gate | §7 item 1 |
+  | R3 | Spec before code | gate | §7 item 2, 6.13 |
+  | R4 | One MD per feature; plans are sections | law (Task 7) | §9 item 1 |
+  | R5 | Memory is a guess | gate | §7 item 22 |
+  | R6 | Evidence, real exit codes, "not verified" | gate | §7 item 7 |
+  | R7 | Reviewer independence | gate | §7 item 6 |
+  | R8 | One concern per agent, one owner per file | gate | §7 item 15 |
+  | R9 | A failed agent delivered nothing | gate | §7 item 16 |
+  | R10 | Tier escalation | gate | §7 item 5 |
+  | R11 | Small or large rejection; 3 rejections escalate | gate | §7 item 19, §9 item 2 |
+  | R12 | The human decides | gate | §7 item 8 |
+  | R13 | Questions through AskUserQuestion | judgment | §7 item 12 |
+  | R14 | The Architect disagrees | judgment | 6.9 |
+  | R15 | ASD-STE100 at full strength | gate | 6.4 |
+  | R16 | Glossary terms; no forbidden words | gate | 6.4 |
+  | R17 | Model names only in the tiers file | gate | §7 item 4 |
+  | R18 | Context diary before compaction | law (Task 6) | §7 item 9 |
+  | R19 | No secrets or absolute paths in commits | law (Task 7) | 6.13 |
+  | R20 | Deletion safety rules in every brief that deletes | gate | §7 item 11 |
+  | R21 | QA demands its named tools | gate | 6.11 |
+  | R22 | QA in two phases | gate | §7 item 20 |
+  | R23 | Definition of done scales with the change | gate | §7 item 13 |
+  | R24 | One plan task per executor ↔ reviewer cycle | gate | §7 item 14 |
+  | R25 | The owner classifies a rule change | judgment | 6.1 |
+
+- [ ] **Step 1: Write the failing tests:** lint unit tests with good and bad blocks (`rejects a 21-word Rule`,
+  `rejects a duplicate ID`, `rejects an unknown level`, `flags a model name in a role body`, `allows model: in
+  frontmatter`); content tests: `core/rules.md has R1..R25 with the levels above`, `core/rules.md + core/writing.md
+  have 125 lines or fewer` (25 lines of headroom for project rules and notices), `core/subagent.md has 60 lines or
+  fewer`, `lintRules(core/rules.md) is empty`, `tiers.json has the three tier keys`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Write `lint-rules.mjs` (also a CLI: `node scripts/lint-rules.mjs` lints the repository, exit 1 on
+  errors). Write the core files: `writing.md` = the 10 rules of `dev-grind/CLAUDE.md` WRITING, the must / may /
+  must not meanings and the "free" scope; `glossary.md` = process terms (brief, spec, plan, executor, reviewer, QA,
+  security, architect, controller, lab, verdict) with forbidden words, in the format of HealthAurora
+  `guia-escrita.md`; `subagent.md` = the short form of the writing rules + R5, R6, R15, R16; `deletion-safety.md` =
+  the deletion rules of §7 item 11, in English.
+- [ ] **Step 4:** Run `npm test` and `node scripts/lint-rules.mjs` → PASS, exit 0.
+- [ ] **Step 5:** Commit `feat: add core rules, writing rules and rule lint`.
+
+### Task 4: Roles — agents and the Architect skill
+
+**Files:**
+- Create: `agents/executor.md`, `agents/reviewer.md`, `agents/qa.md`, `agents/version-control.md`,
+  `agents/security.md`, `skills/architect/SKILL.md`, `core/knowledge/security.md`, `core/knowledge/qa.md`
+- Test: `tests/roles.test.mjs`
+
+**Interfaces:**
+- Consumes: `core/tiers.json`, `lintRules`, `lintModelNames` (Task 3).
+- Produces:
+  - Agent frontmatter: `name` (no prefix; it loads as `guilda:<name>`), `description`, `tools`, `model` = the tier
+    default. Tier and tools: executor `journeyman`, tools omitted (inherit); reviewer `master`,
+    `Read, Grep, Glob, Bash`; qa `journeyman`, tools omitted; version-control `journeyman`, `Read, Grep, Glob, Bash`;
+    security `master`, `Read, Grep, Glob`.
+  - Body sections: `Tier: <tier>`, `## Role`, `## Does`, `## Does not`, `## Rules` (role rules with IDs such as
+    `REV1`, `SEC1`, same block format), `## Output format` (fenced block).
+  - Fixed verdict lines, parsed by Task 8: reviewer `Result: APPROVED | REJECTED-SMALL | REJECTED-LARGE`; security
+    `Result: APPROVED | REJECTED`; both end with `Violations: <comma-separated rule IDs | none>`.
+  - `skills/architect/SKILL.md`: the Architect procedure: requirements one question at a time; spec with the tags
+    `@decided`, `@proposed`, `@open`; the brief format with `Risk area:` and `Deletion rules:` fields; tier choice;
+    QA tool naming (6.11); Security consultation when `config.security.enabled`; disagreement (6.9); memory is a
+    guess, checked on the web (R5); when it dispatches a role, it passes the Agent tool `model` parameter =
+    `config.tiers[<tier of the brief>]` (§9.1).
+- Sources to port: `../dev-grind/docs/roles/*.md`, `../claudia-rh/agents/*.md`, HealthAurora `agents/*.md` (§2).
+  Knowledge files: copy only the items marked confirmed in HealthAurora `qa-conhecimento.md` and
+  `seguranca-conhecimento.md`, generic parts only, with their source links; leave out the "how it applies" parts.
+
+- [ ] **Step 1: Write the failing tests:** `each agent has name, description, model`; `agent model equals
+  tiers.json[tier]`; `each agent body has 150 lines or fewer`; `lintRules(role rules) is empty`;
+  `lintModelNames(agents) is empty`; `reviewer output format has the Result and Violations lines`; `security tools
+  exclude Write and Edit`; `architect skill has name and description frontmatter`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Write the skill with `superpowers:writing-skills` and the agents with the agent-creator method
+  (least privilege, delegation description). The exams for these roles are build item 3b, not this task.
+- [ ] **Step 4:** Run `npm test` and `claude plugin validate --strict .` → PASS.
+- [ ] **Step 5:** Commit `feat: add core roles and architect skill`.
+
+### Task 5: SessionStart and SubagentStart injection
+
+**Files:**
+- Create: `hooks/hooks.json`, `scripts/hooks/session-start.mjs`, `scripts/hooks/subagent-start.mjs`,
+  `scripts/lib/version.mjs`
+- Test: `tests/session-start.test.mjs`, `tests/subagent-start.test.mjs`, `tests/version.test.mjs`
+
+**Interfaces:**
+- Consumes: `loadConfig`, `readProjectRules`, `countViolations` (Task 2); the core files (Task 3).
+- Produces:
+  - `hooks.json` entries: `SessionStart` matcher `startup|resume|clear|compact` → session-start; `SubagentStart`
+    with no matcher → subagent-start.
+  - Output on stdout: `{ "hookSpecificOutput": { "hookEventName", "additionalContext" } }`.
+  - SessionStart context, in this order: `guilda <installed version> active`; `core/rules.md`; `core/writing.md`;
+    the project rules; one line with the languages and the tiers; one line with the diary command
+    (`node "<absolute CLAUDE_PLUGIN_ROOT>/scripts/journal-skeleton.mjs" <reason>`); the version notice; one
+    escalation line per rule with 2 or more violations:
+    `R<n>: <count> violations — propose a stronger check (design 6.13)`. On `resume` or `compact`, also the first
+    220 lines of the newest `.journal/*.md`.
+  - `compareSemver(a, b): -1 | 0 | 1`; `installedVersion(pluginRoot): string`. Version notice when the installed
+    version is newer than `config.guildaVersion`: `guilda updated <old> → <new>; run guilda:init to review the
+    project layer`; for a new major version: `guilda:init is required`.
+  - SubagentStart context: `core/subagent.md` + one line with the docs language.
+
+- [ ] **Step 1: Write the failing tests:** `no config → empty stdout, exit 0`; `invalid config → one notice line and
+  no rules`; `valid config → context has R1, R25 and project rule P1`; `compact → context has the newest diary`;
+  `version notice for 0.1.0 → 0.2.0`; `major notice for 0.9.0 → 1.0.0`; `escalation line for a rule with 2
+  violations`; `context has 150 lines or fewer with a 20-line project rules file`; `subagent-start without config →
+  empty`; `subagent-start → context has R5`; `compareSemver` cases.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement. Wrap each script in try/catch (Global Constraints).
+- [ ] **Step 4:** Run `npm test` → PASS; `claude plugin validate --strict .` → PASS.
+- [ ] **Step 5:** Commit `feat: inject core rules at session and subagent start`.
+
+### Task 6: Context diary — skeleton script and PreCompact law (R18)
+
+**Files:**
+- Create: `scripts/journal-skeleton.mjs`, `scripts/hooks/pre-compact.mjs`; Modify: `hooks/hooks.json`
+- Test: `tests/journal.test.mjs`, `tests/pre-compact.test.mjs`
+
+**Interfaces:**
+- Consumes: `loadConfig`, `appendViolation` (Task 2).
+- Produces:
+  - `journal-skeleton.mjs <reason>`: creates `.journal/YYYY-MM-DD-HHMMSS-<reason>.md` in the project
+    (`CLAUDE_PROJECT_DIR`, else the cwd) and prints its path. Sections, from
+    `dev-grind/scripts/dev/journal-skeleton.sh`: goal; decisions and why, with rejected options; user preferences and
+    corrections; done and verified, with evidence; in progress; next steps in order; open questions; pitfalls; files
+    to re-read; do NOT redo; what to promote. Each section holds `<!-- TODO-CONTEXT -->`. Automatic facts: branch,
+    `git status --short`, the last 5 commits. The script never edits `.gitignore` (`guilda:init` proposes the
+    `.journal/` entry).
+  - `pre-compact.mjs`, `hooks.json` `PreCompact` matcher `manual|auto`: use the newest diary if it is younger than
+    30 minutes, else create a skeleton. If the diary still has a marker: `manual` → exit 2 with the stderr message of
+    `dev-grind/.claude/hooks/pre-compact.sh`, and `appendViolation({ rule: 'R18', level: 'law', source:
+    'pre-compact', action: 'manual compact with unfilled diary' })`; `auto` → never block, exit 0.
+
+- [ ] **Step 1: Write the failing tests:** `skeleton has the 11 sections with markers`; `skeleton name matches the
+  pattern`; `no config → pre-compact exit 0, no file created`; `manual + markers → exit 2 and one R18 record`;
+  `manual + filled diary → exit 0`; `auto + markers → exit 0`; `diary older than 30 minutes (set with
+  fs.utimesSync) → a new skeleton is created`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run `npm test` → PASS.
+- [ ] **Step 5:** Commit `feat: add context diary law`.
+
+### Task 7: PreToolUse laws — commit scan (R19) and no plan files (R4)
+
+**Files:**
+- Create: `scripts/hooks/pre-tool-use.mjs`, `scripts/lib/scan.mjs`; Modify: `hooks/hooks.json`
+- Test: `tests/scan.test.mjs`, `tests/pre-tool-use.test.mjs`
+
+**Interfaces:**
+- Consumes: `loadConfig`, `appendViolation` (Task 2).
+- Produces:
+  - `hooks.json` `PreToolUse` matcher `Bash|Write|Edit` → pre-tool-use.
+  - `scanText(text: string): { kind: 'secret' | 'abs-path', line: number }[]`. Secret patterns: `ghp_`, `gho_` or
+    `ghs_` + 36 alphanumerics; `sk-ant-` + 20 or more of `[A-Za-z0-9_-]`; `AKIA` + 16 uppercase alphanumerics;
+    `-----BEGIN [A-Z ]*PRIVATE KEY-----`. Absolute path patterns: `[A-Za-z]:\\Users\\[^\\\s]+`,
+    `[A-Za-z]:/Users/[^/\s]+`, `/home/[^/\s]+/`, `/Users/[^/\s]+/`.
+  - `globMatch(pattern: string, path: string): boolean` — `*` = any characters except `/`, `**` = any characters.
+  - Bash branch: if `tool_input.command` matches `\bgit\s+commit\b`, run `git diff --cached -U0 --no-color` in the
+    project, scan only the added lines, skip files that match `config.scan.ignore`. A finding → deny with the
+    reason `R19: <kind> in <file>:<line> — remove it before commit` (the reason never holds the matched text) and one
+    R19 record. Not a git repository, a git error, or nothing staged → allow.
+  - Write/Edit branch: `tool_input.file_path` resolves under `<project>/docs/superpowers/plans/` and the file does
+    not exist → deny `R4: plans are a "## Plan: Part N" section of the feature MD` and one R4 record. An existing
+    file → allow.
+  - Deny output: `{ "hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "deny",
+    "permissionDecisionReason": "..." } }`, exit 0.
+
+- [ ] **Step 1: Write the failing tests:** scan unit tests for each pattern, and `the result never holds the secret
+  text`; hook tests: `no config → allow`; `git commit with a staged fake ghp_ token → deny and one R19 record`;
+  `ignored path → allow`; `C:\Users\name\x in a staged file → deny`; `not a git repository → allow`; `nothing staged
+  → allow`; `git status → allow`; `Write of a new file in docs/superpowers/plans → deny and one R4 record`; `Edit of
+  an existing plan file → allow`; `Write elsewhere → allow`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run `npm test` → PASS.
+- [ ] **Step 5:** Commit `feat: add commit scan and plan-file laws`.
+
+### Task 8: Verdict reader — gate violations from Reviewer and Security
+
+**Files:**
+- Create: `scripts/hooks/subagent-stop.mjs`, `scripts/lib/verdict.mjs`; Modify: `hooks/hooks.json`
+- Test: `tests/verdict.test.mjs`, `tests/subagent-stop.test.mjs`
+
+**Interfaces:**
+- Consumes: the verdict lines (Task 4); `appendViolation` (Task 2).
+- Produces:
+  - `parseVerdict(text: string): { result: string | null, violations: string[] }` — reads the last `Result:` line
+    and the last `Violations:` line; IDs match `^(R|P|[A-Z]{2,4})\d+$`; `none` → `[]`.
+  - `hooks.json` `SubagentStop` matcher `^guilda:(reviewer|security)$` → subagent-stop: reads
+    `last_assistant_message` and writes one record per ID: `{ rule, level: 'gate', source: agent_type, action:
+    'verdict' }`. It never blocks; exit 0.
+
+- [ ] **Step 1: Write the failing tests:** `parses APPROVED with none`; `parses two IDs`; `ignores IDs in prose
+  above the Violations line`; `no Violations line → []`; hook: `no config → no record`; `reviewer verdict with R7 →
+  one record with source guilda:reviewer`; `malformed input JSON → exit 0`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run `npm test` → PASS.
+- [ ] **Step 5:** Commit `feat: record gate violations from verdicts`.
+
+### Task 9: `guilda:init` skill
+
+**Files:**
+- Create: `skills/init/SKILL.md`, `skills/init/references/config-template.json`,
+  `skills/init/references/rules-template.md`, `evals/init/` (skill-creator eval cases)
+- Test: `tests/init-template.test.mjs`
+
+**Interfaces:**
+- Consumes: the config schema and `config-check.mjs` (Task 2); the rule format and `lint-rules.mjs` (Task 3).
+- Produces: a skill that follows design 7.1, steps 1–5, and writes only after the user approves:
+  `.guilda/config.json` (passes `config-check`), `.guilda/rules.md` (P-rules: the user's fears §7 item 23, domain
+  rules, project adjustments; passes `lintRules` with prefix `P`), `.guilda/.gitignore`. It lists each existing rule
+  of the project as "already in the core (R<n>)", "project adjustment" or "candidate for the core". It never edits
+  the project `CLAUDE.md` without approval. It uses `superpowers:brainstorming` when installed, else one question
+  per message. It records only commands it ran. It sets `security.enabled` from the risk areas. On a re-run it shows
+  the diff of the project layer.
+
+- [ ] **Step 1: Write the failing tests:** `config-template passes config-check`; `rules-template passes lintRules
+  with prefix P`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Write the templates. Write the skill with `skill-creator:skill-creator` and
+  `superpowers:writing-skills`. Eval cases (3): an empty new project; an existing project whose `CLAUDE.md` repeats
+  R3 (expected: "already in the core (R3)"); a project with payments (expected: a Security proposal). Graded on: one
+  question per message; no file written before approval; correct classification. Run the eval loop with the Windows
+  reader-thread fix (§11).
+- [ ] **Step 4:** Run `npm test` → PASS. Record the eval pass rate in the commit body.
+- [ ] **Step 5:** Commit `feat: add guilda:init skill`.
+
+### Task 10: `guilda:update` skill and version check
+
+**Files:**
+- Create: `skills/update/SKILL.md`, `scripts/changelog.mjs`
+- Test: `tests/changelog.test.mjs`
+
+**Interfaces:**
+- Consumes: `compareSemver`, `installedVersion` (Task 5).
+- Produces:
+  - `changesBetween(changelog: string, from: string, to: string): string` — the entries with
+    from < version ≤ to.
+  - Skill steps: show `installedVersion`; read the newest version with
+    `gh api repos/JohnGabie/guilda/contents/.claude-plugin/plugin.json` (fallback: `git ls-remote --tags
+    https://github.com/JohnGabie/guilda` and the highest `guilda--v*` tag); show `changesBetween`; with the user's
+    OK, run `claude plugin update guilda@guilda`; tell the user to run `/reload-plugins`; for a new major version,
+    say that `guilda:init` is required.
+
+- [ ] **Step 1: Write the failing tests:** `changesBetween returns the 0.2.0 and 0.3.0 entries for 0.1.0 → 0.3.0`;
+  `returns "" when the versions are equal`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement; write the skill with `superpowers:writing-skills`.
+- [ ] **Step 4:** Run `npm test` → PASS.
+- [ ] **Step 5:** Commit `feat: add guilda:update skill`.
+
+### Task 11: Install, dogfood and smoke test
+
+**Files:**
+- Create: `.guilda/config.json`, `.guilda/rules.md`, `.guilda/.gitignore` in this repository (`scan.ignore` covers
+  `tests/**`); Modify: `CHANGELOG.md`, `README.md` (verified install steps)
+
+- [ ] **Step 1:** Run `npm test`, `node scripts/lint-rules.mjs`, `claude plugin validate --strict .` → all exit 0.
+- [ ] **Step 2:** In a new temp project, run `claude plugin marketplace add <path of this repository>` and
+  `claude plugin install guilda@guilda --scope local`. Expected: `Successfully installed plugin: guilda@guilda`.
+- [ ] **Step 3:** In that temp project, without a config, run `claude -p "Reply with the first line of any guilda
+  context you see, or NONE"`. Expected: `NONE`.
+- [ ] **Step 4:** Copy `skills/init/references/config-template.json` to the temp project's `.guilda/config.json` and
+  run the same prompt. Expected: `guilda 0.1.0 active`.
+- [ ] **Step 5:** In the temp project, stage a file with a fake `ghp_` token and ask Claude to commit it. Expected:
+  the commit is denied with `R19`, and `.guilda/violations.jsonl` has one R19 line.
+- [ ] **Step 6:** Write the evidence (commands and outputs) in the commit body. A step that was not run is "not
+  verified". Commit `chore: dogfood guilda and record the smoke test`.
