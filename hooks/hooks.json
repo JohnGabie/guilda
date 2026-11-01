@@ -30,6 +30,14 @@
           { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-compact.mjs"] }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^guilda:(reviewer|security)$",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/subagent-stop.mjs"] }
+        ]
+      }
     ]
   }
 }
