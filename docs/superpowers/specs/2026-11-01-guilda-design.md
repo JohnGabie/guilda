@@ -10,7 +10,7 @@ change it. `[open]` = not decided; the document gives a recommendation.
 
 ## 1. Intent
 
-USER built an agent architecture for Claude Code in three projects, in this order:
+USER built an agent architecture for Claude Code in four projects, in this order:
 
 1. `smart-pets-mod` (Minecraft mod, Portuguese docs).
 2. `claudia-rh` (Tauri desktop app, Portuguese docs).
@@ -33,10 +33,10 @@ Read these files. They are the four versions of the architecture. The core of `g
 
 | Project | Location | Files |
 |---|---|---|
-| smart-pets-mod | GitHub `JohnGabie/smart-pets-mod` (not on the local disk) | `CLAUDE.md`, `agents/*.md`, `.claude/hooks/*`, `.claude/settings.json`, `docs/spec/GAP-REVIEW.md`, `docs/spec/V0-SPIKES.md`, `docs/22-roadmap.md` |
+| smart-pets-mod | GitHub `JohnGabie/smart-pets-mod`, public; read with `gh api` or a clone (not on the local disk) | `CLAUDE.md`, `agents/*.md`, `.claude/hooks/*`, `.claude/settings.json`, `docs/spec/GAP-REVIEW.md`, `docs/spec/V0-SPIKES.md`, `docs/22-roadmap.md` |
 | claudia-rh | `../claudia-rh` | `CLAUDE.md`, `agents/*.md`, `docs/PRODUCT.md`, `docs/superpowers/CONVENCAO.md`, `.claude/settings.json`, `scripts/dev/journal-skeleton.ps1` |
 | dev-grind | `../dev-grind` | `CLAUDE.md`, `docs/roles/*.md`, `.claude/agents/*.md`, `.claude/hooks/*`, `.claude/settings.json`, `docs/PRODUCT.md`, `scripts/dev/journal-skeleton.sh` |
-| HealthAurora | local checkout of the HealthAurora repository, branch `chore/agents-architecture` (ask USER for the path) | `CLAUDE.md`, `agents/*.md` (with `agent-seguranca.md`, `guia-escrita.md`, `qa-conhecimento.md`, `seguranca-conhecimento.md`), `docs/superpowers/specs/chore-agents-architecture-design.md` |
+| HealthAurora | local checkout of the HealthAurora repository, branch `chore/agents-architecture` (local path: `../bruna-app`; fetch the branch first) | `CLAUDE.md`, `agents/*.md` (with `agent-seguranca.md`, `guia-escrita.md`, `qa-conhecimento.md`, `seguranca-conhecimento.md`), `docs/superpowers/specs/chore-agents-architecture-design.md` |
 
 Prior art in other plugins (read, do not copy): `erclx/canon` (one authoritative rule set installed into many repos),
 `Guild-Agents/guild` and `lookatitude/guild` (role-based agent teams).
@@ -262,21 +262,33 @@ rule states why.
   150 lines or fewer, because adherence drops as always-on instructions grow (frontier models follow about 150 to
   200 instructions reliably).
 - Role rules: in the plugin agent definition of each role. A subagent starts with a clean context and gets only its
-  own rules.
+  own rules, plus a short core subset injected by a `SubagentStart` hook: the writing rules (6.4), the evidence rules
+  and memory-is-a-guess (item 22). `SessionStart` context does not reach subagents. The 150-line budget applies to
+  the main session and, separately, to each subagent's injected text. `[builder call]`
 - Procedures and output formats: in skills, loaded when the role starts work.
 
 **Escalation.** A rule violated twice moves up one level: judgment → gate → law. The fix is a stronger check, never
 a rewrite of the same text. `[USER]` The lab (6.12) measures adherence with scenarios that tempt an agent to break the
 rule, and counts how often it complies. `[builder call]`
 
-**Violation log.** `[USER]` Each project keeps a violation log (for example `.guilda/violations.jsonl`, committed).
+What each step means `[builder call]`:
+- Judgment → gate: always possible. The rule gets a reviewer checklist item.
+- Gate → law: a gate means no known hook can check the rule. Two violations start a search for a hook, as a lab
+  experiment. If the lab finds no hook, `guilda` flags the rule to the user with the violation count.
+- At law level, a blocked attempt is not a failure of the rule. Two blocks of the same rule in one project mean the
+  instructions push agents toward the blocked action: `guilda` flags the rule to the user for a review of the
+  surrounding instructions.
+
+**Violation log.** `[USER]` Each project keeps a violation log (for example `.guilda/violations.jsonl`). It is local
+and git-ignored, so hook writes on every branch do not cause merge conflicts or commit noise. Counts are per project.
+A core rule with 2 violations in any one project becomes a PR candidate; the user decides. `[builder call]`
 It catches failures without depending on an agent to notice them:
 
 | Level | Who writes the record | Reliable? |
 |---|---|---|
 | Law | The hook that blocks the action writes the attempt: rule ID, date, action, branch. | Yes |
 | Gate | A script reads each reviewer verdict and records every "violates R<n>". The verdict format is fixed. | Yes, once the verdict format is fixed |
-| Judgment | A `Stop` hook checks the end of each turn against the rules; a correction from the user in the next message is also recorded. | No. It lowers the miss rate only. Verify in the Claude Code docs which hook types exist before building it. |
+| Judgment | A `Stop` hook of prompt or agent type checks the end of each turn against the rules (the Claude Code docs confirm both types exist); a correction from the user in the next message is also recorded. | No. It lowers the miss rate only. |
 
 - The escalation rule reads this log. When a rule reaches 2 violations, `guilda` proposes to move it up one level.
 - If the rule is a core rule, the proposal becomes a candidate PR to the `guilda` repository (6.2).
@@ -285,7 +297,8 @@ It catches failures without depending on an agent to notice them:
   corrections in free text, new methods, skill ideas). `[builder call]`
 
 **Not proven yet.** The R3 hook needs an approval mark that only the user can write. If an agent can write the mark,
-the hook protects nothing. This mechanism is a first experiment for `guilda:lab`. `[open]`
+the hook protects nothing. This mechanism is a first experiment for `guilda:lab`. `[open]` Until the lab proves the
+mark, R3 ships as a gate in build item 1, not as a law. `[builder call]`
 
 ### 6.14 Versions and updates `[USER]`
 
@@ -319,9 +332,41 @@ Design `[builder call]`:
 6. **Recommendation to USER:** turn on auto-update for the `guilda` marketplace. Then a new version arrives by itself,
    and item 4 tells each project what changed.
 
+### 6.15 Create a new role and put it in the flow `[USER]`
+
+Like `skill-creator` creates skills, `guilda` needs the capacity to create an agent and place it in the agent flow.
+`[USER]` HealthAurora did this by hand when it added the Security role. USER already has an `agent-creator` skill
+(user scope, `~/.claude/skills/agent-creator/`) that designs a subagent, picks tools, model and permissions with
+least privilege, writes its prompt and its delegation description, and measures it against a baseline.
+
+The new role must be validated, and its quality must be validated. `[USER]`
+
+Skill: `guilda:new-role`. Steps `[builder call]`:
+
+1. **Need.** Ask why the role exists, which failure it prevents, and whether a skill, a hook or a checklist item is
+   enough instead of an agent (agent-creator already asks this).
+2. **Place in the flow.** Define: when the role runs (trigger, as Security uses risk areas), who calls it, what it
+   reads, what it returns (a fixed output format with a verdict vocabulary), who reads its output, and how its verdict
+   combines with the Reviewer's. Draw the new flow line (for example
+   `Architect → Executor → [Security + Reviewer] → QA → Reviewer → user`).
+3. **Contract with the core.** Tier, check level of its rules (6.13), knowledge file if it needs one (section 7,
+   item 18), its rules in ASD-STE100 with IDs, and the core subset it gets at `SubagentStart`.
+4. **Build.** Write the agent with the `agent-creator` method.
+5. **Validate in the lab (6.12).** On a `lab/` branch:
+   - Quality: run the role on real tasks of the project, against a baseline without the role. Measure what it catches
+     and what it misses, with a PASS criterion set before the run.
+   - Flow: run one full task through the new flow and check that each handoff happens and each verdict reaches the
+     right role.
+   - Adherence: scenarios that tempt the role to break its rules (for example Security editing code).
+6. **Decide.** The lab report goes to the user. Approved: the role enters the project layer. A role that proves
+   useful in more than one project is a candidate for the core (6.2).
+
+Home of `agent-creator`: `[open]`, the user decides (move it into `guilda`, or keep it separate and call it when it is
+installed).
+
 ## 7. What the core contains
 
-From the parts the three projects share:
+From the parts the projects share:
 
 1. Source of truth order: approved spec, docs, rules file. Conversation and model memory are not sources. Conflict or
    vague spec: stop and ask.
@@ -350,7 +395,7 @@ decision to promote them. `[builder call]`
 15. One concern per agent. Two agents never edit the same file.
 16. A failed agent counts as nothing delivered. The integrator runs the checks again.
 
-From HealthAurora (items 17 to 21, 23) and from USER (item 22), proposed for the core. USER's approval of this document is the decision to promote them.
+From HealthAurora (items 17 to 20, 23) and from USER (item 22), proposed for the core. USER's approval of this document is the decision to promote them.
 `[builder call]`
 
 17. **Security role, optional.** It runs only on tasks that touch a risk area, in parallel with the Reviewer, and
@@ -381,7 +426,7 @@ From HealthAurora (items 17 to 21, 23) and from USER (item 22), proposed for the
 
 ### 7.1 `guilda:init` adapts the plugin to the project `[USER]`
 
-USER adapted the rules to each of the three projects by hand. `guilda:init` does this adaptation when a project
+USER adapted the rules to each project by hand. `guilda:init` does this adaptation when a project
 adopts `guilda`, new or existing. Steps (detail is a `[builder call]`):
 
 1. Read the project: stack, build, test and typecheck commands, test tools (browser, game client, sandbox), git
@@ -437,6 +482,9 @@ USER accepted the recommendations for items 1 to 4.
 
 1. **Spec convention.** One MD per feature (spec, Acceptance and plan in one file), from `dev-grind`. One living spec
    per area (`claudia-rh`) stays possible as a project override.
+   When `superpowers` is installed, this rule overrides where `superpowers:writing-plans` saves a plan: the plan
+   becomes a `## Plan: Part N` section of the feature MD, and `docs/superpowers/plans/` gets no new files. This is the
+   rule `dev-grind` already uses. Existing files in `plans/` stay as history. `[builder call]`
 2. **Rejection limit.** 3 rejections, then escalate to the Architect and the user.
 3. **Tier names.** `master`, `journeyman`, `apprentice` (the guild hierarchy), shown in the project's language.
 4. **Git flow.** The core holds the shared principles: no history rewrite, merge is the human's decision, backup
@@ -452,15 +500,26 @@ any model in any tier (for example Fable in `master`). Requirements:
 - The plugin ships a default mapping for Claude models. The default is a suggestion, not a rule.
 - Presets for other providers are possible later. The design does not define them now.
 
+Mechanism for build item 1 `[builder call]`: a plugin agent's `model:` field is fixed in its file, so it holds the
+default alias. When the controller dispatches a role, it passes the model from the project's tier mapping as the
+dispatch `model` parameter, which overrides the default. The dispatch parameter accepts Claude model aliases only, so
+build item 1 supports Claude models only. Other providers stay open. "The only place with model names" (section 7,
+item 4) means: the core tiers file holds the defaults, the project config holds the override, and no role file names
+a model.
+
 ## 10. Build order
 
 Each item gets its own brainstorm (if needed), plan and build, in this order:
 
 1. Skeleton and core: repository, marketplace, project config, core rules (with ASD-STE100), roles, tiers, diary
-   hooks, `guilda:init` (7.1), versioning and `guilda:update` (6.14).
+   hooks, `guilda:init` (7.1), versioning and `guilda:update` (6.14). From 6.13: the rule format, the violation
+   log, the law hooks that are already proven (diary before compaction, secret and absolute-path scan), and the
+   script that reads reviewer verdicts. Not in item 1: the `Stop` judgment hook and the R3 law (both wait for
+   `guilda:lab`). `[builder call]`
 2. `guilda:product`.
 3. `guilda:roadmap`.
 3a. `guilda:lab` (6.12).
+3c. `guilda:new-role` (6.15). It needs `guilda:lab` for validation.
 3b. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
     tool gaps without the research.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
