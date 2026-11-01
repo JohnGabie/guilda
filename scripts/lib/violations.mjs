@@ -16,6 +16,19 @@ function currentBranch(projectDir) {
   }
 }
 
+const IGNORED = ['violations.jsonl', 'format-retries.json'];
+
+/** Make .guilda/.gitignore list the hook state files. Adds missing lines, keeps the rest. Throws on I/O error. */
+export function ensureIgnored(guildaDir) {
+  const ignoreFile = path.join(guildaDir, '.gitignore');
+  const existing = fs.existsSync(ignoreFile) ? fs.readFileSync(ignoreFile, 'utf8') : '';
+  const have = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
+  const missing = IGNORED.filter((name) => !have.has(name));
+  if (missing.length === 0) return;
+  const lead = existing && !existing.endsWith('\n') ? '\n' : '';
+  fs.appendFileSync(ignoreFile, lead + missing.join('\n') + '\n');
+}
+
 /**
  * Append one violation record to .guilda/violations.jsonl.
  * The record holds only ts, rule, level, source, action, branch. Never throws.
@@ -24,8 +37,7 @@ export function appendViolation(projectDir, { rule, level, source, action }) {
   try {
     const dir = path.join(projectDir, '.guilda');
     fs.mkdirSync(dir, { recursive: true });
-    const ignoreFile = path.join(dir, '.gitignore');
-    if (!fs.existsSync(ignoreFile)) fs.writeFileSync(ignoreFile, 'violations.jsonl\n');
+    ensureIgnored(dir);
     const record = {
       ts: new Date().toISOString(),
       rule,

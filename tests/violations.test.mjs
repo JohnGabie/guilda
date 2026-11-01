@@ -30,7 +30,10 @@ test('appendViolation records unknown branch outside a repository', () => {
 test('appendViolation creates .guilda/.gitignore', () => {
   const dir = tempProject();
   appendViolation(dir, V);
-  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim(), 'violations.jsonl');
+  assert.deepEqual(
+    fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
+    ['violations.jsonl', 'format-retries.json'],
+  );
 });
 
 test('appendViolation does not throw when .guilda is a file', () => {

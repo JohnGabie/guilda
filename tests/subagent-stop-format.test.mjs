@@ -76,3 +76,68 @@ test('no config -> exit 0 even for an invalid answer', () => {
   assert.equal(r.code, 0);
   assert.equal(r.stderr, '');
 });
+
+const NOTICE = 'guilda: format check skipped: retry limit reached\n';
+const BAD = 'Result: APPROVED';
+const sendBack = (dir, agent_id) =>
+  runHook(HOOK, { agent_type: 'guilda:reviewer', agent_id, last_assistant_message: BAD }, dir);
+
+test('stop_hook_active true + invalid answer -> exit 0 + notice', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r = runHook(
+    HOOK,
+    { agent_type: 'guilda:reviewer', stop_hook_active: true, last_assistant_message: BAD },
+    dir,
+  );
+  assert.equal(r.code, 0);
+  assert.equal(r.stderr, NOTICE);
+});
+
+test('third invalid answer from the same agent_id -> exit 0 + notice; first two -> exit 2', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(sendBack(dir, 'a1').code, 2);
+  assert.equal(sendBack(dir, 'a1').code, 2);
+  const third = sendBack(dir, 'a1');
+  assert.equal(third.code, 0);
+  assert.equal(third.stderr, NOTICE);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'format-retries.json'), 'utf8')), { a1: 2 });
+});
+
+test('a different agent_id is counted separately', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  sendBack(dir, 'a1');
+  sendBack(dir, 'a1');
+  assert.equal(sendBack(dir, 'a2').code, 2);
+});
+
+test('without agent_id the key is agent_type + session_id', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const run = (session_id) =>
+    runHook(HOOK, { agent_type: 'guilda:qa', session_id, last_assistant_message: 'nothing' }, dir);
+  assert.equal(run('s1').code, 2);
+  assert.equal(run('s1').code, 2);
+  assert.equal(run('s1').code, 0);
+  assert.equal(run('s2').code, 2);
+});
+
+test('a corrupt retries file -> allow, never crash', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.writeFileSync(path.join(dir, '.guilda', 'format-retries.json'), '{ broken');
+  const r = sendBack(dir, 'a1');
+  assert.equal(r.code, 0);
+  assert.equal(r.stderr, NOTICE);
+});
+
+test('.guilda/.gitignore lists format-retries.json after a send-back', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  sendBack(dir, 'a1');
+  const lines = fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').split('\n');
+  assert.ok(lines.includes('format-retries.json'));
+});
+
+test('an existing .gitignore with only violations.jsonl gets the new line appended', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.writeFileSync(path.join(dir, '.guilda', '.gitignore'), 'violations.jsonl\n');
+  sendBack(dir, 'a1');
+  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\nformat-retries.json\n');
+});
