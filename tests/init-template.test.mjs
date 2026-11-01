@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tempProject, REPO_ROOT } from './helpers.mjs';
@@ -10,16 +11,31 @@ const REFS = path.join(REPO_ROOT, 'skills', 'init', 'references');
 const node = (script, ...args) =>
   spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', script), ...args], { encoding: 'utf8' });
 
-test('config-template passes config-check', () => {
+test('config-template passes config-check after its placeholders are filled', () => {
   const template = path.join(REFS, 'config-template.json');
   const parsed = JSON.parse(fs.readFileSync(template, 'utf8'));
   assert.equal('guildaVersion' in parsed, false, 'config-write sets guildaVersion');
+
+  const raw = tempProject();
+  const rejected = node('config-write.mjs', raw, template);
+  assert.equal(rejected.status, 1, 'config-write must reject the unfilled template');
+  assert.match(rejected.stdout, /placeholder/);
+  assert.equal(fs.existsSync(path.join(raw, '.guilda')), false);
+
+  // Fill the placeholders that the user answers. The tier placeholders stay: config-write fills them.
+  parsed.languages = { replies: 'en', docs: 'en' };
+  parsed.checks = [{ name: 'test', command: 'npm test' }];
+  const filled = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guilda test ')), 'answers.json');
+  fs.writeFileSync(filled, JSON.stringify(parsed));
   const dir = tempProject();
-  const write = node('config-write.mjs', dir, template);
+  const write = node('config-write.mjs', dir, filled);
   assert.equal(write.status, 0, write.stdout + write.stderr);
   const check = node('config-check.mjs', dir);
   assert.equal(check.status, 0, check.stdout);
   assert.equal(check.stdout.trim(), 'ok');
+  const written = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'config.json'), 'utf8'));
+  const defaults = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'core', 'tiers.json'), 'utf8'));
+  assert.deepEqual(written.tiers, defaults);
 });
 
 test('rules-template passes lintRules with prefix P', () => {

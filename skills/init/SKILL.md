@@ -76,7 +76,7 @@ Show each rule as one line: `<rule text, short> — <label> — <file>:<line>`. 
 
 Ask the user to approve the proposal in a separate message. Do not write a file before the approval. After the approval:
 1. Write the answers to a JSON file in the system temp folder, outside the project. The answers have the config keys without `guildaVersion`.
-2. Run `node "<root>/scripts/config-write.mjs" "<project>" "<answers file>"`. The script adds `guildaVersion`, validates the config against the schema and writes `.guilda/.gitignore`. If the script exits 1, show its reason, correct the answers and run the script again.
+2. Run `node "<root>/scripts/config-write.mjs" "<project>" "<answers file>"`. The script adds `guildaVersion`, validates the config against the schema and writes `.guilda/.gitignore`. The script stops if a value is still a placeholder (`<...>`). If the script exits 1, show its reason, correct the answers and run the script again.
 3. Write `.guilda/rules.md`. Run `node "<root>/scripts/lint-rules.mjs" --prefix P .guilda/rules.md`. If the script exits 1, correct the rules.
 4. Run `node "<root>/scripts/config-check.mjs" "<project>"`. The output must be `ok`.
 5. Tell the user to add `.journal/` to the project `.gitignore`. The diary script never edits `.gitignore`. Offer to add the line. Add the line only if the user approves.
@@ -95,7 +95,7 @@ Ask the user to approve the proposal in a separate message. Do not write a file 
 | Key | Value |
 |---|---|
 | `languages.replies`, `languages.docs` | Language tags from the user, for example `en` or `pt-BR`. |
-| `tiers.master`, `tiers.journeyman`, `tiers.apprentice` | Propose the default mapping from `<root>/core/tiers.json`. The user can put any model in any tier. The Agent tool `model` parameter accepts only Claude model aliases. |
+| `tiers.master`, `tiers.journeyman`, `tiers.apprentice` | Propose the default mapping from `<root>/core/tiers.json`. The user can put any model in any tier. The Agent tool `model` parameter accepts only Claude model aliases. If a tier is missing or a placeholder, `config-write.mjs` writes the default of that tier. |
 | `writing.free` | Globs of document types that the ASD-STE100 check skips, for example `docs/blog/**`. |
 | `writing.exceptions` | Objects `{docType, level, reason}`. `docType` is a glob against the path in the project or the file name, for example `docs/adr/**` or `CHANGELOG.md`. `level` is `full` to keep the check; another level skips the automatic check. The user approves each exception and its reason. |
 | `security.enabled` | `true` if `security.riskAreas` has one area or more. Else `false`. |

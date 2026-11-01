@@ -37,12 +37,43 @@ test('config-write writes a valid config with the installed version', () => {
   assert.match(ignore, /^violations\.jsonl$/m);
 });
 
-test('config-write rejects answers without tiers and writes nothing', () => {
+const DEFAULT_TIERS = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'core', 'tiers.json'), 'utf8'));
+
+test('config-write fills missing tiers from core/tiers.json', () => {
   const dir = tempProject();
   const { tiers, ...noTiers } = ANSWERS;
   const r = configWrite(dir, answersFile(noTiers));
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(loadConfig(dir).config.tiers, DEFAULT_TIERS);
+});
+
+test('config-write fills placeholder tiers and keeps a real tier value', () => {
+  const dir = tempProject();
+  const tiers = { master: 'my-model', journeyman: '<model for journeyman>', apprentice: '' };
+  const r = configWrite(dir, answersFile({ ...ANSWERS, tiers }));
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(loadConfig(dir).config.tiers, {
+    master: 'my-model',
+    journeyman: DEFAULT_TIERS.journeyman,
+    apprentice: DEFAULT_TIERS.apprentice,
+  });
+});
+
+test('config-write rejects a placeholder check command and writes nothing', () => {
+  const dir = tempProject();
+  const checks = [{ name: 'test', command: '<a command that you ran in this project>' }];
+  const r = configWrite(dir, answersFile({ ...ANSWERS, checks }));
   assert.equal(r.code, 1);
-  assert.match(r.stdout, /tiers/);
+  assert.match(r.stdout, /checks\[0\]\.command is still a placeholder/);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('config-write rejects answers that fail the schema and writes nothing', () => {
+  const dir = tempProject();
+  const { languages, ...noLanguages } = ANSWERS;
+  const r = configWrite(dir, answersFile(noLanguages));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /languages/);
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
