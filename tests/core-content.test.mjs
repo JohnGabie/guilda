@@ -69,7 +69,11 @@ test('glossary has the process terms in the fixed line format', () => {
 });
 
 test('core text has no model names outside tiers.json', () => {
-  const files = fs.readdirSync(path.join(REPO_ROOT, 'core')).map((f) => path.join(REPO_ROOT, 'core', f));
+  // Recursive: core/ has subfolders such as core/knowledge/.
+  const files = fs
+    .readdirSync(path.join(REPO_ROOT, 'core'), { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => path.join(e.parentPath, e.name));
   assert.deepEqual(lintModelNames(files), []);
 });
 
