@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 import { lintRules, lintModelNames } from '../scripts/lint-rules.mjs';
 import { REPO_ROOT } from './helpers.mjs';
 
-const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+// Normalize CRLF: with core.autocrlf, a Windows checkout has CRLF line ends.
+const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 const nonBlank = (text) => text.split(/\r?\n/).filter((l) => l.trim() !== '').length;
 
 const LEVELS = {
