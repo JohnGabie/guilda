@@ -1,0 +1,6 @@
+{
+  "name": "guilda",
+  "description": "Marketplace for the guilda plugin.",
+  "owner": { "name": "USER" },
+  "plugins": [{ "name": "guilda", "source": "./" }]
+}
