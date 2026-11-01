@@ -20,12 +20,38 @@ function deny(reason) {
   );
 }
 
-/** Added lines of the staged diff, as { file, text } with their line numbers. Null on any git error. */
-function stagedAddedLines(projectDir) {
-  const r = spawnSync(
-    'git',
-    ['-c', 'core.quotepath=false', 'diff', '--cached', '-U0', '--no-color'],
-    { cwd: projectDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
+const QUOTED_OR_WORD = `(?:"[^"]*"|'[^']*'|\\S+)`;
+const GIT_OPT = `(?:-C\\s+${QUOTED_OR_WORD}|-c\\s+${QUOTED_OR_WORD}|--[\\w-]+(?:=\\S+)?|-\\S+)`;
+const GIT_COMMIT = new RegExp(`\\bgit\\b((?:\\s+${GIT_OPT})*)\\s+commit\\b`);
+
+function git(args, cwd) {
+  return spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+/** The directory git runs in: the project dir moved by each `-C <dir>` option, in order. */
+function gitCwd(projectDir, options) {
+  let cwd = projectDir;
+  for (const m of options.matchAll(new RegExp(`-C\\s+(${QUOTED_OR_WORD})`, 'g'))) {
+    cwd = path.resolve(cwd, m[1].replace(/^["']|["']$/g, ''));
+  }
+  return cwd;
+}
+
+/**
+ * Added lines of everything a commit can take: the index plus tracked working-tree changes
+ * (git diff HEAD), or the index alone when no commit exists yet. Null on any git error.
+ */
+function stagedAddedLines(cwd) {
+  const hasHead = git(['rev-parse', '--verify', '--quiet', 'HEAD'], cwd).status === 0;
+  const base = ['-c', 'core.quotepath=false', 'diff'];
+  const r = git(
+    hasHead ? [...base, 'HEAD', '-U0', '--no-color'] : [...base, '--cached', '-U0', '--no-color'],
+    cwd,
   );
   if (r.error || r.status !== 0) return null;
   const files = [];
@@ -46,8 +72,8 @@ function stagedAddedLines(projectDir) {
   return files;
 }
 
-function checkCommit(projectDir, config) {
-  const files = stagedAddedLines(projectDir);
+function checkCommit(cwd, config) {
+  const files = stagedAddedLines(cwd);
   if (!files) return null;
   const ignore = (config.scan && config.scan.ignore) || [];
   for (const { file, lines } of files) {
@@ -78,8 +104,9 @@ await runHookMain(async (input) => {
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
-    if (!/\bgit\s+commit\b/.test(command)) return 0;
-    const reason = checkCommit(projectDir, loaded.config);
+    const match = GIT_COMMIT.exec(command);
+    if (!match) return 0;
+    const reason = checkCommit(gitCwd(projectDir, match[1]), loaded.config);
     if (reason) {
       record('R19', 'git commit refused: staged secret or absolute path');
       deny(reason);

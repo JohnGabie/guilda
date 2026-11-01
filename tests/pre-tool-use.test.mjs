@@ -160,3 +160,59 @@ test('Write elsewhere: allow', () => {
   assertAllow(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'specs', 'new.md')));
   assertAllow(file(dir, 'Write', 'src/a.js'));
 });
+
+const seed = (dir, rel, content) => {
+  fs.writeFileSync(path.join(dir, rel), content);
+  spawnSync('git', ['add', rel], { cwd: dir });
+  spawnSync('git', ['commit', '-m', 'seed'], { cwd: dir, stdio: 'ignore' });
+};
+
+test('git commit -am with an unstaged tracked token: deny', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, 'a.txt', 'clean\n');
+  fs.writeFileSync(path.join(dir, 'a.txt'), `clean\n${GH}\n`);
+  assert.match(assertDeny(bash(dir, 'git commit -am x')), /^R19: secret in a\.txt:2 /);
+  assertDeny(bash(dir, 'git commit -a -m x'));
+});
+
+test('git commit with a pathspec and an unstaged tracked token: deny', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, 'a.txt', 'clean\n');
+  fs.writeFileSync(path.join(dir, 'a.txt'), `clean\n${GH}\n`);
+  assertDeny(bash(dir, 'git commit -m x a.txt'));
+});
+
+test('global git options before commit do not skip the scan', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', GH);
+  for (const cmd of [
+    'git -C . commit -m x',
+    'git -c core.x=y commit -m x',
+    'git --no-pager commit -m x',
+    'git -C "." -c a=b --no-pager commit -m x',
+  ]) {
+    assertDeny(bash(dir, cmd));
+  }
+});
+
+test('-C runs the scan in that directory', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const sub = path.join(dir, 'sub dir');
+  fs.mkdirSync(sub);
+  spawnSync('git', ['init'], { cwd: sub, stdio: 'ignore' });
+  stage(sub, 'a.txt', GH);
+  assertDeny(bash(dir, 'git -C "sub dir" commit -m x'));
+});
+
+test('a repository with no commits and a staged token: deny (cached fallback)', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', GH);
+  assertDeny(bash(dir, 'git commit -m x'));
+});
+
+test('a tracked change that is clean: allow with -a', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, 'a.txt', 'clean\n');
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'still clean\n');
+  assertAllow(bash(dir, 'git commit -am x'));
+});
