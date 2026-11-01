@@ -149,6 +149,7 @@ docs/
 ├── adr/                  ← NNNN-<title>.md + README.md (format and index)
 ├── roles/                ← only project roles and project overrides; core roles live in the plugin
 ├── research/             ← dated research notes (claudia-rh: docs/pesquisa/)
+├── labs/                 ← lab reports, one per lab branch (6.12)
 ├── <domain>/             ← project-specific folders (dev-grind: docs/learning/)
 └── superpowers/
     └── specs/            ← one MD per feature (9, item 1) + GLOSSARY.md
@@ -200,7 +201,15 @@ Cycle:
 The lab is a skill: `guilda:lab`. `[João]` `guilda:roadmap` puts lab experiments in v0; `guilda:qa-tools` uses a lab
 to prove a QA tool works. `[builder call]`
 
-Where a lab lives (inside the project or in its own repository): `[open]`.
+Where a lab lives `[João]`: a branch of the project (for example `lab/<name>`). At the end, the branch is archived or
+discarded; only the results stay. `[João]` The results stay as a lab report in `docs/` (for example
+`docs/labs/YYYY-MM-DD-<name>.md`): hypothesis, PASS criterion, method, evidence, verdict, lessons. Archive means an
+`archive/*` tag before the branch is removed, as in `claudia-rh`; removing a branch follows the core git rules and
+needs the user's OK. `[builder call]`
+
+Approval needs a rigorous viability test, not one good run. `[João]` After approval, the related MDs are rewritten
+with the findings and treat the result as working. `[João]` The lab report states how the PASS was proven (number of
+runs, conditions, what was not tested). `[builder call]`
 
 ## 7. What the core contains
 
