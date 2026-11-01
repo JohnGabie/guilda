@@ -170,6 +170,11 @@ QA tests by itself, in a simulated environment, with tools that fit the platform
 4. QA demands these tools. Without the named tool, QA does not mark a scenario as passed: the result is
    `NOT VERIFIED`, with the missing tool named, and QA asks the Architect for it.
 
+The research in step 2 is its own skill: `guilda:qa-tools`. `[João]` Input: the platform and the Acceptance
+scenarios. Output: for each scenario, the tool that verifies it, how to set it up, what it costs (install, account,
+network), a measurable PASS that proves the tool works, and the user's decisions. It reuses tools the project or the
+machine already has before it suggests new ones. `[builder call]`
+
 Where this happens `[builder call]`:
 - `guilda:roadmap`: tool setup is part of the v0 spikes (like `smart-pets-mod` V0-S0, toolchain), with a measurable
   PASS for each tool.
@@ -274,6 +279,8 @@ Each item gets its own brainstorm (if needed), plan and build, in this order:
    hooks, and `guilda:init` (7.1).
 2. `guilda:product`.
 3. `guilda:roadmap`.
+3a. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
+    tool gaps without the research.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
 5. Promotion flow: a skill that helps classify a rule change and drafts the PR to `guilda`.
 
