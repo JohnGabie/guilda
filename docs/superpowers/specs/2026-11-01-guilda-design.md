@@ -600,12 +600,12 @@ only; plugin agents are namespaced `guilda:<name>`.
 
 ## Review Focus
 
-1. A repository with no `.guilda/config.json`: every hook prints nothing and exits 0 (Tasks 5–8 each test it).
+1. A repository with no `.guilda/config.json`: every hook prints nothing and exits 0 (Tasks 5–10 each test it).
 2. A `.guilda/config.json` that is not valid JSON or fails the schema: `session-start` prints one notice line and
    injects nothing else; the other hooks exit 0 silently (Tasks 2 and 5 test it).
 3. A project path with a space: all hook tests run in a temp dir whose name has a space (Global Constraints).
 4. The commit scan on a repository with fake tokens in test fixtures: paths in `config.scan.ignore` are skipped
-   (Task 7 tests it; Task 11 dogfoods it on this repository).
+   (Task 7 tests it; Task 13 dogfoods it on this repository).
 5. `git commit` outside a git repository, or with nothing staged: the scan allows the call (Task 7 tests it).
 
 ---
@@ -707,7 +707,7 @@ only; plugin agents are namespaced `guilda:<name>`.
   | R12 | The human decides | gate | §7 item 8 |
   | R13 | Questions through AskUserQuestion | judgment | §7 item 12 |
   | R14 | The Architect disagrees | judgment | 6.9 |
-  | R15 | ASD-STE100 at full strength | gate | 6.4 |
+  | R15 | ASD-STE100 at full strength | gate + automatic report (Task 9) | 6.4 |
   | R16 | Glossary terms; no forbidden words | gate | 6.4 |
   | R17 | Model names only in the tiers file | gate | §7 item 4 |
   | R18 | Context diary before compaction | law (Task 6) | §7 item 9 |
@@ -893,17 +893,102 @@ only; plugin agents are namespaced `guilda:<name>`.
 - [ ] **Step 4:** Run `npm test` → PASS.
 - [ ] **Step 5:** Commit `feat: record gate violations from verdicts`.
 
-### Task 9: `guilda:init` skill
+### Task 9: `ste-check` — automatic ASD-STE100 report (R15, R16)
+
+**Files:**
+- Create: `scripts/lib/ste.mjs`, `scripts/ste-check.mjs` (CLI), `scripts/hooks/post-tool-use.mjs`;
+  Modify: `hooks/hooks.json`
+- Test: `tests/ste.test.mjs`, `tests/post-tool-use.test.mjs`
+
+**Interfaces:**
+- Consumes: `loadConfig`, `appendViolation` (Task 2); `core/glossary.md` (Task 3); the project glossary
+  `docs/superpowers/specs/GLOSSARY.md` when it exists.
+- Produces:
+  - `steCheck(markdown: string, { glossary: { term, forbidden: string[] }[], vague: string[] }):
+    { line: number, kind: 'long-sentence' | 'vague-word' | 'forbidden-word', detail: string }[]`.
+    Rules: skip fenced code, inline code, tables, headings, links and frontmatter; a sentence in a numbered or bulleted
+    list step is an instruction (limit 20 words); any other sentence is a description (limit 25 words); `vague`
+    default list: `handle, deal with, adjust, appropriate, maybe, probably, usually, if possible, talvez,
+    geralmente, se possível, lidar com, ajustar`; `forbidden-word` = a glossary forbidden word as a whole word,
+    case-insensitive. `detail` names the word or the word count, never more than 60 characters of the text.
+  - `parseGlossary(markdown: string): { term, forbidden: string[] }[]` — reads the `core/glossary.md` format.
+  - Scope: a file is checked when it ends in `.md`, is not under `.journal/`, and its path does not match a
+    `config.writing.free` glob. `writing.exceptions` with `level` other than `full` → skipped, with the reason.
+  - `ste-check.mjs <file...>`: prints one line per finding `<file>:<line> <kind> <detail>`; exit 1 when any finding.
+  - `hooks.json` `PostToolUse` matcher `Write|Edit` → post-tool-use: runs `steCheck` on the written file; findings →
+    `{ "hookSpecificOutput": { "hookEventName": "PostToolUse", "additionalContext": "R15: fix these lines: ..." } }`
+    (at most 15 findings listed) and one record `{ rule: 'R15', level: 'gate', source: 'ste-check', action:
+    '<n> findings in <file>' }`. It never blocks. No config → nothing.
+
+- [ ] **Step 1: Write the failing tests:** `21-word list step → long-sentence`; `25-word description → no
+  finding`; `26-word description → long-sentence`; `code fence is skipped`; `"handle" → vague-word`; `glossary
+  forbidden word → forbidden-word`; `detail never longer than 60 characters`; hook: `no config → nothing`; `.md
+  with a 30-word sentence → additionalContext names R15 and one record`; `file in writing.free → nothing`;
+  `.ts file → nothing`; `.journal file → nothing`.
+- [ ] **Step 2:** Run `npm test` → FAIL.
+- [ ] **Step 3:** Implement. Run `node scripts/ste-check.mjs core/*.md agents/*.md` and fix the core text until it
+  exits 0.
+- [ ] **Step 4:** Run `npm test` → PASS; `node scripts/ste-check.mjs core/*.md agents/*.md skills/*/SKILL.md` →
+  exit 0.
+- [ ] **Step 5:** Commit `feat: add automatic ASD-STE100 report`.
+
+### Task 10: Validators — brief, verdict and QA report
+
+**Files:**
+- Create: `scripts/lib/formats.mjs`, `scripts/hooks/pre-agent.mjs`; Modify: `scripts/hooks/subagent-stop.mjs`,
+  `hooks/hooks.json`
+- Test: `tests/formats.test.mjs`, `tests/pre-agent.test.mjs`, `tests/subagent-stop-format.test.mjs`
+
+**Interfaces:**
+- Consumes: the brief format (Task 4, `skills/architect/SKILL.md`); the verdict lines (Task 4); `parseVerdict`
+  (Task 8); `appendViolation` (Task 2).
+- Produces:
+  - `validateBrief(text: string): string[]` — missing field names. Required fields, one line each, `Name:` at the
+    start of a line: `ID / title`, `Goal`, `Context`, `Out of scope`, `Files it may touch`, `Contract / interfaces`,
+    `Tests that must pass`, `Acceptance`, `Suggested tier`, `Risk area`, `Deletion rules`, `Dependencies`.
+    `Suggested tier` must be `master`, `journeyman` or `apprentice`.
+  - `validateVerdict(text: string, kind: 'reviewer' | 'security'): string[]` — `Result:` value in the allowed set
+    for the kind; `Violations:` line present.
+  - `validateQaReport(text: string): string[]` — `Scenarios:` section; each scenario line ends with
+    `PASSED`, `FAILED` or `NOT VERIFIED` followed by evidence; `Not verified because` text for each NOT VERIFIED.
+  - `pre-agent.mjs`: `hooks.json` `PreToolUse` matcher = the subagent dispatch tool name (Step 1 verifies the name in
+    the Claude Code docs; expected `Agent`). When `tool_input.subagent_type` is `guilda:executor` and
+    `validateBrief(tool_input.prompt)` is not empty → deny with `R3: brief incomplete: <fields>` and one record
+    `{ rule: 'R3', level: 'law', source: 'pre-agent', action: 'incomplete brief' }`.
+  - `subagent-stop.mjs` (extends Task 8): for `guilda:reviewer`, `guilda:security`, `guilda:qa`, an invalid format →
+    `{ "decision": "block", "reason": "Fix the output format: <errors>" }` so the subagent rewrites its answer;
+    valid → the Task 8 behavior. Matcher becomes `^guilda:(reviewer|security|qa)$`.
+
+- [ ] **Step 1: Verify** in `code.claude.com/docs/en/hooks` and `/sub-agents`: the tool name of subagent dispatch
+  in `PreToolUse`, the `tool_input` field names (`subagent_type`, `prompt`), and that `SubagentStop` accepts
+  `decision: "block"`. Write the result in the commit body. If one is not supported: that check becomes a reviewer
+  gate, and the plan text of this task is updated before code.
+- [ ] **Step 2: Write the failing tests:** `complete brief → []`; `brief without Risk area → ["Risk area"]`; `brief
+  with tier "opus" → error`; `reviewer verdict with REJECTED-SMALL and Violations → []`; `security verdict with
+  REJECTED-SMALL → error`; `QA report with NOT VERIFIED and no reason → error`; hook: `no config → allow`;
+  `executor dispatch with incomplete brief → deny + R3 record`; `dispatch of another agent type → allow`;
+  `reviewer answer without Violations line → block`; `valid reviewer answer → no block, Task 8 records`.
+- [ ] **Step 3:** Run `npm test` → FAIL.
+- [ ] **Step 4:** Implement.
+- [ ] **Step 5:** Run `npm test` → PASS; `claude plugin validate --strict .` → PASS.
+- [ ] **Step 6:** Commit `feat: validate briefs, verdicts and QA reports`.
+
+### Task 11: `guilda:init` skill
 
 **Files:**
 - Create: `skills/init/SKILL.md`, `skills/init/references/config-template.json`,
-  `skills/init/references/rules-template.md`, `evals/init/` (skill-creator eval cases)
-- Test: `tests/init-template.test.mjs`
+  `skills/init/references/rules-template.md`, `scripts/config-write.mjs`, `evals/init/` (skill-creator eval cases)
+- Test: `tests/init-template.test.mjs`, `tests/config-write.test.mjs`
 
 **Interfaces:**
 - Consumes: the config schema and `config-check.mjs` (Task 2); the rule format and `lint-rules.mjs` (Task 3).
-- Produces: a skill that follows design 7.1, steps 1–5, and writes only after the user approves:
-  `.guilda/config.json` (passes `config-check`), `.guilda/rules.md` (P-rules: the user's fears §7 item 23, domain
+- Produces:
+  - `config-write.mjs <projectDir> <answers.json>`: builds `.guilda/config.json` from the answers file (same keys as
+    the schema, without `guildaVersion`, which it takes from `installedVersion`), validates it with `loadConfig`, and
+    writes it only when valid; exit 1 with the reasons otherwise. It never overwrites an existing config without
+    `--replace`. The agent never writes `config.json` by hand.
+  - A skill that follows design 7.1, steps 1–5, and writes only after the user approves:
+  `.guilda/config.json` (through `config-write.mjs`), `.guilda/rules.md` (P-rules: the user's fears §7 item 23, domain
   rules, project adjustments; passes `lintRules` with prefix `P`), `.guilda/.gitignore`. It lists each existing rule
   of the project as "already in the core (R<n>)", "project adjustment" or "candidate for the core". It never edits
   the project `CLAUDE.md` without approval. It uses `superpowers:brainstorming` when installed, else one question
@@ -911,7 +996,8 @@ only; plugin agents are namespaced `guilda:<name>`.
   the diff of the project layer.
 
 - [ ] **Step 1: Write the failing tests:** `config-template passes config-check`; `rules-template passes lintRules
-  with prefix P`.
+  with prefix P`; `config-write writes a valid config with the installed version`; `config-write rejects answers
+  without tiers and writes nothing`; `config-write refuses to overwrite without --replace`.
 - [ ] **Step 2:** Run `npm test` → FAIL.
 - [ ] **Step 3:** Write the templates. Write the skill with `skill-creator:skill-creator` and
   `superpowers:writing-skills`. Eval cases (3): an empty new project; an existing project whose `CLAUDE.md` repeats
@@ -921,7 +1007,7 @@ only; plugin agents are namespaced `guilda:<name>`.
 - [ ] **Step 4:** Run `npm test` → PASS. Record the eval pass rate in the commit body.
 - [ ] **Step 5:** Commit `feat: add guilda:init skill`.
 
-### Task 10: `guilda:update` skill and version check
+### Task 12: `guilda:update` skill and version check
 
 **Files:**
 - Create: `skills/update/SKILL.md`, `scripts/changelog.mjs`
@@ -945,7 +1031,7 @@ only; plugin agents are namespaced `guilda:<name>`.
 - [ ] **Step 4:** Run `npm test` → PASS.
 - [ ] **Step 5:** Commit `feat: add guilda:update skill`.
 
-### Task 11: Install, dogfood and smoke test
+### Task 13: Install, dogfood and smoke test
 
 **Files:**
 - Create: `.guilda/config.json`, `.guilda/rules.md`, `.guilda/.gitignore` in this repository (`scan.ignore` covers
@@ -960,5 +1046,7 @@ only; plugin agents are namespaced `guilda:<name>`.
   run the same prompt. Expected: `guilda 0.1.0 active`.
 - [ ] **Step 5:** In the temp project, stage a file with a fake `ghp_` token and ask Claude to commit it. Expected:
   the commit is denied with `R19`, and `.guilda/violations.jsonl` has one R19 line.
+- [ ] **Step 5b:** In the temp project, ask Claude to write `docs/note.md` with one 30-word sentence. Expected: the
+  next turn shows the R15 report, and `.guilda/violations.jsonl` has one R15 line.
 - [ ] **Step 6:** Write the evidence (commands and outputs) in the commit body. A step that was not run is "not
   verified". Commit `chore: dogfood guilda and record the smoke test`.
