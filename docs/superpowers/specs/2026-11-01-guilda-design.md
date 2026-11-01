@@ -1,16 +1,16 @@
 # guilda — design
 
-Status: draft, waiting for João's approval.
+Status: draft, waiting for USER's approval.
 Date: 2026-11-01.
 
-Tags: `[João]` = João decided this in the brainstorm. `[builder call]` = the brainstorm agent decided this; João can
+Tags: `[USER]` = USER decided this in the brainstorm. `[builder call]` = the brainstorm agent decided this; USER can
 change it. `[open]` = not decided; the document gives a recommendation.
 
 ---
 
 ## 1. Intent
 
-João built an agent architecture for Claude Code in three projects, in this order:
+USER built an agent architecture for Claude Code in three projects, in this order:
 
 1. `smart-pets-mod` (Minecraft mod, Portuguese docs).
 2. `claudia-rh` (Tauri desktop app, Portuguese docs).
@@ -18,13 +18,13 @@ João built an agent architecture for Claude Code in three projects, in this ord
 
 Each project has its own copy of the rules: a `CLAUDE.md` file and one role file for each agent. Each copy was written
 again from zero. An improvement in one project does not reach the other projects. Example: ASD-STE100 writing made a
-real difference in `dev-grind`. João wants it in every project, but today he must copy it by hand into each one.
+real difference in `dev-grind`. USER wants it in every project, but today he must copy it by hand into each one.
 
-`guilda` is a Claude Code plugin that holds this architecture once. João installs it one time. Every project uses it.
-For João, `guilda` is what `superpowers` is: a plugin he installs everywhere that carries his way of working. `[João]`
+`guilda` is a Claude Code plugin that holds this architecture once. USER installs it one time. Every project uses it.
+For USER, `guilda` is what `superpowers` is: a plugin he installs everywhere that carries his way of working. `[USER]`
 
 The name: a guild has a hierarchy (master, journeyman, apprentice) and crafts with their own rules. The architecture
-has the same shape: model tiers, roles and rules for each role. `[João]`
+has the same shape: model tiers, roles and rules for each role. `[USER]`
 
 ## 2. Sources to read before building
 
@@ -44,20 +44,20 @@ Prior art in other plugins (read, do not copy): `erclx/canon` (one authoritative
 1. One core rule set. The core lives in the `guilda` repository and reaches every project through plugin updates.
 2. A separate project layer. Each project keeps only what belongs to that project.
 3. A clear path from "improved in one project" to "in the core for all projects": a pull request to the `guilda`
-   repository. `[João]`
+   repository. `[USER]`
 4. Two skills that start a project: `guilda:product` (writes `PRODUCT.md`) and `guilda:roadmap` (writes
-   `ROADMAP.md`). `[João]`
-5. The three existing projects migrate to `guilda`. `[João]`
+   `ROADMAP.md`). `[USER]`
+5. The three existing projects migrate to `guilda`. `[USER]`
 
 ## 4. Non-goals
 
-- `guilda` does not replace `superpowers`. `guilda` complements `superpowers`. `[João]`
-- `guilda` is not built for other people first. João is the first user. Others can install it. `[João]`
+- `guilda` does not replace `superpowers`. `guilda` complements `superpowers`. `[USER]`
+- `guilda` is not built for other people first. USER is the first user. Others can install it. `[USER]`
 - `guilda` does not hold domain rules (stack, Minecraft invariants, Tauri identifier). Those stay in the project layer.
 
 ## 5. Anti-goals (failure even if it technically works)
 
-- An agent promotes a project change to the core without João's decision.
+- An agent promotes a project change to the core without USER's decision.
 - The core and a project copy of the same rule exist at the same time and disagree.
 - `guilda` stops working when `superpowers` is not installed.
 - The rules exist in a file but agents do not follow them. Example: in `dev-grind`, the Architect wrote
@@ -65,7 +65,7 @@ Prior art in other plugins (read, do not copy): `erclx/canon` (one authoritative
 
 ## 6. Decisions from the brainstorm
 
-### 6.1 Core and project layer `[João]`
+### 6.1 Core and project layer `[USER]`
 
 A rule change is one of two kinds:
 
@@ -75,37 +75,37 @@ A rule change is one of two kinds:
 | Rule improvement | ASD-STE100 writing; the executor ↔ reviewer cycle | Core, through a PR to `guilda` |
 
 The project owner decides the kind. An agent can ask "is this change for this project only, or for all projects?".
-An agent never decides the kind and never promotes a change alone. `[João]`
+An agent never decides the kind and never promotes a change alone. `[USER]`
 
-### 6.2 Promotion path `[João]`
+### 6.2 Promotion path `[USER]`
 
-A rule improvement found in a project becomes a pull request to the `guilda` repository. João reviews and merges
+A rule improvement found in a project becomes a pull request to the `guilda` repository. USER reviews and merges
 it. After the merge, each project gets the change at its next plugin update. Nobody edits the installed plugin copy.
 
-### 6.3 Language `[João]`
+### 6.3 Language `[USER]`
 
 - Everything in the `guilda` repository is in English: skills, role files, rules, docs.
 - Each project configures its own languages: the language of replies to the user, and the language of docs.
 - ASD-STE100 applies in every language.
 
-### 6.4 ASD-STE100 writing, full strength `[João]`
+### 6.4 ASD-STE100 writing, full strength `[USER]`
 
 The core includes the 10 writing rules from `dev-grind/CLAUDE.md` (section WRITING), with no lighter version. Reason:
 the docs are shorter and more objective, close to a programming language for people.
 Scope (from `dev-grind`): replies to the user, subagent briefs, specs, ADRs, role files, diaries. Out of scope: code,
 and the prompts of the product's own AI.
 
-### 6.5 Delivery as skills `[João]`
+### 6.5 Delivery as skills `[USER]`
 
 The core is delivered as skills with the `guilda:` prefix, like `superpowers:brainstorming`. Each skill is built one
-at a time with `skill-creator:skill-creator` and `superpowers:writing-skills`. `[João]`
+at a time with `skill-creator:skill-creator` and `superpowers:writing-skills`. `[USER]`
 
-### 6.6 `superpowers` relation `[João]`
+### 6.6 `superpowers` relation `[USER]`
 
-`guilda` works with `superpowers` and João uses both. `guilda` must also work without `superpowers`. If a `guilda`
+`guilda` works with `superpowers` and USER uses both. `guilda` must also work without `superpowers`. If a `guilda`
 skill uses a `superpowers` skill, it names it as optional and has a fallback.
 
-### 6.7 `guilda:product` `[João]`
+### 6.7 `guilda:product` `[USER]`
 
 1. Writes `PRODUCT.md`: the central idea of the project in its final form (version 1.0). What it is, what it should
    be, what it represents, which features it has. It can also describe the future after 1.0. It can start at the
@@ -118,10 +118,10 @@ skill uses a `superpowers` skill, it names it as optional and has a fallback.
 3. Includes, by default, the sections "Conceptual bugs in this vision" and "Beliefs this vision rests on" from
    `dev-grind/docs/PRODUCT.md` (sections 14 and 15). `[builder call]`
 
-### 6.8 `guilda:roadmap` `[João]`, procedure `[builder call]`
+### 6.8 `guilda:roadmap` `[USER]`, procedure `[builder call]`
 
 Converts `PRODUCT.md` into a concrete plan: versions, architecture, technical decisions.
-Procedure (from `smart-pets-mod`, which João rated better than the `dev-grind` roadmap):
+Procedure (from `smart-pets-mod`, which USER rated better than the `dev-grind` roadmap):
 
 1. Gap review: the vision against the code. Tables for contradictions, missing pieces, decisions for the human,
    explicit cuts (model: `smart-pets-mod/docs/spec/GAP-REVIEW.md`).
@@ -130,16 +130,16 @@ Procedure (from `smart-pets-mod`, which João rated better than the `dev-grind` 
 3. A "cheap precautions now" list for each later version.
 4. Measurable completion criteria for each version. Never "defined by the spec later".
 
-### 6.9 The Architect disagrees `[João]`
+### 6.9 The Architect disagrees `[USER]`
 
 New Architect rule: the Architect disagrees with the user when it has a reason. It does not agree with an error to be
 polite. Truth comes before courtesy. The Architect states the disagreement, the reason and the evidence, then the user
 decides.
 
-### 6.10 The `docs/` folder `[João]`, layout `[builder call]`
+### 6.10 The `docs/` folder `[USER]`, layout `[builder call]`
 
-Every project keeps its documents in `docs/`, the folder `superpowers` already uses. `[João]` Specs go in
-`docs/superpowers/specs/`. Documents that are not specs have their own place. `[João]`
+Every project keeps its documents in `docs/`, the folder `superpowers` already uses. `[USER]` Specs go in
+`docs/superpowers/specs/`. Documents that are not specs have their own place. `[USER]`
 Layout, taken from `dev-grind` and `claudia-rh`:
 
 ```
@@ -158,7 +158,7 @@ docs/
 Folder names follow the project's docs language (`research/` or `pesquisa/`). `guilda:init` maps the folders a
 project already has and does not move them without approval.
 
-### 6.11 QA tooling: the Architect plans it, QA demands it `[João]`
+### 6.11 QA tooling: the Architect plans it, QA demands it `[USER]`
 
 QA tests by itself, in a simulated environment, with tools that fit the platform. Rules:
 
@@ -171,7 +171,7 @@ QA tests by itself, in a simulated environment, with tools that fit the platform
 4. QA demands these tools. Without the named tool, QA does not mark a scenario as passed: the result is
    `NOT VERIFIED`, with the missing tool named, and QA asks the Architect for it.
 
-The research in step 2 is its own skill: `guilda:qa-tools`. `[João]` Input: the platform and the Acceptance
+The research in step 2 is its own skill: `guilda:qa-tools`. `[USER]` Input: the platform and the Acceptance
 scenarios. Output: for each scenario, the tool that verifies it, how to set it up, what it costs (install, account,
 network), a measurable PASS that proves the tool works, and the user's decisions. It reuses tools the project or the
 machine already has before it suggests new ones. `[builder call]`
@@ -182,11 +182,11 @@ Where this happens `[builder call]`:
 - Each feature spec: every Acceptance scenario names the tool that verifies it.
 - `guilda:init`: lists the test tools the project already has, and the gaps.
 
-### 6.12 The lab: test a concept before building it `[João]`
+### 6.12 The lab: test a concept before building it `[USER]`
 
 A lab tests in practice what the MDs describe in concept, before the build starts. It is used mostly in the first
 versions (v0.0), where the initial ideas are approved or rejected. A lab can test anything: an architecture, a tool
-(for agents, for QA, any), a skill, a library, a platform limit. Examples João already built: `win-sandbox-lab`,
+(for agents, for QA, any), a skill, a library, a platform limit. Examples USER already built: `win-sandbox-lab`,
 `agent-creator-lab`, `claudia-rh/sandbox-lab/`, the `smart-pets-mod` V0 spikes.
 
 Cycle:
@@ -198,17 +198,17 @@ Cycle:
    user, and the failure is recorded as a lesson (what was tried, why it failed, what it teaches). Then the team
    looks for a new path.
 
-The lab is a skill: `guilda:lab`. `[João]` `guilda:roadmap` puts lab experiments in v0; `guilda:qa-tools` uses a lab
+The lab is a skill: `guilda:lab`. `[USER]` `guilda:roadmap` puts lab experiments in v0; `guilda:qa-tools` uses a lab
 to prove a QA tool works. `[builder call]`
 
-Where a lab lives `[João]`: a branch of the project (for example `lab/<name>`). At the end, the branch is archived or
-discarded; only the results stay. `[João]` The results stay as a lab report in `docs/` (for example
+Where a lab lives `[USER]`: a branch of the project (for example `lab/<name>`). At the end, the branch is archived or
+discarded; only the results stay. `[USER]` The results stay as a lab report in `docs/` (for example
 `docs/labs/YYYY-MM-DD-<name>.md`): hypothesis, PASS criterion, method, evidence, verdict, lessons. Archive means an
 `archive/*` tag before the branch is removed, as in `claudia-rh`; removing a branch follows the core git rules and
 needs the user's OK. `[builder call]`
 
-Approval needs a rigorous viability test, not one good run. `[João]` After approval, the related MDs are rewritten
-with the findings and treat the result as working. `[João]` The lab report states how the PASS was proven (number of
+Approval needs a rigorous viability test, not one good run. `[USER]` After approval, the related MDs are rewritten
+with the findings and treat the result as working. `[USER]` The lab report states how the PASS was proven (number of
 runs, conditions, what was not tested). `[builder call]`
 
 ## 7. What the core contains
@@ -230,10 +230,10 @@ From the parts the three projects share:
 9. Context diary before compaction: PreCompact and SessionStart hooks plus the journal skeleton script.
 10. ASD-STE100 writing (6.4). The Architect disagrees (6.9).
 11. Deletion safety: code that deletes files gets the deletion rules in the subagent brief (from `claudia-rh`).
-    The core carries its own English text of these rules, because other users do not have João's global
+    The core carries its own English text of these rules, because other users do not have USER's global
     `CLAUDE.md`. `[builder call]`
 
-Rules that `claudia-rh` and `dev-grind` both have, proposed for the core. João's approval of this document is the
+Rules that `claudia-rh` and `dev-grind` both have, proposed for the core. USER's approval of this document is the
 decision to promote them. `[builder call]`
 
 12. Questions to the user go through AskUserQuestion: 2-4 options, the recommended option first.
@@ -242,9 +242,9 @@ decision to promote them. `[builder call]`
 15. One concern per agent. Two agents never edit the same file.
 16. A failed agent counts as nothing delivered. The integrator runs the checks again.
 
-### 7.1 `guilda:init` adapts the plugin to the project `[João]`
+### 7.1 `guilda:init` adapts the plugin to the project `[USER]`
 
-João adapted the rules to each of the three projects by hand. `guilda:init` does this adaptation when a project
+USER adapted the rules to each of the three projects by hand. `guilda:init` does this adaptation when a project
 adopts `guilda`, new or existing. Steps (detail is a `[builder call]`):
 
 1. Read the project: stack, build, test and typecheck commands, test tools (browser, game client, sandbox), git
@@ -280,9 +280,9 @@ These are builder calls. The builder decides and writes the reason in the plan.
 6. The plugin repository acts as its own marketplace (`.claude-plugin/marketplace.json`), like `superpowers`.
 7. How to enforce ASD-STE100 (anti-goal 4): a check skill, a hook, or a reviewer checklist item.
 
-## 9. Decisions after the builder check `[João]`
+## 9. Decisions after the builder check `[USER]`
 
-João accepted the recommendations for items 1 to 4.
+USER accepted the recommendations for items 1 to 4.
 
 1. **Spec convention.** One MD per feature (spec, Acceptance and plan in one file), from `dev-grind`. One living spec
    per area (`claudia-rh`) stays possible as a project override.
@@ -290,11 +290,11 @@ João accepted the recommendations for items 1 to 4.
 3. **Tier names.** `master`, `journeyman`, `apprentice` (the guild hierarchy), shown in the project's language.
 4. **Git flow.** The core holds the shared principles: no history rewrite, merge is the human's decision, backup
    before compaction. The concrete flow (autocommit, PR per feature, remotes) is a project setting.
-5. **Visibility of the GitHub repository.** Created private. João makes it public when he wants.
+5. **Visibility of the GitHub repository.** Created private. USER makes it public when he wants.
 
 ### 9.1 Still open: model mapping `[open]`
 
-The tier names are fixed (item 3). The model for each tier is not fixed. João uses Claude models, but a user can put
+The tier names are fixed (item 3). The model for each tier is not fixed. USER uses Claude models, but a user can put
 any model in any tier (for example Fable in `master`). Requirements:
 
 - The mapping lives in one place in the project layer, set by `guilda:init` (7.1, step 2).
@@ -324,4 +324,4 @@ done. `[builder call]`
   Known issue: `skill-creator`'s `run_eval.py` uses `select.select` on a pipe, which fails on Windows. The builder
   runs the eval with a local fix (a reader thread, as `agent-creator` does) and does not skip the eval. `[builder call]`
 - No absolute machine paths and no personal data in repository files.
-- Deletion safety rules from João's global `CLAUDE.md` apply to any script that deletes files.
+- Deletion safety rules from USER's global `CLAUDE.md` apply to any script that deletes files.
