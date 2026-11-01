@@ -287,6 +287,38 @@ It catches failures without depending on an agent to notice them:
 **Not proven yet.** The R3 hook needs an approval mark that only the user can write. If an agent can write the mark,
 the hook protects nothing. This mechanism is a first experiment for `guilda:lab`. `[open]`
 
+### 6.14 Versions and updates `[USER]`
+
+USER wants to know which `guilda` version is installed, and to update when the repository has a new version. `[USER]`
+Facts from the Claude Code docs (read on 2026-11-01: `code.claude.com/docs/en/plugins/publish`,
+`code.claude.com/docs/en/discover-plugins`):
+
+- The `version` field in `plugin.json` decides updates. If it does not change, `claude plugin update` keeps the old
+  copy. If `version` is omitted, Claude Code uses the git commit SHA.
+- Auto-update is off by default for a marketplace that is not an official one. The user turns it on in `/plugin` →
+  Marketplaces → Enable auto-update.
+- Manual update: `claude plugin update <plugin>@<marketplace>`, or `/plugin` → Installed → Update now.
+- A running session keeps the loaded version. `/reload-plugins` or a new session loads the update.
+- `claude plugin list` shows the installed version. `claude plugin tag` creates a `{name}--v{version}` git tag.
+- A private repository works when the user's git credentials can clone it (for example `gh auth login`).
+
+Design `[builder call]`:
+
+1. **Semver in `plugin.json`, raised on every merge to `main`.** Major: a core rule is removed or changes meaning;
+   projects must run `guilda:init` again. Minor: a new rule, role or skill. Patch: a fix that does not change
+   behavior.
+2. **`CHANGELOG.md`** in the repository: one entry for each version, with the rule IDs that changed.
+3. **Release check:** `claude plugin validate --strict` passes, the version was raised, and a `guilda--vX.Y.Z` tag is
+   created.
+4. **The project remembers its version.** The project config records the `guilda` version it was adapted with. At
+   session start, if the installed version is newer, `guilda` says so in one line, with the changelog summary, and
+   proposes `guilda:init` to review the project layer. For a major version, `guilda` says that `guilda:init` is
+   required.
+5. **`guilda:update` skill:** shows the installed version, the newest version in the repository and the changelog
+   between them; runs `claude plugin update` when the user approves; tells the user to run `/reload-plugins`.
+6. **Recommendation to USER:** turn on auto-update for the `guilda` marketplace. Then a new version arrives by itself,
+   and item 4 tells each project what changed.
+
 ## 7. What the core contains
 
 From the parts the three projects share:
@@ -425,7 +457,7 @@ any model in any tier (for example Fable in `master`). Requirements:
 Each item gets its own brainstorm (if needed), plan and build, in this order:
 
 1. Skeleton and core: repository, marketplace, project config, core rules (with ASD-STE100), roles, tiers, diary
-   hooks, and `guilda:init` (7.1).
+   hooks, `guilda:init` (7.1), versioning and `guilda:update` (6.14).
 2. `guilda:product`.
 3. `guilda:roadmap`.
 3a. `guilda:lab` (6.12).
