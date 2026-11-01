@@ -211,6 +211,52 @@ Approval needs a rigorous viability test, not one good run. `[USER]` After appro
 with the findings and treat the result as working. `[USER]` The lab report states how the PASS was proven (number of
 runs, conditions, what was not tested). `[builder call]`
 
+### 6.13 Rules that agents do not ignore `[USER]`
+
+The USER wants every rule followed. Text alone does not do this: in `dev-grind`, ASD-STE100 was ignored; in
+`claudia-rh`, a branch prefix rule was ignored. Each rule therefore has a fixed format, a check level and a place.
+
+**Format.** Every core rule and every project rule is written in ASD-STE100, with an ID:
+
+```
+R3 — Spec before code
+Rule:  Do not write product code before the user approves the spec in a separate message.
+Why:   Code from an unapproved spec builds the wrong thing.
+Check: hook — PreToolUse refuses Write/Edit in product paths while the feature MD has no approval mark.
+```
+
+- `Rule`: one sentence, imperative, 20 words or fewer.
+- `Why`: one sentence.
+- `Check`: the level (below) and the mechanism.
+- Reviewers, verdicts and reports cite the ID ("violates R3").
+
+**Check levels**, in order of preference:
+
+| Level | Mechanism | Can an agent ignore it? |
+|---|---|---|
+| Law | A hook that blocks: `PreToolUse` refuses the action, `PreCompact` demands the diary, a pre-commit check scans for secrets and absolute paths | No. The harness blocks it. |
+| Gate | A reviewer checklist item that cites the ID. A violation is `REJECTED` | The executor can, but the work does not pass. |
+| Judgment | Text only | Yes. Keep this level as small as possible. |
+
+Every rule that can be a law becomes a law. A rule stays a gate or a judgment only when no hook can check it, and the
+rule states why.
+
+**Place: the rule is in context near the action it governs.** `[builder call]`
+
+- Always-on core: only principles and gates, injected at session start and again after each compaction. Target:
+  150 lines or fewer, because adherence drops as always-on instructions grow (frontier models follow about 150 to
+  200 instructions reliably).
+- Role rules: in the plugin agent definition of each role. A subagent starts with a clean context and gets only its
+  own rules.
+- Procedures and output formats: in skills, loaded when the role starts work.
+
+**Escalation.** A rule violated twice moves up one level: judgment → gate → law. The fix is a stronger check, never
+a rewrite of the same text. `[USER]` The lab (6.12) measures adherence with scenarios that tempt an agent to break the
+rule, and counts how often it complies. `[builder call]`
+
+**Not proven yet.** The R3 hook needs an approval mark that only the user can write. If an agent can write the mark,
+the hook protects nothing. This mechanism is a first experiment for `guilda:lab`. `[open]`
+
 ## 7. What the core contains
 
 From the parts the three projects share:
@@ -292,7 +338,7 @@ These are builder calls. The builder decides and writes the reason in the plan.
 4. How a project overrides a core rule, and how a check detects a project copy that duplicates a core rule.
 5. The journal skeleton script: one cross-platform version (bash, Windows Git Bash) instead of `.sh` and `.ps1`.
 6. The plugin repository acts as its own marketplace (`.claude-plugin/marketplace.json`), like `superpowers`.
-7. How to enforce ASD-STE100 (anti-goal 4): a check skill, a hook, or a reviewer checklist item.
+7. How to enforce ASD-STE100 (anti-goal 4): a hook if a check can be automated, otherwise a reviewer gate (6.13).
 
 ## 9. Decisions after the builder check `[USER]`
 
