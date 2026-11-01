@@ -249,11 +249,14 @@ adopts `guilda`, new or existing. Steps (detail is a `[builder call]`):
 
 1. Read the project: stack, build, test and typecheck commands, test tools (browser, game client, sandbox), git
    branches and remotes, existing `CLAUDE.md`, role files, hooks and docs.
-2. Propose the project layer: languages, real commands for the checks, domain rules and invariants, extra roles (like
+2. Talk with the user about the project to adapt the rules. `[USER]` If `superpowers:brainstorming` is installed,
+   use it for this conversation. If not, use the built-in fallback: one question per message, and play back what was
+   understood. `[USER]`
+3. Propose the project layer: languages, real commands for the checks, domain rules and invariants, extra roles (like
    the Learning Advisor), QA tools, the git flow, the tier mapping.
-3. In an existing project: list each existing rule as "already in the core" (to remove), "project adjustment" (to
+4. In an existing project: list each existing rule as "already in the core" (to remove), "project adjustment" (to
    keep) or "candidate for the core" (for a PR to `guilda`, 6.2).
-4. Ask the user to approve the proposal before it writes any file. Only commands that were run go into the project
+5. Ask the user to approve the proposal before it writes any file. Only commands that were run go into the project
    layer; never invented commands.
 
 `guilda:init` can run again later, when the project changes, to propose updates to the project layer.
