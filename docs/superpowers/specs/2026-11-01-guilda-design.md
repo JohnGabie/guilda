@@ -15,6 +15,7 @@ USER built an agent architecture for Claude Code in three projects, in this orde
 1. `smart-pets-mod` (Minecraft mod, Portuguese docs).
 2. `claudia-rh` (Tauri desktop app, Portuguese docs).
 3. `dev-grind` (Cloudflare web platform, English docs).
+4. HealthAurora (Nuxt health app, Portuguese docs), based on `smart-pets-mod`; it added a Security role.
 
 Each project has its own copy of the rules: a `CLAUDE.md` file and one role file for each agent. Each copy was written
 again from zero. An improvement in one project does not reach the other projects. Example: ASD-STE100 writing made a
@@ -28,13 +29,14 @@ has the same shape: model tiers, roles and rules for each role. `[USER]`
 
 ## 2. Sources to read before building
 
-Read these files. They are the three versions of the architecture. The core of `guilda` comes from them.
+Read these files. They are the four versions of the architecture. The core of `guilda` comes from them.
 
 | Project | Location | Files |
 |---|---|---|
 | smart-pets-mod | GitHub `JohnGabie/smart-pets-mod` (not on the local disk) | `CLAUDE.md`, `agents/*.md`, `.claude/hooks/*`, `.claude/settings.json`, `docs/spec/GAP-REVIEW.md`, `docs/spec/V0-SPIKES.md`, `docs/22-roadmap.md` |
 | claudia-rh | `../claudia-rh` | `CLAUDE.md`, `agents/*.md`, `docs/PRODUCT.md`, `docs/superpowers/CONVENCAO.md`, `.claude/settings.json`, `scripts/dev/journal-skeleton.ps1` |
 | dev-grind | `../dev-grind` | `CLAUDE.md`, `docs/roles/*.md`, `.claude/agents/*.md`, `.claude/hooks/*`, `.claude/settings.json`, `docs/PRODUCT.md`, `scripts/dev/journal-skeleton.sh` |
+| HealthAurora | local checkout of the HealthAurora repository, branch `chore/agents-architecture` (ask USER for the path) | `CLAUDE.md`, `agents/*.md` (with `agent-seguranca.md`, `guia-escrita.md`, `qa-conhecimento.md`, `seguranca-conhecimento.md`), `docs/superpowers/specs/chore-agents-architecture-design.md` |
 
 Prior art in other plugins (read, do not copy): `erclx/canon` (one authoritative rule set installed into many repos),
 `Guild-Agents/guild` and `lookatitude/guild` (role-based agent teams).
@@ -92,8 +94,21 @@ it. After the merge, each project gets the change at its next plugin update. Nob
 
 The core includes the 10 writing rules from `dev-grind/CLAUDE.md` (section WRITING), with no lighter version. Reason:
 the docs are shorter and more objective, close to a programming language for people.
-Scope (from `dev-grind`): replies to the user, subagent briefs, specs, ADRs, role files, diaries. Out of scope: code,
-and the prompts of the product's own AI.
+Scope: full strength for every text agents read or write: replies to the user, subagent briefs, specs, plans, ADRs,
+role files, verdicts, reports, diaries. `[USER]` Out of scope ("free"): code, and text the product's end user reads
+(UI copy, blog, product messages, the prompts of the product's own AI). `[USER]`
+
+No levels by default. Reason: "80% of the guide" cannot be checked by a hook or a reviewer (6.13), and a level invites
+the agent to treat a document as an exception. `[USER]`
+
+A project can customize this: add document types to "free", or use levels (as HealthAurora does: 100% / 80% / free).
+The project layer declares each exception with its reason, and `guilda:init` shows it to the user for approval. `[USER]`
+
+Two parts of the HealthAurora writing guide join the core `[builder call]`:
+- A glossary with forbidden words: each term has one definition and the words that must not replace it. This is the
+  controlled dictionary of ASD-STE100. The project layer holds the domain terms; the core holds the process terms.
+- Fixed meaning in every language: *must* = mandatory, the task fails without it; *may* = optional, the agent
+  decides; *must not* = never happens, a violation is a rejection.
 
 ### 6.5 Delivery as skills `[USER]`
 
@@ -265,7 +280,7 @@ From the parts the three projects share:
    vague spec: stop and ask.
 2. Spec before code, with explicit approval as a separate message. Writing the spec and implementing in the same reply
    is a violation.
-3. The roles: Architect, Executor, Reviewer, QA, Version control. Each with Role, Does, Does not, and a fixed output
+3. The roles: Architect, Executor, Reviewer, QA, Version control, and Security (optional, item 17). Each with Role, Does, Does not, and a fixed output
    format (task brief, executor answer, reviewer verdict, QA report).
 4. Model tiers in one file, the only place with model names. Tier names in 9 (item 3); model mapping in 9.1.
 5. Escalation: an executor that fails twice on the same thing moves up one tier. Architect and Reviewer stay at the
@@ -287,6 +302,25 @@ decision to promote them. `[builder call]`
 14. One plan task per executor ↔ reviewer cycle. The task closes only with the reviewer's written approval.
 15. One concern per agent. Two agents never edit the same file.
 16. A failed agent counts as nothing delivered. The integrator runs the checks again.
+
+From HealthAurora, proposed for the core. USER's approval of this document is the decision to promote them.
+`[builder call]`
+
+17. **Security role, optional.** It runs only on tasks that touch a risk area, in parallel with the Reviewer, and
+    QA starts only after both approve. The Architect consults it when a spec or brief touches a risk area; its
+    requirements go into the Acceptance criteria. It only points; it never edits. `guilda:init` turns it on when the
+    project has risk areas; the list of risk areas lives in the project layer.
+18. **Knowledge files per role** (for example QA and Security). Every item cites the page that was read. An item not
+    read in its source is marked "not confirmed", and no agent rejects work because of it. Generic knowledge (OWASP,
+    exploratory testing techniques) lives in the core; "how it applies here" lives in the project layer.
+19. **Small or large rejection.** Small: the fix fits the current brief, and the task goes back to the Executor.
+    Large: the fix changes a spec scenario, an Acceptance criterion, a contract or the brief's file list, and the task
+    goes to the Architect. The QA report goes to the Reviewer, never straight to the Executor.
+20. **QA in two phases.** Phase 1: test exactly what was asked, one criterion at a time. Phase 2: test around the
+    change (neighbor screens, integrations, visual and UX consistency); findings there are out-of-scope notes for the
+    Architect. QA follows a method, not a fixed list of screens.
+21. **The user's fears.** `guilda:init` asks what must never happen in the project. The answers become hard rules
+    in the project layer, with a check level (6.13).
 
 ### 7.1 `guilda:init` adapts the plugin to the project `[USER]`
 
