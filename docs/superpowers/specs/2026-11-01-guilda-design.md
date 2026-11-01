@@ -519,8 +519,8 @@ Each item gets its own brainstorm (if needed), plan and build, in this order:
 2. `guilda:product`.
 3. `guilda:roadmap`.
 3a. `guilda:lab` (6.12).
-3c. `guilda:new-role` (6.15). It needs `guilda:lab` for validation.
-3b. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
+3b. `guilda:new-role` (6.15). It needs `guilda:lab` for validation.
+3c. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
     tool gaps without the research.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
 5. Promotion flow: a skill that helps classify a rule change and drafts the PR to `guilda`.
