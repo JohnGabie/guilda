@@ -181,6 +181,27 @@ Where this happens `[builder call]`:
 - Each feature spec: every Acceptance scenario names the tool that verifies it.
 - `guilda:init`: lists the test tools the project already has, and the gaps.
 
+### 6.12 The lab: test a concept before building it `[João]`
+
+A lab tests in practice what the MDs describe in concept, before the build starts. It is used mostly in the first
+versions (v0.0), where the initial ideas are approved or rejected. A lab can test anything: an architecture, a tool
+(for agents, for QA, any), a skill, a library, a platform limit. Examples João already built: `win-sandbox-lab`,
+`agent-creator-lab`, `claudia-rh/sandbox-lab/`, the `smart-pets-mod` V0 spikes.
+
+Cycle:
+
+1. The idea comes from a concept doc (`PRODUCT.md`, `ROADMAP.md`, a spec or an ADR).
+2. The lab runs it in an isolated, disposable environment, with a measurable PASS defined before the run.
+3. **Approved:** the result goes back into the docs (an ADR, the roadmap, the spec) as verified, with evidence.
+4. **Rejected:** the work goes back to the concept phase. The docs are rewritten, a new question session runs with the
+   user, and the failure is recorded as a lesson (what was tried, why it failed, what it teaches). Then the team
+   looks for a new path.
+
+The lab is a skill: `guilda:lab`. `[João]` `guilda:roadmap` puts lab experiments in v0; `guilda:qa-tools` uses a lab
+to prove a QA tool works. `[builder call]`
+
+Where a lab lives (inside the project or in its own repository): `[open]`.
+
 ## 7. What the core contains
 
 From the parts the three projects share:
@@ -279,7 +300,8 @@ Each item gets its own brainstorm (if needed), plan and build, in this order:
    hooks, and `guilda:init` (7.1).
 2. `guilda:product`.
 3. `guilda:roadmap`.
-3a. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
+3a. `guilda:lab` (6.12).
+3b. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
     tool gaps without the research.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
 5. Promotion flow: a skill that helps classify a rule change and drafts the PR to `guilda`.
