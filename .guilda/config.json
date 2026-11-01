@@ -1,0 +1,41 @@
+{
+  "guildaVersion": "0.1.0",
+  "languages": {
+    "replies": "pt-BR",
+    "docs": "en"
+  },
+  "writing": {
+    "free": [
+      "core/knowledge/**"
+    ],
+    "exceptions": []
+  },
+  "security": {
+    "enabled": false,
+    "riskAreas": []
+  },
+  "checks": [
+    {
+      "name": "test",
+      "command": "npm test"
+    },
+    {
+      "name": "lint-rules",
+      "command": "node scripts/lint-rules.mjs"
+    },
+    {
+      "name": "validate",
+      "command": "claude plugin validate --strict ."
+    }
+  ],
+  "scan": {
+    "ignore": [
+      "tests/**"
+    ]
+  },
+  "tiers": {
+    "master": "opus",
+    "journeyman": "sonnet",
+    "apprentice": "haiku"
+  }
+}
