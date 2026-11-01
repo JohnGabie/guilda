@@ -136,6 +136,27 @@ New Architect rule: the Architect disagrees with the user when it has a reason. 
 polite. Truth comes before courtesy. The Architect states the disagreement, the reason and the evidence, then the user
 decides.
 
+### 6.10 The `docs/` folder `[João]`, layout `[builder call]`
+
+Every project keeps its documents in `docs/`, the folder `superpowers` already uses. `[João]` Specs go in
+`docs/superpowers/specs/`. Documents that are not specs have their own place. `[João]`
+Layout, taken from `dev-grind` and `claudia-rh`:
+
+```
+docs/
+├── PRODUCT.md            ← guilda:product (both projects keep it at the docs/ root)
+├── ROADMAP.md            ← guilda:roadmap
+├── adr/                  ← NNNN-<title>.md + README.md (format and index)
+├── roles/                ← only project roles and project overrides; core roles live in the plugin
+├── research/             ← dated research notes (claudia-rh: docs/pesquisa/)
+├── <domain>/             ← project-specific folders (dev-grind: docs/learning/)
+└── superpowers/
+    └── specs/            ← one MD per feature (9, item 1) + GLOSSARY.md
+```
+
+Folder names follow the project's docs language (`research/` or `pesquisa/`). `guilda:init` maps the folders a
+project already has and does not move them without approval.
+
 ## 7. What the core contains
 
 From the parts the three projects share:
