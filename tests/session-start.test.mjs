@@ -29,8 +29,8 @@ test('valid config: context has R1, R25 and the project rule P1', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG, rules: '# Project rules\n\nP1. Use tabs.\n' });
   const ctx = context(run(dir));
   assert.match(ctx, /^guilda 0\.1\.0 active/);
-  assert.match(ctx, /R1\./);
-  assert.match(ctx, /R25/);
+  assert.match(ctx, /### R1 /);
+  assert.match(ctx, /### R25 /);
   assert.match(ctx, /P1\. Use tabs/);
   assert.match(ctx, /journal-skeleton\.mjs/);
   assert.ok(ctx.includes(REPO_ROOT.split(path.sep).join('/') + '/core/glossary.md'));
