@@ -361,8 +361,22 @@ Skill: `guilda:new-role`. Steps `[builder call]`:
 6. **Decide.** The lab report goes to the user. Approved: the role enters the project layer. A role that proves
    useful in more than one project is a candidate for the core (6.2).
 
-Home of `agent-creator`: `[open]`, the user decides (move it into `guilda`, or keep it separate and call it when it is
-installed).
+Home of `agent-creator`: it moves into `guilda` as a skill. `[USER]` It copies from `skill-creator` everything that
+fits: the structure, the eval loop, the benchmark with variance, the description tuning. `[USER]` One home only: the
+user-scope copy is removed after the move, with the user's OK. `[builder call]`
+
+**The exam.** `[USER]` An agent is validated like a student in an exam: fictional scenarios built for its function,
+run with other agents that play the other parts of the flow. `[USER]` Examples `[builder call]`:
+- A Reviewer gets diffs from an Executor agent with planted bugs, a weakened test and a file outside the brief. Score:
+  what it catches, what it misses, false alarms.
+- A Security role gets diffs with a planted IDOR, a secret in a log and a webhook without signature check.
+- A QA role gets an app build with a planted broken state and a report from an Executor that claims "all passed".
+- An Architect gets a request that hides a contradiction, and a user agent that pushes a wrong decision (tests 6.9).
+
+Each exam has a PASS criterion set before the run, a baseline (the same scenarios without the role, or with the old
+version), and several runs, because one good run is not proof (6.12). The exam scenarios do not exist yet: building
+them is part of build item 3b. `[USER]` The exams of a role stay in the repository and run again when the role
+changes, as a regression suite. `[builder call]`
 
 ## 7. What the core contains
 
@@ -519,10 +533,13 @@ Each item gets its own brainstorm (if needed), plan and build, in this order:
 2. `guilda:product`.
 3. `guilda:roadmap`.
 3a. `guilda:lab` (6.12).
-3b. `guilda:new-role` (6.15). It needs `guilda:lab` for validation.
+3b. `guilda:new-role` and `guilda:agent-creator` (6.15), with the exam scenarios for the core roles. It needs
+    `guilda:lab` for validation.
 3c. `guilda:qa-tools` (6.11). `guilda:roadmap` and `guilda:init` call it when it exists; before that, they list the
     tool gaps without the research.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
+   HealthAurora migrates later, when `guilda` is consolidated, through a PR to its repository with its owner's OK.
+   `[USER]` Until then it is a source only.
 5. Promotion flow: a skill that helps classify a rule change and drafts the PR to `guilda`.
 
 The first implementation plan covers item 1 only. Each later item gets its own plan after the item before it is
