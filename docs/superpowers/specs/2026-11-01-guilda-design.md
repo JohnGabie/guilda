@@ -18,10 +18,10 @@ USER built an agent architecture for Claude Code in three projects, in this orde
 
 Each project has its own copy of the rules: a `CLAUDE.md` file and one role file for each agent. Each copy was written
 again from zero. An improvement in one project does not reach the other projects. Example: ASD-STE100 writing made a
-real difference in `dev-grind`. USER wants it in every project, but today he must copy it by hand into each one.
+real difference in `dev-grind`. USER wants it in every project, but today USER must copy it by hand into each one.
 
 `guilda` is a Claude Code plugin that holds this architecture once. USER installs it one time. Every project uses it.
-For USER, `guilda` is what `superpowers` is: a plugin he installs everywhere that carries his way of working. `[USER]`
+For USER, `guilda` is what `superpowers` is: a plugin USER installs everywhere that carries USER's way of working. `[USER]`
 
 The name: a guild has a hierarchy (master, journeyman, apprentice) and crafts with their own rules. The architecture
 has the same shape: model tiers, roles and rules for each role. `[USER]`
@@ -290,7 +290,7 @@ USER accepted the recommendations for items 1 to 4.
 3. **Tier names.** `master`, `journeyman`, `apprentice` (the guild hierarchy), shown in the project's language.
 4. **Git flow.** The core holds the shared principles: no history rewrite, merge is the human's decision, backup
    before compaction. The concrete flow (autocommit, PR per feature, remotes) is a project setting.
-5. **Visibility of the GitHub repository.** Created private. USER makes it public when he wants.
+5. **Visibility of the GitHub repository.** Created private. USER makes it public when USER wants.
 
 ### 9.1 Still open: model mapping `[open]`
 
