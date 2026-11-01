@@ -146,7 +146,7 @@ From the parts the three projects share:
    is a violation.
 3. The roles: Architect, Executor, Reviewer, QA, Version control. Each with Role, Does, Does not, and a fixed output
    format (task brief, executor answer, reviewer verdict, QA report).
-4. Model tiers in one file, the only place with model names. Tier names: `[open]`, recommendation in 9.3.
+4. Model tiers in one file, the only place with model names. Tier names in 9 (item 3); model mapping in 9.1.
 5. Escalation: an executor that fails twice on the same thing moves up one tier. Architect and Reviewer stay at the
    top tier.
 6. Independence: the Reviewer reads spec and diff before the executor's justification. Nobody approves their own work.
@@ -155,6 +155,40 @@ From the parts the three projects share:
 9. Context diary before compaction: PreCompact and SessionStart hooks plus the journal skeleton script.
 10. ASD-STE100 writing (6.4). The Architect disagrees (6.9).
 11. Deletion safety: code that deletes files gets the deletion rules in the subagent brief (from `claudia-rh`).
+    The core carries its own English text of these rules, because other users do not have João's global
+    `CLAUDE.md`. `[builder call]`
+
+Rules that `claudia-rh` and `dev-grind` both have, proposed for the core. João's approval of this document is the
+decision to promote them. `[builder call]`
+
+12. Questions to the user go through AskUserQuestion: 2-4 options, the recommended option first.
+13. A definition of done that scales with the size of the change.
+14. One plan task per executor ↔ reviewer cycle. The task closes only with the reviewer's written approval.
+15. One concern per agent. Two agents never edit the same file.
+16. A failed agent counts as nothing delivered. The integrator runs the checks again.
+
+### 7.1 `guilda:init` adapts the plugin to the project `[João]`
+
+João adapted the rules to each of the three projects by hand. `guilda:init` does this adaptation when a project
+adopts `guilda`, new or existing. Steps (detail is a `[builder call]`):
+
+1. Read the project: stack, build, test and typecheck commands, test tools (browser, game client, sandbox), git
+   branches and remotes, existing `CLAUDE.md`, role files, hooks and docs.
+2. Propose the project layer: languages, real commands for the checks, domain rules and invariants, extra roles (like
+   the Learning Advisor), QA tools, the git flow, the tier mapping.
+3. In an existing project: list each existing rule as "already in the core" (to remove), "project adjustment" (to
+   keep) or "candidate for the core" (for a PR to `guilda`, 6.2).
+4. Ask the user to approve the proposal before it writes any file. Only commands that were run go into the project
+   layer; never invented commands.
+
+`guilda:init` can run again later, when the project changes, to propose updates to the project layer.
+
+### 7.2 Scope of activation `[builder call]`
+
+The core is active only in a project that opted in: a project with a `guilda` project config. In any other
+repository, `guilda` injects nothing. `guilda:init` creates the project config. Reason: a user-scope plugin reaches
+every repository on the machine; a project that has not migrated keeps its own rules, and two active rule sets
+would disagree (anti-goal 2).
 
 ## 8. Left to the builder
 
@@ -171,33 +205,45 @@ These are builder calls. The builder decides and writes the reason in the plan.
 6. The plugin repository acts as its own marketplace (`.claude-plugin/marketplace.json`), like `superpowers`.
 7. How to enforce ASD-STE100 (anti-goal 4): a check skill, a hook, or a reviewer checklist item.
 
-## 9. Open decisions (João decides; recommendation given)
+## 9. Decisions after the builder check `[João]`
 
-1. **Spec convention.** `claudia-rh` uses one living spec per area. `dev-grind` uses one MD per feature (spec,
-   Acceptance and plan in one file). Recommendation: one MD per feature, from `dev-grind`, because it is the newest
-   and keeps spec and plan together. The other stays possible as a project override.
-2. **Rejection limit.** `smart-pets-mod` and `dev-grind`: 3 rejections, then escalate. `claudia-rh`: 5.
-   Recommendation: 3.
-3. **Tier names.** Proposal: `master`, `journeyman`, `apprentice` (the guild hierarchy), shown in the project's
-   language. Alternative: keep `STRONG`, `MEDIUM`, `FAST`.
-4. **Git flow.** `dev-grind` uses autocommit plus `backup/*` branches. `claudia-rh` uses a PR to `dev` per feature
-   and a separate `backup` remote. Recommendation: the core holds the shared principles (no history rewrite, merge is
-   the human's decision, backup before compaction); the concrete flow is a project setting.
+João accepted the recommendations for items 1 to 4.
+
+1. **Spec convention.** One MD per feature (spec, Acceptance and plan in one file), from `dev-grind`. One living spec
+   per area (`claudia-rh`) stays possible as a project override.
+2. **Rejection limit.** 3 rejections, then escalate to the Architect and the user.
+3. **Tier names.** `master`, `journeyman`, `apprentice` (the guild hierarchy), shown in the project's language.
+4. **Git flow.** The core holds the shared principles: no history rewrite, merge is the human's decision, backup
+   before compaction. The concrete flow (autocommit, PR per feature, remotes) is a project setting.
 5. **Visibility of the GitHub repository.** Created private. João makes it public when he wants.
+
+### 9.1 Still open: model mapping `[open]`
+
+The tier names are fixed (item 3). The model for each tier is not fixed. João uses Claude models, but a user can put
+any model in any tier (for example Fable in `master`). Requirements:
+
+- The mapping lives in one place in the project layer, set by `guilda:init` (7.1, step 2).
+- The plugin ships a default mapping for Claude models. The default is a suggestion, not a rule.
+- Presets for other providers are possible later. The design does not define them now.
 
 ## 10. Build order
 
 Each item gets its own brainstorm (if needed), plan and build, in this order:
 
-1. Skeleton and core: repository, marketplace, project config, core rules (with ASD-STE100), roles, tiers, diary hooks.
+1. Skeleton and core: repository, marketplace, project config, core rules (with ASD-STE100), roles, tiers, diary
+   hooks, and `guilda:init` (7.1).
 2. `guilda:product`.
 3. `guilda:roadmap`.
 4. Migration of `smart-pets-mod`, `claudia-rh` and `dev-grind`: core rules leave each project; the project layer stays.
 5. Promotion flow: a skill that helps classify a rule change and drafts the PR to `guilda`.
 
+The first implementation plan covers item 1 only. Each later item gets its own plan after the item before it is
+done. `[builder call]`
+
 ## 11. Constraints
 
 - Windows 11 is the main machine. Scripts run in Git Bash and must not depend on Unix-only calls without a fallback.
-  Known issue: `skill-creator`'s `run_eval.py` uses `select.select` on a pipe, which fails on Windows.
+  Known issue: `skill-creator`'s `run_eval.py` uses `select.select` on a pipe, which fails on Windows. The builder
+  runs the eval with a local fix (a reader thread, as `agent-creator` does) and does not skip the eval. `[builder call]`
 - No absolute machine paths and no personal data in repository files.
 - Deletion safety rules from João's global `CLAUDE.md` apply to any script that deletes files.
