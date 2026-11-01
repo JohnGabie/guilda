@@ -157,6 +157,25 @@ docs/
 Folder names follow the project's docs language (`research/` or `pesquisa/`). `guilda:init` maps the folders a
 project already has and does not move them without approval.
 
+### 6.11 QA tooling: the Architect plans it, QA demands it `[João]`
+
+QA tests by itself, in a simulated environment, with tools that fit the platform. Rules:
+
+1. The Architect names the test tools QA needs, for every scenario: web, Android, iOS, desktop, CLI, game, API,
+   hardware, any other. Examples: a web app → the browser (Playwright MCP); Android → a mobile MCP or `adb`; a
+   Windows desktop app → UI automation; a Minecraft mod → a game-client bridge.
+2. If no known tool fits, the Architect researches and suggests one (an MCP server, a CLI, an emulator, a sandbox).
+3. The Architect tells the user when it is time to prepare the tools: "this is the moment to set up the tools QA
+   needs". Setting up a tool that installs software or leaves the machine is the user's decision.
+4. QA demands these tools. Without the named tool, QA does not mark a scenario as passed: the result is
+   `NOT VERIFIED`, with the missing tool named, and QA asks the Architect for it.
+
+Where this happens `[builder call]`:
+- `guilda:roadmap`: tool setup is part of the v0 spikes (like `smart-pets-mod` V0-S0, toolchain), with a measurable
+  PASS for each tool.
+- Each feature spec: every Acceptance scenario names the tool that verifies it.
+- `guilda:init`: lists the test tools the project already has, and the gaps.
+
 ## 7. What the core contains
 
 From the parts the three projects share:
