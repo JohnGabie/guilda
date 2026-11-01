@@ -269,6 +269,21 @@ rule states why.
 a rewrite of the same text. `[USER]` The lab (6.12) measures adherence with scenarios that tempt an agent to break the
 rule, and counts how often it complies. `[builder call]`
 
+**Violation log.** `[USER]` Each project keeps a violation log (for example `.guilda/violations.jsonl`, committed).
+It catches failures without depending on an agent to notice them:
+
+| Level | Who writes the record | Reliable? |
+|---|---|---|
+| Law | The hook that blocks the action writes the attempt: rule ID, date, action, branch. | Yes |
+| Gate | A script reads each reviewer verdict and records every "violates R<n>". The verdict format is fixed. | Yes, once the verdict format is fixed |
+| Judgment | A `Stop` hook checks the end of each turn against the rules; a correction from the user in the next message is also recorded. | No. It lowers the miss rate only. Verify in the Claude Code docs which hook types exist before building it. |
+
+- The escalation rule reads this log. When a rule reaches 2 violations, `guilda` proposes to move it up one level.
+- If the rule is a core rule, the proposal becomes a candidate PR to the `guilda` repository (6.2).
+- The log never holds secrets, personal data or file contents; only the rule ID and where it happened.
+- `task-observer` stays an optional complement, like `superpowers`: it catches what the log cannot see (user
+  corrections in free text, new methods, skill ideas). `[builder call]`
+
 **Not proven yet.** The R3 hook needs an approval mark that only the user can write. If an agent can write the mark,
 the hook protects nothing. This mechanism is a first experiment for `guilda:lab`. `[open]`
 
