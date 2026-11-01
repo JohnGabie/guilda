@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Rule lint: the rule block format (design 6.13) and the model-name rule (R17).
 // CLI: `node scripts/lint-rules.mjs` lints the repository. Exit 1 on errors.
+// CLI: `node scripts/lint-rules.mjs --prefix P <file...>` lints the rule blocks of the given files.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -131,8 +132,13 @@ export function lintRepository(root) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  // `--prefix <P> <file...>` lints only the rule blocks of the given files (a project rules file uses `P`).
+  const args = process.argv.slice(2);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const errors = lintRepository(root);
+  const errors =
+    args[0] === '--prefix'
+      ? args.slice(2).flatMap((f) => lintRules(fs.readFileSync(f, 'utf8'), { prefix: args[1] }).map((e) => `${f}: ${e}`))
+      : lintRepository(root);
   for (const e of errors) console.log(e);
   process.exit(errors.length > 0 ? 1 : 0);
 }

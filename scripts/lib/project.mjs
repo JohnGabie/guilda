@@ -9,7 +9,7 @@ const isNonEmptyString = (v) => isString(v) && v.trim() !== '';
 const isStringArray = (v) => Array.isArray(v) && v.every(isString);
 
 /** Return a reason string when the config is invalid, or null when it is valid. */
-function checkSchema(c) {
+export function checkSchema(c) {
   if (!isObject(c)) return 'config must be a JSON object';
   if (!isString(c.guildaVersion) || !SEMVER.test(c.guildaVersion)) {
     return 'guildaVersion must be a semver string';

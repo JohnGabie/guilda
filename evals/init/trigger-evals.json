@@ -1,0 +1,14 @@
+[
+  { "query": "set up guilda in this repo", "should_trigger": true },
+  { "query": "I just installed the guilda plugin. How do I make it work for my project? Configure it for me.", "should_trigger": true },
+  { "query": "the session start said 'guilda updated 0.1.0 → 1.0.0; guilda:init is required'. do it", "should_trigger": true },
+  { "query": "we have a big CLAUDE.md with our team rules; migrate them to guilda and tell me which ones guilda already covers", "should_trigger": true },
+  { "query": "our project now handles payments, update the guilda project layer (.guilda/config.json and rules.md) for that", "should_trigger": true },
+  { "query": "adopt guilda for this new Android app project, languages in Portuguese", "should_trigger": true },
+  { "query": "write a spec for a new checkout feature in this guilda project", "should_trigger": false },
+  { "query": "initialize a new git repository here and make the first commit", "should_trigger": false },
+  { "query": "create a CLAUDE.md file with documentation of this codebase", "should_trigger": false },
+  { "query": "run npm init and set up eslint and prettier for this node project", "should_trigger": false },
+  { "query": "review the diff of my last commit for bugs", "should_trigger": false },
+  { "query": "add a pre-commit hook in .claude/settings.json that runs the tests", "should_trigger": false }
+]
