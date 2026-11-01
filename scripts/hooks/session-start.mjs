@@ -1,20 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { loadConfig, readProjectRules } from '../lib/project.mjs';
 import { countViolations } from '../lib/violations.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
+import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
 
 const DIARY_LINES = 220;
 const ESCALATION_THRESHOLD = 2;
-
-function readStdin() {
-  try {
-    return JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
-  } catch {
-    return {};
-  }
-}
 
 function readCore(root, name) {
   try {
@@ -49,12 +41,9 @@ function emit(additionalContext) {
   process.stdout.write(JSON.stringify(out));
 }
 
-try {
-  const input = readStdin();
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
-  const pluginRoot =
-    process.env.CLAUDE_PLUGIN_ROOT ||
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+await runHookMain(async (input) => {
+  const projectDir = resolveProjectDir(input);
+  const pluginRoot = resolvePluginRoot();
   const loaded = loadConfig(projectDir);
   if (loaded === null) {
     // Not a guilda project: print nothing.
@@ -88,7 +77,4 @@ try {
     }
     emit(parts.filter(Boolean).join('\n\n'));
   }
-} catch (err) {
-  process.stderr.write(`guilda: ${err && err.message ? err.message : 'session-start failed'}\n`);
-}
-process.exit(0);
+});

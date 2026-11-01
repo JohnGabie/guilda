@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
+const PLUGIN_VERSION = JSON.parse(
+  fs.readFileSync(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'), 'utf8'),
+).version;
 const SCRIPT = 'scripts/hooks/session-start.mjs';
 const run = (dir, source = 'startup') =>
   runHook(SCRIPT, { hook_event_name: 'SessionStart', source, cwd: dir }, dir);
