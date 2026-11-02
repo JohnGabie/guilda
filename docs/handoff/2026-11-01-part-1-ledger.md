@@ -170,4 +170,5 @@ Ruling: a denial for a mention records no violation, and a denial from another d
 Ruling: restore, pull, revert and rebase before a commit are refused; checkout and reset only with `--` — cost if wrong: `git reset side f && git commit` without `--` passes.
 Known limits added after wave 3: `sh <<E` or `echo ... | sh` with git add in the text; `echo "$(git add x)"; git commit`; a variable as the verb (`G=git; $G commit`); `env -C DIR git commit` from outside the repository; a glob in `-C`; a UTF-16 file; a token in the commit message only.
 Fix wave 3: tests first (13 failed before the fix), 322 pass after, lint and validate exit 0. Side-by-side run against the hook of 7663e32: 52 commit forms with a staged token, 0 regressions; 72 normal commands in a clean repository, 0 false denies. Live session: `git add .pre-commit-config.yaml`, then a two-line commit, succeeded with 0 violations. No independent re-review of wave 3 yet: USER decides if one is needed before merge.
-RESUME HERE: USER decides R3 and the merge.
+Ruling (USER, 2026-11-02): the brief check cites a new rule, ARC6 — Complete brief, in the Architect skill. R3 stays a gate until guilda:lab. pre-agent, its test, the design note and the changelog cite ARC6. 322 tests pass, lint, validate and ste-check exit 0.
+RESUME HERE: USER decides the independent review of wave 3 and the merge.

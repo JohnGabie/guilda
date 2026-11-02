@@ -36,7 +36,7 @@ test('invalid config -> silent allow', () => {
   assert.equal(r.stdout, '');
 });
 
-test('executor dispatch with incomplete brief -> deny and one R3 record', () => {
+test('executor dispatch with incomplete brief -> deny and one ARC6 record', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const prompt = BRIEF.replace('Risk area: none\n', '');
   const r = runHook(HOOK, dispatch('guilda:executor', prompt), dir);
@@ -44,10 +44,10 @@ test('executor dispatch with incomplete brief -> deny and one R3 record', () => 
   const out = JSON.parse(r.stdout).hookSpecificOutput;
   assert.equal(out.hookEventName, 'PreToolUse');
   assert.equal(out.permissionDecision, 'deny');
-  assert.equal(out.permissionDecisionReason, 'R3: brief incomplete: Risk area');
+  assert.equal(out.permissionDecisionReason, 'ARC6: brief incomplete: Risk area');
   assert.deepEqual(
     records(dir).map(({ rule, level, source, action }) => ({ rule, level, source, action })),
-    [{ rule: 'R3', level: 'law', source: 'pre-agent', action: 'incomplete brief' }],
+    [{ rule: 'ARC6', level: 'law', source: 'pre-agent', action: 'incomplete brief' }],
   );
 });
 

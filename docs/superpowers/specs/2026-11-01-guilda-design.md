@@ -957,6 +957,8 @@ only; plugin agents are namespaced `guilda:<name>`.
     the Claude Code docs; expected `Agent`). When `tool_input.subagent_type` is `guilda:executor` and
     `validateBrief(tool_input.prompt)` is not empty → deny with `R3: brief incomplete: <fields>` and one record
     `{ rule: 'R3', level: 'law', source: 'pre-agent', action: 'incomplete brief' }`.
+    (As built: the hook cites a new rule, `ARC6 — Complete brief` of the Architect skill, so R3 stays a gate until
+    `guilda:lab`. Decided by the user on 2026-11-02.)
   - `subagent-stop.mjs` (extends Task 8): for `guilda:reviewer`, `guilda:security`, `guilda:qa`, an invalid format →
     `{ "decision": "block", "reason": "Fix the output format: <errors>" }` so the subagent rewrites its answer
     (as built: exit 2 with the errors on stderr, verified live);

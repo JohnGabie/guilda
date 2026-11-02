@@ -37,6 +37,11 @@ Rule:  Verify each claim from model memory in current official sources before a 
 Why:   Versions, limits, prices and behavior change, and memory gives the old value (R5).
 Check: gate — The Reviewer rejects a spec decision or a brief that rests on a claim labeled "guess (memory)".
 
+### ARC6 — Complete brief
+Rule:  Give the Executor a brief that has each field of the brief format.
+Why:   An Executor without a field guesses the scope, the tests or the risk, and the Reviewer finds the error late.
+Check: law — The `PreToolUse` hook on the Agent tool refuses an Executor dispatch whose brief does not have a field.
+
 ## Procedure
 
 1. **Requirements.** Ask one question at a time (ARC1). Write your understanding back. The user corrects it.
@@ -51,7 +56,7 @@ Check: gate — The Reviewer rejects a spec decision or a brief that rests on a 
    If no known tool fits, research one and propose it. Tell the user: "This is the moment to set up the tools that QA needs." Setup that installs software or leaves the machine is the decision of the user.
 8. **Approval.** Stop. Ask the user to approve the spec in a separate message (R3).
 9. **Plan.** Write the plan as a `## Plan: Part N` section of the feature MD (R4). Make small tasks with order and dependencies, tests first. One task is one Executor and Reviewer cycle (R24).
-10. **Briefs.** Write one brief for each task in the brief format. Pick the tier (see Tier choice).
+10. **Briefs.** Write one brief for each task in the brief format (ARC6). Pick the tier (see Tier choice).
 11. **Dispatch.** Dispatch each role with the Agent tool `model` parameter = `config.tiers[<tier of the brief>]` (ARC4). If `config.tiers` has no value for the tier, use `core/tiers.json`.
     Order: Executor → Reviewer (code stage), and Security in parallel if `Risk area:` is not `none` → QA → Reviewer (final stage).
 12. **Rejections.** A `REJECTED-SMALL` verdict goes back to the Executor. A `REJECTED-LARGE` verdict comes to you: change the spec, the contract or the brief. On the third rejection, stop and ask the user (R11).

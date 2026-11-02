@@ -3,7 +3,7 @@ import { appendViolation } from '../lib/violations.mjs';
 import { validateBrief } from '../lib/formats.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 
-// PreToolUse on the Agent tool: an Executor dispatch must carry a complete brief (R3).
+// PreToolUse on the Agent tool: an Executor dispatch must carry a complete brief (ARC6 of the Architect skill).
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const loaded = loadConfig(projectDir);
@@ -22,13 +22,13 @@ await runHookMain(async (input) => {
   const missing = validateBrief(toolInput.prompt);
   if (missing.length === 0) return 0;
 
-  appendViolation(projectDir, { rule: 'R3', level: 'law', source: 'pre-agent', action: 'incomplete brief' });
+  appendViolation(projectDir, { rule: 'ARC6', level: 'law', source: 'pre-agent', action: 'incomplete brief' });
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
-        permissionDecisionReason: `R3: brief incomplete: ${missing.join(', ')}`,
+        permissionDecisionReason: `ARC6: brief incomplete: ${missing.join(', ')}`,
       },
     }) + '\n',
   );
