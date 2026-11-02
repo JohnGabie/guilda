@@ -145,3 +145,94 @@ test('a quoted file name is read', () => {
 test('a deleted file gives no entry', () => {
   assert.deepEqual(parseAddedLines(['--- a/f', '+++ /dev/null', '@@ -1 +0,0 @@', '-a'].join('\n')), []);
 });
+
+test('a line continuation does not hide a git call', () => {
+  for (const cmd of ['true && \\\n  git commit -m x', 'FOO=1 \\\n git commit', 'git \\\n commit']) {
+    assert.equal(commits(cmd).length, 1, cmd);
+  }
+  assert.equal(findGitCommits('git add n && \\\n git commit', CWD).addBeforeCommit, true);
+});
+
+test('any wrapper before git is read', () => {
+  for (const cmd of [
+    'timeout 30 git commit',
+    'nice -n 5 git commit',
+    'echo x | xargs git commit -m',
+    'sudo -u me git commit',
+    'env -u FOO git commit',
+    '>/dev/null git commit',
+    "bash -e -c 'git commit -m x'",
+  ]) {
+    assert.equal(commits(cmd).length, 1, cmd);
+  }
+  assert.equal(findGitCommits('git add n && timeout 9 git commit', CWD).addBeforeCommit, true);
+});
+
+test('a heredoc body is not read as commands and cannot open a quote', () => {
+  const written = findGitCommits("cat > d.sh <<'EOF'\ngit add .\ngit commit -m r\nEOF\n", CWD);
+  assert.deepEqual(written.commits, []);
+  assert.equal(written.addBeforeCommit, false);
+  assert.equal(commits("cat >f <<'E'\nit's\nE\ngit commit -m x").length, 1);
+  assert.equal(commits('cat <<-E >f\n\ttext\n\tE\ngit commit').length, 1);
+  assert.equal(commits('git commit -m x <<< "hello"').length, 1);
+});
+
+test('a commit named in text that the reader cannot open is reported as mentioned', () => {
+  for (const cmd of [
+    'out="$(git commit -m x)"',
+    'echo "git commit"',
+    "bash <<E\ngit commit\nE",
+    "cat > d.sh <<'E'\ngit commit\nE",
+  ]) {
+    const r = findGitCommits(cmd, CWD);
+    assert.deepEqual(r.commits, [], cmd);
+    assert.equal(r.mentioned, true, cmd);
+  }
+  assert.equal(findGitCommits('git status', CWD).mentioned, false);
+  assert.equal(findGitCommits('git log; echo commit', CWD).mentioned, false);
+});
+
+test('a target that the reader cannot resolve is uncertain', () => {
+  for (const cmd of [
+    'cd "$PWD" && git commit',
+    'cd $(git rev-parse --show-toplevel) && git commit',
+    'git -C "$PWD" commit',
+    'git --git-dir="$PWD/.git" commit',
+    'cd /no/such/place; git commit',
+    'popd; git commit',
+  ]) {
+    assert.equal(findGitCommits(cmd, CWD).uncertain, true, cmd);
+  }
+  assert.equal(findGitCommits('git commit', CWD).uncertain, false);
+});
+
+test('a variable target is not forwarded to the scan', () => {
+  assert.deepEqual(commits('git --git-dir="$PWD/.git" commit')[0].gitArgs, []);
+});
+
+test('export of a GIT_ variable reaches a later commit', () => {
+  assert.deepEqual(commits('export GIT_INDEX_FILE=x; git commit')[0].env, { GIT_INDEX_FILE: 'x' });
+  assert.deepEqual(commits('GIT_DIR=x; git commit')[0].env, { GIT_DIR: 'x' });
+});
+
+test('other commands that change the index before a commit are reported', () => {
+  for (const sub of ['apply --cached p', 'update-index --add f', 'stash pop --index', 'cherry-pick -n x', 'merge --no-commit x']) {
+    const r = findGitCommits(`git ${sub} && git commit`, CWD);
+    assert.equal(r.indexChange, sub.split(' ')[0], sub);
+    assert.equal(r.addBeforeCommit, true, sub);
+  }
+});
+
+test('extreme input stays fast and still reports a mention', () => {
+  const start = Date.now();
+  assert.equal(findGitCommits(`${'eval '.repeat(30000)}git commit`, CWD).mentioned, true);
+  assert.equal(findGitCommits(`${'cd a;'.repeat(200000)}git commit`, CWD).mentioned, true);
+  assert.equal(findGitCommits('git '.repeat(100000), CWD).mentioned, false);
+  assert.ok(Date.now() - start < 5000);
+});
+
+test('an empty line inside a hunk is context', () => {
+  const text = diff('@@ -1,3 +1,3 @@', '-a', '+b', '', ' c', '+++ b/z.txt', '@@ -0,0 +1 @@', '+tok');
+  const parsed = parseAddedLines(text);
+  assert.deepEqual(parsed.map((f) => f.file), ['f.txt', 'z.txt']);
+});

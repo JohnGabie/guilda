@@ -193,10 +193,11 @@ test('a commit message that holds shell words: allow', () => {
   assertAllow(bash(dir, 'git commit -m "git add x && git commit y"'));
 });
 
-test('echo of a commit command: allow', () => {
+test('echo of a commit command: scanned, fail closed', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
-  stage(dir, 'a.txt', GH);
   assertAllow(bash(dir, 'echo "git commit -m x"'));
+  stage(dir, 'a.txt', GH);
+  assertDeny(bash(dir, 'echo "git commit -m x"'));
 });
 
 test('ignored path: allow', () => {
@@ -336,4 +337,79 @@ test('a tracked change that is clean: allow with -a', () => {
   seed(dir, 'a.txt', 'clean\n');
   fs.writeFileSync(path.join(dir, 'a.txt'), 'still clean\n');
   assertAllow(bash(dir, 'git commit -am x'));
+});
+
+test('forms that the reader cannot resolve still scan: deny', () => {
+  for (const cmd of [
+    'true && \\\n  git commit -m x',
+    'cd "$PWD" && git commit -m x',
+    'cd $(git rev-parse --show-toplevel) && git commit -m x',
+    'git -C "$PWD" commit -m x',
+    'git --git-dir="$PWD/.git" commit -m x',
+    'cd /no/such/place; git commit -m x',
+    'timeout 30 git commit -m x',
+    'echo x | xargs git commit -m',
+    'out="$(git commit -m x)"',
+    "cat >f <<'E'\nit's\nE\ngit commit -m x",
+  ]) {
+    const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+    stage(dir, 'a.txt', GH);
+    assert.match(assertDeny(bash(dir, cmd)), /^R19: secret/, cmd);
+  }
+});
+
+test('a subshell or popd cannot move the scan away from the session directory', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const other = tempProject({ git: true });
+  stage(dir, 'a.txt', GH);
+  assertDeny(bash(dir, `(cd "${other}" && git status); git commit -m x`));
+  assertDeny(bash(dir, `pushd "${other}"; popd; git commit -m x`));
+});
+
+test('a heredoc that writes a script with git commands: allow', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  assertAllow(bash(dir, "cat > d.sh <<'EOF'\ngit add .\ngit commit -m release\nEOF"));
+});
+
+test('attributes and config cannot make a text file binary for the scan', () => {
+  const setups = [
+    (d) => fs.writeFileSync(path.join(d, '.gitattributes'), '*.txt -diff\n'),
+    (d) => fs.writeFileSync(path.join(d, '.gitattributes'), '*.txt binary\n'),
+    (d) => fs.writeFileSync(path.join(d, '.git', 'info', 'attributes'), '*.txt -diff\n'),
+  ];
+  for (const setup of setups) {
+    const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+    setup(dir);
+    stage(dir, 'a.txt', GH);
+    assertDeny(bash(dir, 'git commit -m x'));
+  }
+  const nul = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(nul, 'a.txt', `x\0y\n${GH}\n`);
+  assertDeny(bash(nul, 'git commit -m x'));
+});
+
+test('diff.orderFile cannot stop the scan', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  spawnSync('git', ['config', 'diff.orderFile', '/no/such/file'], { cwd: dir });
+  stage(dir, 'a.txt', GH);
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19: secret/);
+});
+
+test('blank context lines cannot move a token to an ignored file', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, scan: { ignore: ['f.txt'] } }, git: true });
+  spawnSync('git', ['config', 'diff.suppressBlankEmpty', 'true'], { cwd: dir });
+  spawnSync('git', ['config', 'diff.interHunkContext', '5'], { cwd: dir });
+  seed(dir, 'f.txt', 'a\n\nb\n');
+  fs.writeFileSync(path.join(dir, 'f.txt'), 'x\n\ny\n');
+  stage(dir, 'z.txt', `${GH}\n`);
+  spawnSync('git', ['add', 'f.txt'], { cwd: dir });
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /z\.txt:1/);
+});
+
+test('a repository whose diff git cannot read: deny, no record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  spawnSync('git', ['config', 'diff.algorithm', 'nonsense'], { cwd: dir });
+  stage(dir, 'a.txt', 'clean\n');
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19: the scan cannot read the diff/);
+  assert.equal(violations(dir).length, 0);
 });
