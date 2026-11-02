@@ -850,6 +850,8 @@ only; plugin agents are namespaced `guilda:<name>`.
     `-----BEGIN [A-Z ]*PRIVATE KEY-----`. Absolute path patterns: `[A-Za-z]:\\Users\\[^\\\s]+`,
     `[A-Za-z]:/Users/[^/\s]+`, `/home/[^/\s]+/`, `/Users/[^/\s]+/`.
   - `globMatch(pattern: string, path: string): boolean` — `*` = any characters except `/`, `**` = any characters.
+  - As built: `scripts/lib/git-command.mjs` reads the shell command, and the scan reads `--cached` and `HEAD`. It
+    refuses `git add` in the same command as a commit. The ledger has the reason. The text below is the first plan.
   - Bash branch: if `tool_input.command` matches `\bgit\s+commit\b`, run `git diff --cached -U0 --no-color` in the
     project, scan only the added lines, skip files that match `config.scan.ignore`. A finding → deny with the
     reason `R19: <kind> in <file>:<line> — remove it before commit` (the reason never holds the matched text) and one
@@ -956,7 +958,8 @@ only; plugin agents are namespaced `guilda:<name>`.
     `validateBrief(tool_input.prompt)` is not empty → deny with `R3: brief incomplete: <fields>` and one record
     `{ rule: 'R3', level: 'law', source: 'pre-agent', action: 'incomplete brief' }`.
   - `subagent-stop.mjs` (extends Task 8): for `guilda:reviewer`, `guilda:security`, `guilda:qa`, an invalid format →
-    `{ "decision": "block", "reason": "Fix the output format: <errors>" }` so the subagent rewrites its answer;
+    `{ "decision": "block", "reason": "Fix the output format: <errors>" }` so the subagent rewrites its answer
+    (as built: exit 2 with the errors on stderr, verified live);
     valid → the Task 8 behavior. Matcher becomes `^guilda:(reviewer|security|qa)$`.
 
 - [ ] **Step 1: Verify** in `code.claude.com/docs/en/hooks` and `/sub-agents`: the tool name of subagent dispatch

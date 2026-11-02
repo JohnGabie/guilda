@@ -136,5 +136,19 @@ Task 13: trigger eval of guilda:init rerun (sonnet, empty project, Skill call de
 Task 13: minor (deferred): currentBranch records `unknown` in a repository with no commits (rev-parse fails on an unborn HEAD; symbolic-ref works) and `HEAD` when detached.
 Task 13: minor (deferred): stop_hook_active is true on every retry, so a subagent gets one rewrite, not MAX_RETRIES (2), and the format-retries counter is a fallback that does not limit in practice; a second malformed answer passes and writes no violation.
 Task 13: for final review: design section 10 says the R3 law waits for guilda:lab, but plan Task 10 builds pre-agent as an R3 law and it denies live. Decide which text wins.
-Task 13: still not verified: real install; whether Stop accepts prompt or agent hook types (not used in Part 1).
-RESUME HERE: commit Task 13, then Task 13 review, then final whole-branch review (MERGE_BASE 3aa73a4).
+Task 13: complete (commit 7663e32). Combined Task 13 and final whole-branch review by one fresh subagent: claims match the evidence; verdict NOT READY (R19 bypasses).
+Final review: fix wave 1, in the main session (no superpowers, same ruling as Task 13). Tests first: 16 failed before the fix, 292 pass after.
+Ruling: replace the commit regex with scripts/lib/git-command.mjs, a small reader of shell commands — a regex cannot follow cd, quotes or several commits, and the old one had exponential backtracking (56 s) — cost if wrong: a form it does not read skips the scan (script file, shell function, git alias: known limit, R19 text rule and Version Control scan remain).
+Ruling: the scan reads both `git diff --cached` and `git diff HEAD` — HEAD alone misses a staged token after the working file is cleaned (bug from 738dea6) — cost if wrong: a token in an unrelated changed file blocks a commit (fail closed).
+Ruling: refuse `git add` or `git stage` before a commit in one command, with a reason and no violation record — the hook runs before the command, so it cannot see a new file — cost if wrong: agents use one extra command.
+Ruling: the scan starts at input.cwd, then applies cd and -C; the config and the log stay in the project dir — live: a worktree subagent has cwd = worktree, CLAUDE_PROJECT_DIR = main project — cost if wrong: none seen.
+Ruling: PreCompact blocks only when the trigger is exactly `manual` — a missing or unknown trigger must not stop an automatic compaction — cost if wrong: an unknown manual form does not block.
+Ruling: a Security consultation has its own output, first line `Mode: consultation`, and the stop hook skips it — it has no diff, so a verdict would be invented — cost if wrong: Security can skip the format check with that line; its Violations are then not recorded.
+Ruling: ARC3 Check is the Reviewer only — validateBrief checks that fields exist, not tool names — cost if wrong: none.
+Final review: live checks after the fix (Claude Code 2.1.316, repository with a commit): `git add new.txt && git commit` denied, nothing committed; staged token with a clean working file denied, R19 recorded; worktree subagent commit of a staged token denied, R19 recorded in the main project.
+Final review: real install verified from a local path with a throwaway CLAUDE_CONFIG_DIR: marketplace add and `install --scope local` succeed, `plugin list` shows it enabled. USER's settings have no guilda entry. Not verified: install from the GitHub marketplace name; a session started from that install.
+Final review: `subagent_type: "executor"` is refused by Claude Code ("Agent type 'executor' not found"), so the short name cannot skip pre-agent.
+Final review: fixed from the deferred lists: T6 missing trigger test; T7 git config parsing, `+++` content line, global options with a value, first commit only. All other deferred lines: LATER, per the review triage.
+Final review: not verified live: PreCompact exit 2 and the trigger field; R4 law; SubagentStart injection; a complete executor brief allowed; Security and QA stop paths; Windows. Hook tests cover all of these except Windows.
+Open for USER: design section 10 keeps R3 as a gate until guilda:lab, but pre-agent records `R3`, level law. The review recommends a new rule ARC6 for the brief check. Not changed.
+RESUME HERE: scoped re-review of fix wave 1, then USER decides R3 and the merge.

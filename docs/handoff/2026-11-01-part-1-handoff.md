@@ -1,5 +1,8 @@
 # Handoff — guilda Part 1 (2026-11-01)
 
+Status on 2026-11-02: Task 13 and the final review are done. Sections 2, 4 and 5 are older than that. Read the end of
+the ledger for the current state.
+
 Read this file first. The machine that ran this work is being formatted. The local scratch state in `.superpowers/`
 (git-ignored) is gone. Everything you need is in git: this file, the ledger copy, the design and the commits.
 
