@@ -25,7 +25,7 @@ Check: gate — The Reviewer rejects work that treats a `@proposed` or `@open` s
 ### ARC3 — Each scenario names its QA tool
 Rule:  Name, in each Acceptance scenario, the tool that QA uses to verify the scenario.
 Why:   QA marks a scenario without its tool `NOT VERIFIED`, so a missing tool name blocks the task late.
-Check: gate — The brief validator and the Reviewer reject an Acceptance scenario with no named tool.
+Check: gate — The Reviewer rejects an Acceptance scenario with no named tool.
 
 ### ARC4 — Dispatch with the tier model
 Rule:  Pass the Agent tool `model` parameter as `config.tiers[<tier>]` when you dispatch a role.

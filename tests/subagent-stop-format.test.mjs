@@ -45,6 +45,21 @@ test('valid reviewer answer -> exit 0, Task 8 records', () => {
   assert.deepEqual(records(dir).map((x) => [x.rule, x.source]), [['R7', 'guilda:reviewer']]);
 });
 
+test('security consultation answer -> exit 0, no verdict check, no record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const text = 'Mode: consultation\nRequirements:\n  1. Encrypt the token at rest. Violations: R7';
+  const r = stop(dir, 'guilda:security', text);
+  assert.equal(r.code, 0);
+  assert.equal(r.stderr, '');
+  assert.equal(records(dir).length, 0);
+});
+
+test('the consultation line applies to Security only and must be the first line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(stop(dir, 'guilda:reviewer', 'Mode: consultation').code, 2);
+  assert.equal(stop(dir, 'guilda:security', 'See below\nMode: consultation').code, 2);
+});
+
 test('qa report with NOT VERIFIED and no reason -> exit 2', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const r = stop(dir, 'guilda:qa', QA.replace(' Not verified because: mail tool is missing', ''));

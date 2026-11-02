@@ -32,6 +32,7 @@ Diff review (the controller dispatches you and the Reviewer in parallel, after t
 Consultation (the Architect asks during a spec or a brief):
 1. Read the spec or the brief draft and the risk area.
 2. Propose security requirements, each with its source. The Architect puts them in the Acceptance criteria.
+3. Use the consultation output format. Do not write a verdict, because there is no diff.
 
 QA starts only after the Reviewer and Security both approve.
 
@@ -78,4 +79,14 @@ Notes: <"not confirmed" items and risks outside the diff, or "none">
 Not verified: <what and why, or "none">
 User must decide: no | yes — <what>
 Violations: <comma-separated rule IDs | none>
+```
+
+Consultation output format. The first line must be `Mode: consultation`:
+
+```
+Mode: consultation
+Risk area: <from the Architect>
+Requirements:
+  1. <requirement> — <source with link>
+Not verified: <what and why, or "none">
 ```
