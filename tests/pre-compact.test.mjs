@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { tempProject, runHook, MINIMAL_CONFIG } from './helpers.mjs';
+import { spawnSync } from 'node:child_process';
+import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
 const SCRIPT = 'scripts/hooks/pre-compact.mjs';
 const run = (dir, trigger = 'manual') =>
@@ -73,6 +74,27 @@ test('auto + markers: exit 0 and no violation', () => {
   const r = run(dir, 'auto');
   assert.equal(r.code, 0);
   assert.equal(journalFiles(dir).length, 1);
+  assert.deepEqual(violations(dir), []);
+});
+
+test('missing or unknown trigger: exit 0 and no violation', () => {
+  for (const input of [{ cwd: 'x' }, { trigger: 'other' }, { trigger: 5 }]) {
+    const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+    const r = runHook(SCRIPT, { hook_event_name: 'PreCompact', ...input, cwd: dir }, dir);
+    assert.equal(r.code, 0);
+    assert.deepEqual(violations(dir), []);
+  }
+});
+
+test('invalid stdin with a config: exit 0 and no violation', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const r = spawnSync(process.execPath, [path.join(REPO_ROOT, SCRIPT)], {
+    input: '{ not json',
+    encoding: 'utf8',
+    cwd: dir,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+  });
+  assert.equal(r.status, 0);
   assert.deepEqual(violations(dir), []);
 });
 

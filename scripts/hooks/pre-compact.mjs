@@ -29,10 +29,11 @@ await runHookMain(async (input) => {
   const loaded = loadConfig(projectDir);
   if (!loaded || !loaded.ok) return 0;
 
-  const trigger = (input.trigger || input.compaction_type) === 'auto' ? 'auto' : 'manual';
-  const diary = freshDiary(projectDir) ?? createSkeleton(projectDir, `pre-compact-${trigger}`);
+  // Only a known manual compaction can block. A missing or unknown trigger must not stop an automatic compaction.
+  const manual = (input.trigger || input.compaction_type) === 'manual';
+  const diary = freshDiary(projectDir) ?? createSkeleton(projectDir, `pre-compact-${manual ? 'manual' : 'auto'}`);
   const unfilled = fs.readFileSync(diary, 'utf8').includes(MARKER);
-  if (!unfilled || trigger === 'auto') return 0;
+  if (!unfilled || !manual) return 0;
 
   appendViolation(projectDir, {
     rule: 'R18',
