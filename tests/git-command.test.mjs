@@ -190,13 +190,14 @@ test('a commit named in text that the reader cannot open is reported as mentione
   }
   assert.equal(findGitCommits('git status', CWD).mentioned, false);
   assert.equal(findGitCommits('git log; echo commit', CWD).mentioned, false);
+  for (const cmd of ['git log --grep commit', 'git add src/commit.mjs', 'git add .pre-commit-config.yaml', 'grep commit git.txt']) {
+    assert.equal(findGitCommits(cmd, CWD).mentioned, false, cmd);
+  }
 });
 
 test('a target that the reader cannot resolve is uncertain', () => {
   for (const cmd of [
-    'cd "$PWD" && git commit',
     'cd $(git rev-parse --show-toplevel) && git commit',
-    'git -C "$PWD" commit',
     'git --git-dir="$PWD/.git" commit',
     'cd /no/such/place; git commit',
     'popd; git commit',
@@ -235,4 +236,77 @@ test('an empty line inside a hunk is context', () => {
   const text = diff('@@ -1,3 +1,3 @@', '-a', '+b', '', ' c', '+++ b/z.txt', '@@ -0,0 +1 @@', '+tok');
   const parsed = parseAddedLines(text);
   assert.deepEqual(parsed.map((f) => f.file), ['f.txt', 'z.txt']);
+});
+
+test('a lone index change is not refused for a word in its text', () => {
+  for (const cmd of [
+    'git add .pre-commit-config.yaml',
+    'git add .husky/commit-msg',
+    'git add src/commit.mjs',
+    'git add a.txt # will commit next',
+    'git stash push -m "wip before commit"',
+    'git merge --no-commit feature',
+    'git merge --no-ff -m "merge commit" feature',
+    'git cherry-pick --no-commit abc123',
+    'git apply --check commit.patch',
+  ]) {
+    assert.equal(findGitCommits(cmd, CWD).addBeforeCommit, false, cmd);
+  }
+});
+
+test('an index change before a commit hidden in a quoted call is reported', () => {
+  assert.equal(findGitCommits('git add n && out="$(git commit -m x)"', CWD).addBeforeCommit, true);
+  assert.equal(findGitCommits("echo \"$(git -c user.name='a;b' commit -m y)\"", CWD).mentioned, true);
+});
+
+test('a wrapper before a nested shell does not hide its commands', () => {
+  for (const cmd of ["timeout 9 bash -c 'git add n && git commit -m y'", "env bash -c 'git add n && git commit'", "nohup sh -c 'git add n; git commit'"]) {
+    assert.equal(findGitCommits(cmd, CWD).addBeforeCommit, true, cmd);
+  }
+});
+
+test('index changes with a path are reported, and branch moves are not', () => {
+  for (const cmd of [
+    'git checkout side -- s.txt && git commit',
+    'git restore --source=side --staged -- s.txt && git commit',
+    'git reset side -- s.txt && git commit',
+    'git pull --no-commit . side && git commit',
+    'git revert -n x && git commit',
+  ]) {
+    assert.equal(findGitCommits(cmd, CWD).addBeforeCommit, true, cmd);
+  }
+  for (const cmd of ['git checkout -b x && git commit', 'git reset --soft HEAD~1 && git commit']) {
+    assert.equal(findGitCommits(cmd, CWD).addBeforeCommit, false, cmd);
+  }
+});
+
+test('the session directory forms of a target are not uncertain', () => {
+  for (const cmd of ['cd "$PWD" && git commit', 'git -C "$PWD" commit', 'cd "$(git rev-parse --show-toplevel)" && git commit', 'cd "$(pwd)" && git commit']) {
+    const r = findGitCommits(cmd, CWD);
+    assert.equal(r.uncertain, false, cmd);
+    assert.equal(r.commits[0].cwd, CWD, cmd);
+  }
+});
+
+test('builtin and command before cd move the directory', () => {
+  assert.equal(commits('builtin cd sub && git commit')[0].cwd, path.join(CWD, 'sub'));
+  assert.equal(commits('command cd sub && git commit')[0].cwd, path.join(CWD, 'sub'));
+});
+
+test('a GIT_ variable after env is forwarded, and a variable value is uncertain', () => {
+  assert.deepEqual(commits('env GIT_DIR=x git commit')[0].env, { GIT_DIR: 'x' });
+  const r = findGitCommits('GIT_DIR=$P/.git git commit', CWD);
+  assert.deepEqual(r.commits[0].env, {});
+  assert.equal(r.uncertain, true);
+});
+
+test('a redirect joined to the subcommand does not hide a commit', () => {
+  assert.equal(commits('git commit>/dev/null -m y').length, 1);
+  assert.equal(commits("git -c user.name='a;b' commit>/dev/null -m y").length, 1);
+});
+
+test('forms that look like a heredoc do not hide the rest of the command', () => {
+  assert.equal(findGitCommits('cat <<< "x"\ngit add n\ngit commit -m y', CWD).addBeforeCommit, true);
+  assert.equal(commits('echo $((1<<2))\ngit commit').length, 1);
+  assert.equal(commits('cat <<\\E >f\nbody\nE\ngit commit').length, 1);
 });

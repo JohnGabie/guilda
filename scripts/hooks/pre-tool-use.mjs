@@ -70,7 +70,7 @@ function commitAddedLines(call) {
 }
 
 /** The denial for one call, or null. `record` is true when the denial is a violation of R19. */
-function checkCommit(call, config) {
+function checkCommit(call, config, startCwd) {
   const read = commitAddedLines(call);
   if (!read) return null;
   if (read.failed) {
@@ -81,7 +81,10 @@ function checkCommit(call, config) {
     if (ignore.some((g) => globMatch(g, file))) continue;
     for (const { line, text } of lines) {
       const [hit] = scanText(text);
-      if (hit) return { record: true, reason: `R19: ${hit.kind} in ${file}:${line} — remove it before commit` };
+      if (hit) {
+        const where = call.cwd === startCwd ? '' : ` of ${call.cwd}`;
+        return { record: true, reason: `R19: ${hit.kind} in ${file}:${line}${where} — remove it before commit` };
+      }
     }
   }
   return null;
@@ -127,9 +130,10 @@ await runHookMain(async (input) => {
       return 0;
     }
     for (const target of scanTargets(found, startCwd, projectDir)) {
-      const denial = checkCommit(target, loaded.config);
+      const denial = checkCommit(target, loaded.config, startCwd);
       if (denial) {
-        if (denial.record) record('R19', 'git commit refused: staged secret or absolute path');
+        // A command that only names a commit is refused as a precaution, and it is not a violation.
+        if (denial.record && found.commits.length > 0) record('R19', 'git commit refused: staged secret or absolute path');
         deny(denial.reason);
         return 0;
       }

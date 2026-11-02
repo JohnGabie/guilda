@@ -413,3 +413,33 @@ test('a repository whose diff git cannot read: deny, no record', () => {
   assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19: the scan cannot read the diff/);
   assert.equal(violations(dir).length, 0);
 });
+
+test('a lone git add of a file named for commits: allow', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  assertAllow(bash(dir, 'git add .pre-commit-config.yaml'));
+});
+
+test('a text mention in another directory names that directory and records nothing', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const wt = tempProject({ git: true });
+  stage(dir, 'a.txt', GH);
+  const r = runHook(
+    SCRIPT,
+    { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'gh pr create --body "git commit done"' }, cwd: wt },
+    dir,
+  );
+  const reason = assertDeny(r);
+  assert.ok(reason.includes(dir), reason);
+  assert.equal(violations(dir).length, 0);
+});
+
+test('a worktree commit with the session directory form ignores a dirty main project', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const wt = tempProject({ git: true });
+  stage(dir, 'a.txt', GH);
+  stage(wt, 'b.txt', 'clean\n');
+  for (const command of ['cd "$(git rev-parse --show-toplevel)" && git commit -m y', 'git -C "$PWD" commit -m y']) {
+    const r = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: wt }, dir);
+    assertAllow(r);
+  }
+});

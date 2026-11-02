@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{']);
+const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', 'builtin', 'command']);
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const GIT_OPTIONS_WITH_VALUE = new Set([
   '-C',
@@ -31,7 +31,15 @@ const INDEX_CHANGERS = new Set([
   'merge',
   'am',
   'read-tree',
+  'restore',
+  'pull',
+  'revert',
+  'rebase',
 ]);
+// These change the index only with a path. `git checkout -b x` and `git reset --soft x` do not bring in new text.
+const INDEX_CHANGERS_WITH_PATH = new Set(['checkout', 'reset']);
+// These targets name the directory of the session, or its repository, which the caller always scans.
+const SESSION_TARGET = /^(?:\$PWD|\$\{PWD\}|\$\(pwd\)|\$\(git rev-parse --show-toplevel\))$/;
 const MAX_READ_LENGTH = 100000;
 const MAX_DEPTH = 8;
 
@@ -39,10 +47,10 @@ const MAX_DEPTH = 8;
 function readHeredoc(command, start) {
   const m = /^<<(-?)[ \t]*(?:'([^'\n]+)'|"([^"\n]+)"|([^\s;&|()<>'"]+))/.exec(command.slice(start, start + 300));
   if (!m) return null;
-  return { strip: m[1] === '-', delimiter: m[2] ?? m[3] ?? m[4], next: start + m[0].length };
+  return { strip: m[1] === '-', delimiter: (m[2] ?? m[3] ?? m[4]).replace(/\\/g, ''), next: start + m[0].length };
 }
 
-/** The index of the line after the heredoc body that starts at `start`, or the end of the command. */
+/** The index of the line after the heredoc body that starts at `start`, or -1 when the body has no end line. */
 function skipHeredocBody(command, start, { strip, delimiter }) {
   let i = start;
   while (i < command.length) {
@@ -52,7 +60,7 @@ function skipHeredocBody(command, start, { strip, delimiter }) {
     if ((strip ? line.replace(/^\t+/, '') : line) === delimiter) return end + 1;
     i = end + 1;
   }
-  return command.length;
+  return -1;
 }
 
 /** Split a command into simple commands. Each simple command is a list of words, without quotes. */
@@ -94,14 +102,16 @@ function splitCommands(command) {
     } else if (ch === '#' && !inWord) {
       while (i + 1 < command.length && command[i + 1] !== '\n') i += 1;
     } else if (ch === '<' && command[i + 1] === '<') {
-      const heredoc = command[i + 2] === '<' ? null : readHeredoc(command, i);
+      const hereString = command[i + 2] === '<';
+      const heredoc = hereString ? null : readHeredoc(command, i);
       if (heredoc) {
         endWord();
         heredocs.push(heredoc);
         i = heredoc.next - 1;
       } else {
-        word += ch;
+        word += hereString ? '<<<' : '<<';
         inWord = true;
+        i += hereString ? 2 : 1;
       }
     } else if (ch === '&' && (command[i - 1] === '>' || command[i + 1] === '>')) {
       word += ch;
@@ -109,9 +119,13 @@ function splitCommands(command) {
     } else if (ch === '\n' && heredocs.length > 0) {
       endCommand();
       let next = i + 1;
-      for (const heredoc of heredocs) next = skipHeredocBody(command, next, heredoc);
+      for (const heredoc of heredocs) {
+        // With no end line, this was not a heredoc (for example `$((1<<2))`). Read the next lines as commands.
+        const after = next < 0 ? -1 : skipHeredocBody(command, next, heredoc);
+        next = after;
+      }
       heredocs = [];
-      i = next - 1;
+      if (next >= 0) i = next - 1;
     } else if (';&|()\n`'.includes(ch)) {
       endCommand();
     } else if (/\s/.test(ch)) {
@@ -163,28 +177,51 @@ function readGitCall(words, startCwd) {
     const takesValue = GIT_OPTIONS_WITH_VALUE.has(name) && inline === undefined;
     const value = takesValue ? words[i + 1] : inline;
     if (value !== undefined && (name === '-C' || FORWARDED_OPTIONS.has(name))) {
-      if (isVariable(value)) uncertain = true;
+      if (name === '-C' && SESSION_TARGET.test(value)) cwd = startCwd;
+      else if (isVariable(value)) uncertain = true;
       else if (name === '-C') cwd = resolveDir(cwd, value);
       else gitArgs.push(`${name}=${value}`);
     }
     i += takesValue ? 2 : 1;
   }
-  return { subcommand: words[i], cwd, gitArgs, uncertain };
+  // A redirect can touch the word: `git commit>/dev/null`.
+  const subcommand = words[i] === undefined ? undefined : words[i].replace(/[<>].*$/s, '');
+  return { subcommand, args: words.slice(i + 1), cwd, gitArgs, uncertain };
 }
 
-/** True when a part of the raw text has the word `git` and, after it, the word `commit`. Linear in the text. */
+const GIT_WORD = /(?:^|[^\w.-])git(?:\.exe)?["'`]?$/;
+const COMMIT_WORD = /^["'`]?commit(?![\w.-])/;
+
+/**
+ * True when the raw text has a git word, its options, then the word `commit`, also inside quotes. It does not read
+ * shell syntax, so a separator in an option value cannot hide the commit. One walk over the words: linear.
+ */
 function mentionsCommit(command) {
-  return command.split(/[\n;|&]/).some((part) => {
-    const at = part.indexOf('commit') < 0 ? -1 : part.search(/\bgit\b/);
-    return at >= 0 && /\bcommit\b/.test(part.slice(at));
-  });
+  const words = command.split(/\s+/);
+  for (let i = 0; i < words.length; i += 1) {
+    if (!GIT_WORD.test(words[i])) continue;
+    let j = i + 1;
+    while (j < words.length && words[j].startsWith('-')) {
+      const name = words[j].split('=', 1)[0];
+      j += GIT_OPTIONS_WITH_VALUE.has(name) && !words[j].includes('=') ? 2 : 1;
+    }
+    if (j < words.length && COMMIT_WORD.test(words[j])) return true;
+    i = Math.max(i, j - 1);
+  }
+  return false;
+}
+
+/** True when this git call can change the index with text that the scan cannot see yet. */
+function changesIndex(call) {
+  if (INDEX_CHANGERS.has(call.subcommand)) return true;
+  return INDEX_CHANGERS_WITH_PATH.has(call.subcommand) && call.args.includes('--');
 }
 
 /**
  * Find the `git commit` calls in a shell command. Returns:
  * - commits: [{ cwd, gitArgs, env }];
  * - addBeforeCommit, indexChange: a command that changes the index comes before a commit, and its name;
- * - mentioned: the raw text names a commit, also inside quotes or a heredoc that this reader does not open;
+ * - mentioned: the raw text has a git commit call, also inside quotes or a heredoc that this reader does not open;
  * - uncertain: a directory move in the command cannot be resolved here.
  */
 export function findGitCommits(command, startCwd) {
@@ -211,7 +248,8 @@ export function findGitCommits(command, startCwd) {
       if (name === 'cd' || name === 'pushd') {
         const target = rest.slice(1).find((w) => !w.startsWith('-'));
         if (target === undefined) continue;
-        if (isVariable(target)) result.uncertain = true;
+        if (SESSION_TARGET.test(target)) cwd = startCwd;
+        else if (isVariable(target)) result.uncertain = true;
         else {
           cwd = resolveDir(cwd, target);
           if (!fs.existsSync(cwd)) result.uncertain = true;
@@ -230,22 +268,29 @@ export function findGitCommits(command, startCwd) {
         visit(rest.slice(1).join(' '), depth + 1);
         continue;
       }
-      if (SHELLS.has(name)) {
-        const flag = rest.findIndex((w, i) => i > 0 && /^-[a-z]*c$/.test(w));
-        if (flag > 0 && rest[flag + 1]) visit(rest[flag + 1], depth + 1);
-        continue;
+      // A wrapper can come before a shell or git (timeout, xargs, sudo -u me). A wrong match only causes a scan.
+      const baseNames = rest.map((w) => path.basename(w));
+      const shellAt = baseNames.findIndex((base) => SHELLS.has(base));
+      if (shellAt >= 0) {
+        const flag = rest.findIndex((w, i) => i > shellAt && /^-[a-z]*c$/.test(w));
+        if (flag > 0 && rest[flag + 1]) {
+          visit(rest[flag + 1], depth + 1);
+          continue;
+        }
       }
-      // Any wrapper can come before git (timeout, xargs, sudo -u me). A wrong match only causes a scan.
-      const gitAt = rest.findIndex((w) => {
-        const base = path.basename(w);
-        return base === 'git' || base === 'git.exe';
-      });
+      const gitAt = baseNames.findIndex((base) => base === 'git' || base === 'git.exe');
       if (gitAt < 0) continue;
+      const wrapperEnv = stripPrefix(rest.slice(1, gitAt).filter((w) => w.includes('='))).env;
+      const callEnv = {};
+      for (const [key, value] of Object.entries({ ...sessionEnv, ...env, ...wrapperEnv })) {
+        if (isVariable(value)) result.uncertain = true;
+        else callEnv[key] = value;
+      }
       const call = readGitCall(rest.slice(gitAt), cwd);
       if (call.uncertain) result.uncertain = true;
-      if (INDEX_CHANGERS.has(call.subcommand)) seenChange = seenChange ?? call.subcommand;
+      if (changesIndex(call)) seenChange = seenChange ?? call.subcommand;
       if (call.subcommand === 'commit') {
-        result.commits.push({ cwd: call.cwd, gitArgs: call.gitArgs, env: { ...sessionEnv, ...env } });
+        result.commits.push({ cwd: call.cwd, gitArgs: call.gitArgs, env: callEnv });
         if (seenChange) result.indexChange = seenChange;
       }
     }
