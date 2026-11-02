@@ -156,3 +156,11 @@ test('an existing .gitignore with only violations.jsonl gets the new line append
   sendBack(dir, 'a1');
   assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\nformat-retries.json\n');
 });
+
+test('a consultation line with a verdict in the answer is still checked', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(stop(dir, 'guilda:security', 'Mode: consultation\nResult: maybe\nViolations: R7').code, 2);
+  const valid = stop(dir, 'guilda:security', 'Mode: consultation\nResult: REJECTED\nViolations: R7');
+  assert.equal(valid.code, 0);
+  assert.deepEqual(records(dir).map((x) => x.rule), ['R7']);
+});

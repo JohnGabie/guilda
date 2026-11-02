@@ -52,7 +52,8 @@ await runHookMain(async (input) => {
   if (typeof text !== 'string' || text.trim() === '') return 0;
 
   // A Security consultation answers a spec question. It has no diff, so it has no verdict and no violations.
-  if (agent === 'guilda:security' && /^\s*Mode: consultation\s*$/m.test(text.split('\n', 1)[0])) return 0;
+  const consultation = /^\s*Mode: consultation\s*$/.test(text.split('\n', 1)[0]);
+  if (agent === 'guilda:security' && consultation && !/^[ \t]*(Result|Violations):/m.test(text)) return 0;
 
   // Exit code 2 keeps the subagent running, and stderr goes back to it (Claude Code hooks docs).
   const errors = isVerdict
