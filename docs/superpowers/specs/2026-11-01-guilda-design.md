@@ -971,7 +971,7 @@ only; plugin agents are namespaced `guilda:<name>`.
 - [ ] **Step 2: Write the failing tests:** `complete brief → []`; `brief without Risk area → ["Risk area"]`; `brief
   with tier "opus" → error`; `reviewer verdict with REJECTED-SMALL and Violations → []`; `security verdict with
   REJECTED-SMALL → error`; `QA report with NOT VERIFIED and no reason → error`; hook: `no config → allow`;
-  `executor dispatch with incomplete brief → deny + R3 record`; `dispatch of another agent type → allow`;
+  `executor dispatch with incomplete brief → deny + R3 record` (as built: ARC6); `dispatch of another agent type → allow`;
   `reviewer answer without Violations line → block`; `valid reviewer answer → no block, Task 8 records`.
 - [ ] **Step 3:** Run `npm test` → FAIL.
 - [ ] **Step 4:** Implement.

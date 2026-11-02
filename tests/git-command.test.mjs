@@ -288,6 +288,12 @@ test('the session directory forms of a target are not uncertain', () => {
   }
 });
 
+test('a session directory form after a cd keeps the directory of that cd', () => {
+  for (const cmd of ['cd sub && cd "$PWD" && git commit', 'cd sub && cd "$(git rev-parse --show-toplevel)" && git commit', 'cd sub && git -C "$PWD" commit']) {
+    assert.equal(commits(cmd)[0].cwd, path.join(CWD, 'sub'), cmd);
+  }
+});
+
 test('builtin and command before cd move the directory', () => {
   assert.equal(commits('builtin cd sub && git commit')[0].cwd, path.join(CWD, 'sub'));
   assert.equal(commits('command cd sub && git commit')[0].cwd, path.join(CWD, 'sub'));

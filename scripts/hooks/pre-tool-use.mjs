@@ -35,13 +35,19 @@ const DIFF_ARGS = [
 ];
 
 function git(args, { cwd, gitArgs = [], env = {} }) {
-  return spawnSync('git', [...gitArgs, ...args], {
-    cwd,
-    env: { ...process.env, ...env },
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
+  // spawnSync throws on a NUL byte in an argument or in cwd. Treat that as a failed call; the session directory is
+  // always a target too, so the scan does not stop there.
+  try {
+    return spawnSync('git', [...gitArgs, ...args], {
+      cwd,
+      env: { ...process.env, ...env },
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch (error) {
+    return { error, status: null, stdout: '' };
+  }
 }
 
 /**

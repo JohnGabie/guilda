@@ -443,3 +443,26 @@ test('a worktree commit with the session directory form ignores a dirty main pro
     assertAllow(r);
   }
 });
+
+test('a session directory form after a cd to another repository scans that repository', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const other = tempProject({ git: true });
+  stage(other, 'k.txt', GH);
+  for (const command of [
+    `cd "${other}" && cd "$(git rev-parse --show-toplevel)" && git commit -m x`,
+    `cd "${other}" && cd "$PWD" && git commit -m x`,
+  ]) {
+    const r = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir }, dir);
+    assertDeny(r);
+  }
+});
+
+test('a NUL byte in a target does not throw, and the session directory is still scanned', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'k.txt', GH);
+  for (const command of ['cd \u0000 && git commit -m x', 'GIT_DIR=\u0000 git commit -m x']) {
+    const r = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir }, dir);
+    assertDeny(r);
+    assert.doesNotMatch(r.stderr, /options\.cwd|null bytes/, command);
+  }
+});

@@ -167,8 +167,8 @@ function resolveDir(cwd, dir) {
 }
 
 /** Read the global options of a git call. `words[0]` is the git word. */
-function readGitCall(words, startCwd) {
-  let cwd = startCwd;
+function readGitCall(words, currentCwd) {
+  let cwd = currentCwd;
   let uncertain = false;
   const gitArgs = [];
   let i = 1;
@@ -177,7 +177,7 @@ function readGitCall(words, startCwd) {
     const takesValue = GIT_OPTIONS_WITH_VALUE.has(name) && inline === undefined;
     const value = takesValue ? words[i + 1] : inline;
     if (value !== undefined && (name === '-C' || FORWARDED_OPTIONS.has(name))) {
-      if (name === '-C' && SESSION_TARGET.test(value)) cwd = startCwd;
+      if (name === '-C' && SESSION_TARGET.test(value)) cwd = currentCwd;
       else if (isVariable(value)) uncertain = true;
       else if (name === '-C') cwd = resolveDir(cwd, value);
       else gitArgs.push(`${name}=${value}`);
@@ -248,8 +248,10 @@ export function findGitCommits(command, startCwd) {
       if (name === 'cd' || name === 'pushd') {
         const target = rest.slice(1).find((w) => !w.startsWith('-'));
         if (target === undefined) continue;
-        if (SESSION_TARGET.test(target)) cwd = startCwd;
-        else if (isVariable(target)) result.uncertain = true;
+        // `$PWD` and the top level are the directory of the shell at this point, not the session directory.
+        // The diff is read for the whole repository, so the directory itself is the correct target.
+        if (SESSION_TARGET.test(target)) continue;
+        if (isVariable(target)) result.uncertain = true;
         else {
           cwd = resolveDir(cwd, target);
           if (!fs.existsSync(cwd)) result.uncertain = true;
