@@ -5,6 +5,7 @@ import { loadConfig } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
+import { findGitCommits, parseAddedLines } from '../lib/git-command.mjs';
 
 const PLANS_DIR = ['docs', 'superpowers', 'plans'];
 
@@ -20,60 +21,48 @@ function deny(reason) {
   );
 }
 
-const QUOTED_OR_WORD = `(?:"[^"]*"|'[^']*'|\\S+)`;
-const GIT_OPT = `(?:-C\\s+${QUOTED_OR_WORD}|-c\\s+${QUOTED_OR_WORD}|--[\\w-]+(?:=\\S+)?|-\\S+)`;
-const GIT_COMMIT = new RegExp(`\\bgit\\b((?:\\s+${GIT_OPT})*)\\s+commit\\b`);
+// These options stop git config from changing the text or the file names of the diff.
+const DIFF_ARGS = [
+  '-U0',
+  '--no-color',
+  '--no-ext-diff',
+  '--no-textconv',
+  '--no-relative',
+  '--src-prefix=a/',
+  '--dst-prefix=b/',
+];
 
-function git(args, cwd) {
-  return spawnSync('git', args, {
+function git(args, { cwd, gitArgs = [], env = {} }) {
+  return spawnSync('git', [...gitArgs, ...args], {
     cwd,
+    env: { ...process.env, ...env },
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 }
 
-/** The directory git runs in: the project dir moved by each `-C <dir>` option, in order. */
-function gitCwd(projectDir, options) {
-  let cwd = projectDir;
-  for (const m of options.matchAll(new RegExp(`-C\\s+(${QUOTED_OR_WORD})`, 'g'))) {
-    cwd = path.resolve(cwd, m[1].replace(/^["']|["']$/g, ''));
-  }
-  return cwd;
-}
-
 /**
- * Added lines of everything a commit can take: the index plus tracked working-tree changes
- * (git diff HEAD), or the index alone when no commit exists yet. Null on any git error.
+ * Added lines of everything a commit can take. The index and the working tree can differ, so read both: the index
+ * (--cached) and the tracked working-tree changes (HEAD, or the index when no commit exists yet).
+ * Null when git fails on both reads.
  */
-function stagedAddedLines(cwd) {
-  const hasHead = git(['rev-parse', '--verify', '--quiet', 'HEAD'], cwd).status === 0;
-  const base = ['-c', 'core.quotepath=false', 'diff'];
-  const r = git(
-    hasHead ? [...base, 'HEAD', '-U0', '--no-color'] : [...base, '--cached', '-U0', '--no-color'],
-    cwd,
-  );
-  if (r.error || r.status !== 0) return null;
+function commitAddedLines(call) {
+  const hasHead = git(['rev-parse', '--verify', '--quiet', 'HEAD'], call).status === 0;
+  const base = ['-c', 'core.quotepath=false', 'diff', ...DIFF_ARGS];
   const files = [];
-  let current = null;
-  let lineNo = 0;
-  for (const raw of (r.stdout || '').split('\n')) {
-    if (raw.startsWith('+++ ')) {
-      const name = raw.slice(4).replace(/\t.*$/, '');
-      current = name === '/dev/null' ? null : { file: name.replace(/^b\//, ''), lines: [] };
-      if (current) files.push(current);
-    } else if (raw.startsWith('@@')) {
-      const m = /\+(\d+)/.exec(raw);
-      lineNo = m ? Number(m[1]) : 0;
-    } else if (current && raw.startsWith('+')) {
-      current.lines.push({ line: lineNo++, text: raw.slice(1) });
-    }
+  let readOne = false;
+  for (const extra of [['--cached'], hasHead ? ['HEAD'] : []]) {
+    const r = git([...base, ...extra], call);
+    if (r.error || r.status !== 0) continue;
+    readOne = true;
+    files.push(...parseAddedLines(r.stdout || ''));
   }
-  return files;
+  return readOne ? files : null;
 }
 
-function checkCommit(cwd, config) {
-  const files = stagedAddedLines(cwd);
+function checkCommit(call, config) {
+  const files = commitAddedLines(call);
   if (!files) return null;
   const ignore = (config.scan && config.scan.ignore) || [];
   for (const { file, lines } of files) {
@@ -104,12 +93,20 @@ await runHookMain(async (input) => {
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
-    const match = GIT_COMMIT.exec(command);
-    if (!match) return 0;
-    const reason = checkCommit(gitCwd(projectDir, match[1]), loaded.config);
-    if (reason) {
-      record('R19', 'git commit refused: staged secret or absolute path');
-      deny(reason);
+    const { commits, addBeforeCommit } = findGitCommits(command, input.cwd || projectDir);
+    if (commits.length === 0) return 0;
+    // The hook runs before the command, so the scan cannot see what this `git add` will stage.
+    if (addBeforeCommit) {
+      deny('R19: run git add in its own command, then git commit, so that the scan can read the staged lines');
+      return 0;
+    }
+    for (const call of commits) {
+      const reason = checkCommit(call, loaded.config);
+      if (reason) {
+        record('R19', 'git commit refused: staged secret or absolute path');
+        deny(reason);
+        return 0;
+      }
     }
     return 0;
   }

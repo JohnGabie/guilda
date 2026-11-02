@@ -75,7 +75,128 @@ test('git commit with a staged fake ghp_ token: deny, one R19 record, reason hol
 test('a commit chained after other commands is scanned', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
   stage(dir, 'a.txt', GH);
-  assertDeny(bash(dir, 'git add -A && git commit -m x'));
+  assertDeny(bash(dir, 'git status && git commit -m x'));
+});
+
+test('git add chained before a commit: deny with a reason, no R19 record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  fs.writeFileSync(path.join(dir, 'new.txt'), GH);
+  for (const cmd of ['git add new.txt && git commit -m x', 'git add -A; git commit -m x']) {
+    assert.match(assertDeny(bash(dir, cmd)), /^R19: run git add in its own command/);
+  }
+  assert.equal(violations(dir).length, 0);
+});
+
+test('a staged token passes no scan after the working file is cleaned', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, 'a.txt', 'clean\n');
+  fs.writeFileSync(path.join(dir, 'a.txt'), `${GH}\n`);
+  spawnSync('git', ['add', 'a.txt'], { cwd: dir });
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'clean\n');
+  assertDeny(bash(dir, 'git commit -m x'));
+});
+
+test('a new staged file that is gone from the working tree: deny', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, 'a.txt', 'clean\n');
+  stage(dir, 'b.txt', GH);
+  fs.rmSync(path.join(dir, 'b.txt'));
+  assertDeny(bash(dir, 'git commit -m x'));
+});
+
+test('no commits yet and an unstaged tracked token: deny', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', 'clean\n');
+  fs.writeFileSync(path.join(dir, 'a.txt'), GH);
+  assertDeny(bash(dir, 'git commit -am x'));
+});
+
+test('cd before a commit scans that directory', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const wt = path.join(dir, 'wt dir');
+  fs.mkdirSync(wt);
+  spawnSync('git', ['init'], { cwd: wt, stdio: 'ignore' });
+  stage(wt, 'a.txt', GH);
+  assertDeny(bash(dir, 'cd "wt dir" && git commit -m x'));
+});
+
+test('the session cwd is the start of the scan, the config stays in the project', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const wt = path.join(dir, 'wt');
+  fs.mkdirSync(wt);
+  spawnSync('git', ['init'], { cwd: wt, stdio: 'ignore' });
+  stage(wt, 'a.txt', GH);
+  const r = runHook(
+    SCRIPT,
+    { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m x' }, cwd: wt },
+    dir,
+  );
+  assertDeny(r);
+  assert.equal(violations(dir).length, 1);
+});
+
+test('the second commit of a chain is scanned', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(path.join(dir, 'clean'));
+  fs.mkdirSync(path.join(dir, 'dirty'));
+  spawnSync('git', ['init'], { cwd: path.join(dir, 'clean'), stdio: 'ignore' });
+  spawnSync('git', ['init'], { cwd: path.join(dir, 'dirty'), stdio: 'ignore' });
+  stage(path.join(dir, 'dirty'), 'a.txt', GH);
+  assertDeny(bash(dir, 'git -C clean commit -m a && git -C dirty commit -m b'));
+});
+
+test('an added line that looks like a file header does not hide the next line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', `++ /dev/null\n${GH}\n`);
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /a\.txt:2/);
+});
+
+test('an added line that names an ignored path does not move later lines there', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, scan: { ignore: ['tests/**'] } }, git: true });
+  stage(dir, 'a.txt', `++ b/tests/x\n${GH}\n`);
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /a\.txt:2/);
+});
+
+test('git config cannot change what the scan reads', () => {
+  for (const [key, value] of [
+    ['diff.external', 'true'],
+    ['diff.noprefix', 'true'],
+    ['diff.relative', 'true'],
+    ['color.ui', 'always'],
+  ]) {
+    const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+    spawnSync('git', ['config', key, value], { cwd: dir });
+    stage(dir, 'a.txt', GH);
+    assert.match(assertDeny(bash(dir, 'git commit -m x')), /in a\.txt:1/, key);
+  }
+});
+
+test('a textconv filter cannot hide a token', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  spawnSync('git', ['config', 'diff.hide.textconv', 'true'], { cwd: dir });
+  fs.writeFileSync(path.join(dir, '.gitattributes'), '*.txt diff=hide\n');
+  stage(dir, 'a.txt', GH);
+  assertDeny(bash(dir, 'git commit -m x'));
+});
+
+test('diff.mnemonicPrefix does not break an ignored path', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, scan: { ignore: ['tests/**'] } }, git: true });
+  spawnSync('git', ['config', 'diff.mnemonicPrefix', 'true'], { cwd: dir });
+  seed(dir, 'a.txt', 'clean\n');
+  stage(dir, 'tests/f.txt', GH);
+  assertAllow(bash(dir, 'git commit -m x'));
+});
+
+test('a commit message that holds shell words: allow', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', 'clean\n');
+  assertAllow(bash(dir, 'git commit -m "git add x && git commit y"'));
+});
+
+test('echo of a commit command: allow', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  stage(dir, 'a.txt', GH);
+  assertAllow(bash(dir, 'echo "git commit -m x"'));
 });
 
 test('ignored path: allow', () => {

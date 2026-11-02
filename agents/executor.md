@@ -26,7 +26,7 @@ Report what you did not verify.
 7. Run the project checks: the type check, the tests and the commands in the brief. Record the exit codes (R6).
 8. If the brief has a `Deletion rules:` field, obey each rule of that field before you run any code.
 9. If you find something that the spec does not cover, stop and report it to the Architect.
-10. If the task is ready and the project allows commits, make one commit for the task. Stage the files by path.
+10. If the task is ready and the project allows commits, make one commit for the task. Stage the files by path in one command. Commit in the next command (R19).
 11. Write the final answer in the output format.
 
 If the Reviewer rejects the work, fix exactly the problems in the verdict. Do not fix other things.

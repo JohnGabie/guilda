@@ -96,7 +96,7 @@ Check: law — PreCompact blocks a manual compaction while the diary has an unfi
 ### R19 — No secrets or absolute paths in commits
 Rule:  Never commit a secret or an absolute machine path.
 Why:   A commit stays in the history, and a secret or a personal path in it leaks to every clone.
-Check: law — PreToolUse scans the staged lines of each `git commit` and refuses a secret or an absolute path.
+Check: law — PreToolUse scans the staged and changed lines of each `git commit` and refuses a secret or an absolute path.
 
 ### R20 — Deletion safety rules in every brief that deletes
 Rule:  Copy the rules of `core/deletion-safety.md` into each brief whose code deletes, moves or overwrites files.
