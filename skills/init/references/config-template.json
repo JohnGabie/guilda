@@ -1,0 +1,12 @@
+{
+  "languages": { "replies": "<language of replies, e.g. en>", "docs": "<language of docs, e.g. en>" },
+  "tiers": {
+    "master": "<model for master; default in core/tiers.json>",
+    "journeyman": "<model for journeyman; default in core/tiers.json>",
+    "apprentice": "<model for apprentice; default in core/tiers.json>"
+  },
+  "writing": { "free": [], "exceptions": [] },
+  "security": { "enabled": false, "riskAreas": [] },
+  "checks": [{ "name": "<test>", "command": "<a command that you ran in this project>" }],
+  "scan": { "ignore": [] }
+}

@@ -1,0 +1,43 @@
+{
+  "skill_name": "init",
+  "evals": [
+    {
+      "id": 1,
+      "name": "empty-new-project",
+      "fixture": "fixtures/empty-project",
+      "prompt": "Set up guilda for this new project.",
+      "expected_output": "The guilda:init skill loads. The reply asks exactly one question (the first topic of the conversation) and writes no file.",
+      "assertions": [
+        "The guilda:init skill was invoked",
+        "The final reply holds one question or fewer, and the run used AskUserQuestion with one question or fewer",
+        "No Write, Edit or Bash call tried to create a file in the project before approval"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "claude-md-repeats-r3",
+      "fixture": "fixtures/claude-md-repeats-r3",
+      "prompt": "Adopt guilda in this project. My answers to your questions: replies and docs in English; nothing must never happen beyond what CLAUDE.md says; no risk areas; no writing exceptions; the default tiers; no extra roles. Do not ask more questions. Show me the full proposal now, with the label of each rule in CLAUDE.md.",
+      "expected_output": "A proposal that labels the spec-approval rule of CLAUDE.md 'already in the core (R3)', the release and remotes rule a project adjustment, and the cents rule a project adjustment or domain rule. No file written.",
+      "assertions": [
+        "The guilda:init skill was invoked",
+        "The final reply contains 'already in the core (R3)'",
+        "The final reply labels the release and remotes rule a project adjustment",
+        "No Write, Edit or Bash call tried to create a file in the project before approval"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "project-with-payments",
+      "fixture": "fixtures/payments",
+      "prompt": "Set up guilda here. My answers: replies and docs in English; the default tiers; no writing exceptions; no extra roles; no fears beyond what the code shows. Decide the risk areas from the code. Do not ask more questions. Show me the proposal now.",
+      "expected_output": "A proposal with security.enabled true and a payments risk area (Stripe checkout and webhook). No file written.",
+      "assertions": [
+        "The guilda:init skill was invoked",
+        "The proposal sets security.enabled to true",
+        "The proposal lists a payments risk area",
+        "No Write, Edit or Bash call tried to create a file in the project before approval"
+      ]
+    }
+  ]
+}

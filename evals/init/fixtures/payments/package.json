@@ -1,0 +1,7 @@
+{
+  "name": "pet-store",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test", "start": "node src/server.js" },
+  "dependencies": { "express": "^5.1.0", "stripe": "^19.0.0" }
+}
