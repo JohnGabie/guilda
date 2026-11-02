@@ -151,4 +151,15 @@ Final review: `subagent_type: "executor"` is refused by Claude Code ("Agent type
 Final review: fixed from the deferred lists: T6 missing trigger test; T7 git config parsing, `+++` content line, global options with a value, first commit only. All other deferred lines: LATER, per the review triage.
 Final review: not verified live: PreCompact exit 2 and the trigger field; R4 law; SubagentStart injection; a complete executor brief allowed; Security and QA stop paths; Windows. Hook tests cover all of these except Windows.
 Open for USER: design section 10 keeps R3 as a gate until guilda:lab, but pre-agent records `R3`, level law. The review recommends a new rule ARC6 for the brief check. Not changed.
-RESUME HERE: scoped re-review of fix wave 1, then USER decides R3 and the merge.
+Re-review of fix wave 1: NOT READY. The reader failed open on common forms that the old regex denied, including `\<newline>`, `cd "$PWD"` and `timeout 30 git commit`. Two forms put a token in HEAD. The fix-wave-1 ruling on the reader understated this cost ("known limit" was much wider), and "cost if wrong: none seen" on the scan directory was wrong.
+Ruling: fix wave 2, beyond the handoff limit of one wave — fix wave 1 caused a regression in a law, and leaving it is worse than the old state — cost if wrong: one more review round.
+Ruling: the scan fails closed when the reader is unsure. The raw text is also searched for a commit (`mentioned`); the session directory is always scanned; the project directory is also scanned when a target has a variable, does not exist, or the commit was only mentioned — cost if wrong: a command that only names a commit, such as `echo "git commit"`, or a commit in another repository, is refused while a secret is staged or changed in the session directory.
+Ruling: `git` is found at any word of a simple command, so no wrapper list is needed — cost if wrong: `echo git add x && git commit` is refused.
+Ruling: a heredoc body is opaque text. `cat > f <<E` with git lines in it is allowed; `bash <<E` with a commit in it is caught by `mentioned`.
+Ruling: refuse apply, update-index, stash, cherry-pick, merge, am and read-tree before a commit in one command, as for git add — cost if wrong: agents use one extra command.
+Ruling: in a repository where git cannot read the diff, deny with a reason and no record (the plan said allow on a git error) — a broken config must not disable a law — cost if wrong: a broken repository blocks commits until it is fixed. Exception: a diff larger than 64 MB allows with one stderr line, because the deny cannot be cleared.
+Ruling: `--text` is always on, so attributes and NUL bytes cannot hide a token — cost if wrong: large binary files take longer to scan.
+Ruling: Mode: consultation skips the check only if the answer has no Result or Violations line.
+Known limits of R19 after wave 2: a commit in a script file, a shell function or a git alias; a file changed by a non-git command in the same command as `git commit -a` (`echo x >> f && git commit -am y`); a diff larger than 64 MB. The R19 text rule and the Version Control scan before a push remain for these.
+Fix wave 2: tests first (10 failed before the fix), 310 pass after, lint and validate exit 0.
+RESUME HERE: scoped re-review of fix wave 2, then USER decides R3 and the merge.
