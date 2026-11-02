@@ -118,4 +118,23 @@ Ruling: Task 13 smoke uses `claude --plugin-dir <repo>` (loads the plugin for on
 Ruling: Task 13 also verifies live, if feasible: PreToolUse Agent tool_input field name for the brief; SubagentStop exit 2 behavior — record results; unverifiable → "not verified".
 Task 13: dispatched (BASE f9c35dc, implementer sonnet)
 Task 13: INTERRUPTED (USER restarts the PC). Implementer stopped after step 1 (checks green) and the dogfood config. Controller committed .guilda/{config.json,rules.md,.gitignore} as a23c876 (wip), npm test 254 pass, lint P exit 0, config-check ok. Branch pushed to origin/feat/part-1 at USER's request.
-RESUME HERE: re-dispatch Task 13 from step 2 (smoke via --plugin-dir in a temp project; live checks of Agent tool_input field and SubagentStop exit 2), BASE a23c876. Then Task 13 review, then final whole-branch review (MERGE_BASE 3aa73a4).
+Task 13: resumed 2026-11-02 on the reformatted machine (Claude Code 2.1.316). The local checkout was a stale backup at 0d51137; fast-forwarded to 530f8e2.
+Ruling: run Task 13 step 2 onward in the main session, no subagents — superpowers is not installed, so sdd-workspace and task-brief are not available, and the task is verification with small doc edits — cost if wrong: no separate implementer; the fresh reviewer stays as the check.
+Task 13: observation 0012 no longer applies: ~/.claude/CLAUDE.md does not exist, so `claude -p` has no task-observer start-up. A run takes about 4 s.
+Task 13: smoke results (temp project with a space in its path, --plugin-dir, config from config-write):
+- Step 1: npm test 254 pass, lint-rules exit 0, validate --strict passed.
+- Step 2: NOT VERIFIED. marketplace add and install not run (they write USER's settings). --plugin-dir load is verified: 5 agents and 3 skills listed in the init event.
+- Step 3, no config: reply `NONE`, no .guilda folder created.
+- Step 4, with config: reply `guilda 0.1.0 active`.
+- Step 5, fake ghp_ token staged: commit denied with `R19: secret in secret.txt:1`, no commit made, one R19 line in violations.jsonl.
+- Step 5b, 31-word sentence in docs/note.md: Claude received `R15: fix these lines: docs/note.md:1 long-sentence 31 words, limit 25`, one R15 line in violations.jsonl.
+Task 13: live checks:
+- Agent PreToolUse: the brief is in `tool_input.prompt`. Raw payload: {"description","prompt","subagent_type"}. An incomplete executor brief was denied with R3, one R3 line in violations.jsonl.
+- SubagentStop exit 2: the subagent keeps running and rewrites. guilda:reviewer answered `hello`, then a valid verdict with `Violations: R6`, and one R6 line was recorded.
+- stop_hook_active on SubagentStop: exists. false on the first stop, true on the stop after exit 2. Payload also has agent_id, agent_type, last_assistant_message.
+Task 13: trigger eval of guilda:init rerun (sonnet, empty project, Skill call detected from the stream): 12/12 (6 should fire, 6 should not).
+Task 13: minor (deferred): currentBranch records `unknown` in a repository with no commits (rev-parse fails on an unborn HEAD; symbolic-ref works) and `HEAD` when detached.
+Task 13: minor (deferred): stop_hook_active is true on every retry, so a subagent gets one rewrite, not MAX_RETRIES (2), and the format-retries counter is a fallback that does not limit in practice; a second malformed answer passes and writes no violation.
+Task 13: for final review: design section 10 says the R3 law waits for guilda:lab, but plan Task 10 builds pre-agent as an R3 law and it denies live. Decide which text wins.
+Task 13: still not verified: real install; whether Stop accepts prompt or agent hook types (not used in Part 1).
+RESUME HERE: commit Task 13, then Task 13 review, then final whole-branch review (MERGE_BASE 3aa73a4).

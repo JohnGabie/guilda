@@ -12,7 +12,8 @@ await runHookMain(async (input) => {
   const toolInput = input.tool_input ?? {};
   if (toolInput.subagent_type !== 'guilda:executor') return 0;
 
-  // The docs do not state the prompt field name, so fail open when it is absent.
+  // A live check on Claude Code 2.1.316 found the brief in tool_input.prompt. The docs do not state this field, so
+  // fail open when it is absent.
   if (typeof toolInput.prompt !== 'string') {
     process.stderr.write('guilda: brief check skipped: tool_input.prompt not found\n');
     return 0;
