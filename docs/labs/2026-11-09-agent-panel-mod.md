@@ -165,6 +165,25 @@ Run 1: FAIL (see Run 1). Retest pending. Test `M4` (support only): the rows of `
   the first with `.guilda/bindings.json` wins); errors are recorded in `$.state`; `/guilda-agents` answers
   diagnostics and opens the pane as the person's own ask.
 
+### Run 2: restyle
+
+- Ask: show the guilda agents while they run with the look of Claude Code's own agent list under the prompt
+  (`○  <type>  <description> ... <elapsed> · ↓ <n> tokens`, dim), not as a separate pane.
+- Component: the 2.1.321 `RenderComponent` union has no agent or task list (`AskUserQuestion`, `UserMessage`,
+  `AssistantMessage`, `ToolUse`, `ToolResult`, `ToolGroup`, `ToolProgress`, `CommandOutput`, `Spinner`,
+  `TurnDuration`, `InfoNotice`, `SessionMode`, `PromptHint`, `AbovePrompt`, `Pane`, `Placed`, `Backdrop`).
+  `SessionMode` and `PromptHint` are one line each. The rows go in `AbovePrompt`, which takes a multi-row tree.
+- Rows: one dim `Text` per agent, `○  <codex|claude>  <address>  <task>`, then `<elapsed>s · <state>` at the
+  right end, and `· ↓ <n> tokens` when the binding has the optional `tokens` field. Each row is padded to
+  `bodyColumns`; the middle text is cut in the middle (`…`) to fit, and `wrap="truncate-end"` keeps it on one row.
+- Shown: agents in state `running`, and done or failed ones for 10 s after the change (only if a poll saw them
+  running). Nothing shown: the hook returns `next(e)` only. The pane no longer opens by itself; `/guilda-agents`
+  still answers the diagnostics and opens it. The toast on done or failed stays.
+- `demo.mjs` writes `tokens` (input plus output of each `turn.completed` `usage`) while the Codex agent stays
+  `running` for its 20 s job.
+- Checks: `validate` passes with warnings, `tsc` passes, `claude plugin test` 12 pass, 0 fail (mod folder and
+  repo copy). Not yet seen live.
+
 ### Limits read in the docs (Claude Code 2.1.321 types)
 
 - `ToolUse` for a subagent's tool calls: `ToolUse` is "a tool call's row in the transcript", and the transcript

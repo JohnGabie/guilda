@@ -5,7 +5,12 @@ export type GuildaPanelAgent = {
   tool: GuildaPanelTool
   state: string
   task?: string
+  /** When the state last changed, ms. */
   changedAt: number
+  /** When the agent began running, ms; absent if no poll saw it running. */
+  startedAt?: number
+  /** Tokens used so far, from the binding's optional `tokens` field. */
+  tokens?: number
 }
 
 export type GuildaPanelSnapshot = {

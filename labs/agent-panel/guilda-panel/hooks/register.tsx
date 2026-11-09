@@ -11,13 +11,15 @@ import type {
 const PANE = 'guilda-agents'
 const TITLE = 'guilda agents'
 const POLL_MS = 2000
+// How long a row stays under the prompt after its agent is done or failed.
+const LINGER_MS = 10_000
 const EMPTY: GuildaPanelSnapshot = { agents: [], at: 0 }
 const NO_DIAGNOSTICS: GuildaPanelDiagnostics = { folder: '', looked: [], isFound: false, count: 0, at: 0 }
 
 // Bump the shape when the snapshot's fields change: it declines what an older
 // version stored, which outlives a reload.
 const snapshot = atom({ plugin: 'guilda-panel', key: 'snapshot' } as const, EMPTY, {
-  shape: 'snapshot-1',
+  shape: 'snapshot-2',
 })
 
 // What the last poll saw, for /guilda-agents: the folder, whether the file was
@@ -100,10 +102,18 @@ export function buildAgents(
           ? task.state
           : 'idle'
     const before = previous.find(one => one.address === address)
+    // Kept while the state holds: a binding rewritten for its token count only
+    // moves `updated`, not the state.
     const changedAt =
-      toTime(binding.updated) ?? (before !== undefined && before.state === state ? before.changedAt : now)
+      before !== undefined && before.state === state ? before.changedAt : (toTime(binding.updated) ?? now)
     const agent: GuildaPanelAgent = { address, tool: toTool(binding.tool), state, changedAt }
     if (typeof task?.id === 'string') agent.task = task.id
+    // When it began running: kept from the poll that first saw it running.
+    const startedAt = state === 'running' ? (before?.state === 'running' ? before.startedAt : changedAt) : before?.startedAt
+    if (startedAt !== undefined) agent.startedAt = startedAt
+    if (typeof binding.tokens === 'number' && Number.isFinite(binding.tokens) && binding.tokens >= 0) {
+      agent.tokens = binding.tokens
+    }
     agents.push(agent)
   }
   return agents
@@ -185,11 +195,6 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
 
     const next: GuildaPanelSnapshot = { agents, at: now }
     await update($, snapshot, () => next)
-    if (before.agents.length === 0 && agents.length > 0) {
-      // Unasked, a narrow terminal keeps the pane undrawn: /guilda-agents opens
-      // it as the person's own ask, which is placed at any width.
-      void $.ui.open({ id: PANE, title: TITLE }).catch(error => recordError($, error))
-    }
     return next
   } finally {
     isPolling = false
@@ -213,12 +218,59 @@ export function diagnosticsText(diag: GuildaPanelDiagnostics, pane: string): str
   return lines.join('\n')
 }
 
+// Running agents, and those done or failed less than LINGER_MS ago.
+export function visibleAgents(agents: readonly GuildaPanelAgent[], now: number): GuildaPanelAgent[] {
+  return agents.filter(agent => {
+    if (agent.state === 'running') return true
+    const isFinished = agent.state === 'done' || agent.state === 'failed'
+    return isFinished && agent.startedAt !== undefined && now - agent.changedAt < LINGER_MS
+  })
+}
+
+export function tokenText(tokens: number): string {
+  if (tokens < 1000) return String(Math.round(tokens))
+  if (tokens < 1_000_000) return `${(tokens / 1000).toFixed(1)}k`
+  return `${(tokens / 1_000_000).toFixed(1)}M`
+}
+
+const TOOL_NAME: Record<GuildaPanelTool, string> = { claude: 'claude', codex: 'codex', other: 'agent' }
+
+function width(text: string): number {
+  return [...text].length
+}
+
+// Cuts the middle of `text` to `room` cells, an ellipsis in its place.
+function cutMiddle(text: string, room: number): string {
+  const chars = [...text]
+  if (chars.length <= room) return text
+  if (room <= 0) return ''
+  if (room === 1) return '…'
+  const head = Math.ceil((room - 1) / 2)
+  const tail = room - 1 - head
+  return chars.slice(0, head).join('') + '…' + (tail > 0 ? chars.slice(-tail).join('') : '')
+}
+
+// One row, exactly `columns` cells when it fits: the middle text (address and
+// task) is cut first, never the right end.
+export function agentRow(agent: GuildaPanelAgent, now: number, columns: number): string {
+  const end = agent.state === 'running' ? now : agent.changedAt
+  const seconds = Math.max(0, Math.round((end - (agent.startedAt ?? agent.changedAt)) / 1000))
+  const right = [`${seconds}s`, agent.state, ...(agent.tokens !== undefined ? [`↓ ${tokenText(agent.tokens)} tokens`] : [])].join(' · ')
+  const left = `○  ${TOOL_NAME[agent.tool]}  `
+  const middle = agent.task !== undefined ? `${agent.address}  ${agent.task}` : agent.address
+  const gap = 2
+  const room = columns - width(left) - width(right) - gap
+  if (room < 4) return cutMiddle(`${left}${right}`, columns)
+  const shown = cutMiddle(middle, room)
+  return `${left}${shown}${' '.repeat(columns - width(left) - width(shown) - width(right))}${right}`
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     startCwd = e.cwd
     await $.command.register({
       name: 'guilda-agents',
-      description: 'Show the guilda agents of this project (Claude or Codex) in a pane',
+      description: 'Show the guilda agents of this project (Claude or Codex) in a pane, with diagnostics',
     })
     timer?.cancel()
     timer = $.clock.every(POLL_MS, () => {
@@ -281,25 +333,23 @@ export const register: Register = on => {
     )
   })
 
+  // The guilda agents at work, one dim row each, drawn like the engine's own
+  // agent list: `○  <tool>  <address> <task>` and, at the right end,
+  // `<elapsed>s · <state>[ · ↓ <n> tokens]`.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    const { agents } = await read($, snapshot)
-    const running = agents.filter(agent => agent.state === 'running')
-    if (running.length === 0) return next(e)
-
-    const codex = running.filter(agent => agent.tool === 'codex').length
-    const claude = running.filter(agent => agent.tool === 'claude').length
-    const other = running.length - codex - claude
-    const parts = [
-      codex > 0 ? `${codex} Codex` : '',
-      claude > 0 ? `${claude} Claude` : '',
-      other > 0 ? `${other} other` : '',
-    ].filter(part => part !== '')
+    const { agents, at } = await read($, snapshot)
+    const shown = visibleAgents(agents, at)
+    if (shown.length === 0) return next(e)
     const { Box, Text } = $.ui.resolve(e)
 
     return (
-      <Box>
-        <Text>{`guilda: ${parts.join(' · ')} running`}</Text>
+      <Box flexDirection="column">
+        {shown.map(agent => (
+          <Text key={`row:${agent.address}`} dimColor wrap="truncate-end">
+            {agentRow(agent, at, e.props.bodyColumns)}
+          </Text>
+        ))}
       </Box>
     )
   })

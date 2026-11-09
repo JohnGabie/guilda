@@ -89,7 +89,8 @@ test('M2: the pane lists each agent with address, tool, state and age', async ($
   )
 
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
-  expect(opened).toEqual(['guilda-agents'])
+  // The pane opens only on /guilda-agents.
+  expect(opened).toEqual([])
   await clock.advance(4000)
 
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
@@ -105,9 +106,49 @@ test('M2: the pane lists each agent with address, tool, state and age', async ($
     await ui.unmount()
   }
 
+  // Under the prompt: one dim row per running agent only (the reviewer is idle
+  // there), sized to the band's 60 columns.
   for (const surface of ['terminal', 'desktop'] as const) {
     const band = await $.ui.mount({ ...BAND, surface })
-    expect((await band.find({ type: 'Text' }))?.text).toBe('guilda: 1 Codex running')
+    const rows = await band.findAll({ type: 'Text' })
+    expect(rows.map(one => one.text)).toEqual([
+      `○  codex  T1-exe-a1b2c3  T1${' '.repeat(21)}4s · running`,
+    ])
+    expect(rows[0]?.props.dimColor).toBe(true)
+    await band.unmount()
+  }
+})
+
+test('a row shows the tokens of the binding and cuts its middle text to fit, never wrapping', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 })
+  engine(
+    on,
+    {
+      [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({
+        'T7-exe-0f0f0f-with-a-long-address': { tool: 'codex', state: 'running', tokens: 38_612 },
+        'T7-arc-0f0f0f': { tool: 'claude', state: 'running', tokens: 512 },
+      }),
+      [`${PROJECT}/.guilda/queue.json`]: JSON.stringify([
+        { id: 'T7-long-task-name-that-goes-on-and-on', state: 'running', agent: 'T7-exe-0f0f0f-with-a-long-address' },
+      ]),
+    },
+    [],
+  )
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  // Polls every 2 s: the last one at 28 s.
+  await clock.advance(28_000)
+
+  for (const columns of [100, 90, 60]) {
+    const band = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns: columns } })
+    const rows = (await band.findAll({ type: 'Text' })).map(one => one.text)
+    expect(rows.length).toBe(2)
+    for (const row of rows) expect([...row].length).toBe(columns)
+    expect(rows[0]?.startsWith('○  codex  T7-exe-')).toBe(true)
+    expect(rows[0]?.endsWith('28s · running · ↓ 38.6k tokens')).toBe(true)
+    expect(rows[1]?.startsWith('○  claude  T7-arc-0f0f0f')).toBe(true)
+    expect(rows[1]?.endsWith('28s · running · ↓ 512 tokens')).toBe(true)
+    if (columns < 80) expect(rows[0]).toContain('…')
     await band.unmount()
   }
 })
@@ -152,7 +193,7 @@ test('M5: an invalid bindings file is ignored', async ($, on) => {
   expect(opened).toEqual([])
 })
 
-test('a change to done raises a toast; the band goes away', async ($, on) => {
+test('a change to done raises a toast; the row stays 10 s, then goes away', async ($, on) => {
   const opened: string[] = []
   const toasts: string[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
@@ -171,6 +212,36 @@ test('a change to done raises a toast; the band goes away', async ($, on) => {
   await clock.advance(2000)
   expect(toasts).toEqual(['guilda: T1-exe-a1b2c3 (Codex) done'])
 
+  let band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual([
+    `○  codex  T1-exe-a1b2c3${' '.repeat(28)}2s · done`,
+  ])
+  await band.unmount()
+
+  await clock.advance(8000)
+  band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual([
+    `○  codex  T1-exe-a1b2c3${' '.repeat(28)}2s · done`,
+  ])
+  await band.unmount()
+
+  await clock.advance(2000)
+  band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
+  await band.unmount()
+  expect(opened).toEqual([])
+})
+
+test('an agent first seen done (an earlier run) draws no row', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 })
+  engine(on, { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({ 'T0-exe-x': { tool: 'codex', state: 'done' } }) }, [])
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  await clock.advance(2000)
   const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
   await band.unmount()
@@ -253,8 +324,8 @@ test('/guilda-agents replies with the folder, the file, the count, the poll time
   expect(ran.text).toContain('last poll: 2026-11-09T21:40:02.000Z')
   expect(ran.text).toContain('last error: none')
   expect(ran.text).toContain('pane: opened')
-  // Once from the first poll, once from the command.
-  expect(opened).toEqual(['guilda-agents', 'guilda-agents'])
+  // Only the command opens it.
+  expect(opened).toEqual(['guilda-agents'])
 })
 
 test('/guilda-agents opens the pane that a narrow terminal kept undrawn', async ($, on) => {
@@ -283,7 +354,7 @@ test('/guilda-agents opens the pane that a narrow terminal kept undrawn', async 
   isAsked = true
   const ran = await $.command.run(RUN)
   expect(ran.text).toContain('pane: opened')
-  expect(asked).toEqual(['guilda-agents:unasked', 'guilda-agents:asked'])
+  expect(asked).toEqual(['guilda-agents:asked'])
 })
 
 test('a bad bindings file is reported as the last error, not swallowed', async ($, on) => {
@@ -310,7 +381,7 @@ test('the folder is read at each poll: the session cwd, then the project root', 
 
   files['/root-dir/.guilda/bindings.json'] = JSON.stringify(BINDINGS)
   await clock.advance(2000)
-  expect(opened).toEqual(['guilda-agents'])
+  expect(opened).toEqual([])
   let ran = await $.command.run(RUN)
   expect(ran.text).toContain('reads /root-dir/.guilda/')
   expect(ran.text).toContain('looked in: /repo, /root-dir')

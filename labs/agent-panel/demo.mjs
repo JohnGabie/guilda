@@ -5,10 +5,13 @@
 //
 // Writes <project dir>/.guilda/bindings.json and .guilda/queue.json the way the
 // lab router does, with two agents:
-//   T1-exe-<rand>  codex   running, then done (or failed) after one real Codex run
+//   T1-exe-<rand>  codex   running for the whole Codex run (about 20 s: the
+//                          prompt sleeps 20 s), then done (or failed)
 //   T1-arc-<rand>  claude  review (no process: it only shows the second tool)
 // The Codex run is `codex exec --json --skip-git-repo-check -s read-only -C <dir>`
-// with stdin from /dev/null and a 120 s timeout. It never deletes files: it
+// with stdin from /dev/null and a 120 s timeout. Each `turn.completed` event's
+// `usage` (input + output tokens) is written to the binding's optional `tokens`
+// field while the agent is still running. It never deletes files: it
 // keeps the other entries of both files and only adds or updates its own.
 
 import { spawn } from 'node:child_process';
@@ -46,15 +49,38 @@ function setTask(dir, task) {
   writeJson(file, list);
 }
 
-function runCodex(dir) {
+// Tokens of one `usage` object of `turn.completed`: input plus output.
+function usageTokens(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const input = Number.isFinite(usage.input_tokens) ? usage.input_tokens : 0;
+  const output = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
+  return input + output;
+}
+
+// onTokens(total) runs on each `turn.completed`, with the sum over turns so far.
+function runCodex(dir, onTokens) {
   return new Promise((resolve) => {
     const args = ['exec', '--json', '--skip-git-repo-check', '-s', 'read-only', '-C', dir, PROMPT];
     // stdin 'ignore' is /dev/null: Codex waits for stdin otherwise.
     const child = spawn('codex', args, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
+    let pending = '';
+    let tokens = 0;
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, TIMEOUT_MS);
-    child.stdout.on('data', (c) => { out += c; });
+    child.stdout.on('data', (c) => {
+      out += c;
+      pending += c;
+      const lines = pending.split('\n');
+      pending = lines.pop();
+      for (const line of lines) {
+        if (!line.trim().startsWith('{')) continue;
+        let e;
+        try { e = JSON.parse(line); } catch { continue; }
+        const used = e.type === 'turn.completed' ? usageTokens(e.usage) : null;
+        if (used !== null) { tokens += used; onTokens(tokens); }
+      }
+    });
     child.stderr.on('data', () => {});
     child.on('error', (error) => { clearTimeout(timer); resolve({ ok: false, why: error.message }); });
     child.on('close', (code) => {
@@ -69,7 +95,7 @@ function runCodex(dir) {
         if (e.type === 'item.completed' && e.item && e.item.type === 'agent_message') text = e.item.text;
       }
       const ok = !timedOut && code === 0 && typeof text === 'string' && text.includes('DEMO-DONE');
-      resolve({ ok, code, timedOut, session, text, pid: child.pid });
+      resolve({ ok, code, timedOut, session, text, tokens, pid: child.pid });
     });
   });
 }
@@ -90,9 +116,10 @@ async function main() {
   setTask(root, { id: `T1-${rand}`, state: 'running', agent: exe });
 
   const started = Date.now();
-  const r = await runCodex(root);
+  // The agent stays `running` until Codex exits; only `tokens` moves meanwhile.
+  const r = await runCodex(root, (tokens) => setAgent(root, exe, { tool: 'codex', state: 'running', tokens }));
   const state = r.ok ? 'done' : 'failed';
-  setAgent(root, exe, { tool: 'codex', session: r.session ?? null, state });
+  setAgent(root, exe, { tool: 'codex', session: r.session ?? null, state, tokens: r.tokens });
   setTask(root, { id: `T1-${rand}`, state, agent: exe });
 
   process.stdout.write(JSON.stringify({ exe, arc, state, seconds: Math.round((Date.now() - started) / 1000), ...r }, null, 2) + '\n');
