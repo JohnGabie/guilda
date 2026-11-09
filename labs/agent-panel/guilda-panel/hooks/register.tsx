@@ -1,17 +1,29 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { GuildaPanelAgent, GuildaPanelSnapshot, GuildaPanelTool } from '../types'
+import type {
+  GuildaPanelAgent,
+  GuildaPanelDiagnostics,
+  GuildaPanelSnapshot,
+  GuildaPanelTool,
+} from '../types'
 
 const PANE = 'guilda-agents'
 const TITLE = 'guilda agents'
 const POLL_MS = 2000
 const EMPTY: GuildaPanelSnapshot = { agents: [], at: 0 }
+const NO_DIAGNOSTICS: GuildaPanelDiagnostics = { folder: '', looked: [], isFound: false, count: 0, at: 0 }
 
 // Bump the shape when the snapshot's fields change: it declines what an older
 // version stored, which outlives a reload.
 const snapshot = atom({ plugin: 'guilda-panel', key: 'snapshot' } as const, EMPTY, {
   shape: 'snapshot-1',
+})
+
+// What the last poll saw, for /guilda-agents: the folder, whether the file was
+// there, the agent count, the poll time and the last error.
+const diagnostics = atom({ plugin: 'guilda-panel', key: 'diagnostics' } as const, NO_DIAGNOSTICS, {
+  shape: 'diagnostics-1',
 })
 
 const TOOL_LABEL: Record<GuildaPanelTool, string> = { claude: 'Claude', codex: 'Codex', other: '?' }
@@ -48,11 +60,19 @@ function toTime(value: unknown): number | undefined {
   return undefined
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+// A missing file is `undefined`; a file that does not read or parse rejects,
+// so the poll records why.
 async function readJson($: EngineInterface, path: string): Promise<unknown> {
+  if (!(await $.fs.exists(path))) return undefined
+  const text = await $.fs.read(path)
   try {
-    return JSON.parse(await $.fs.read(path))
-  } catch {
-    return undefined
+    return JSON.parse(text)
+  } catch (error) {
+    throw new Error(`${path}: ${errorText(error)}`)
   }
 }
 
@@ -89,21 +109,70 @@ export function buildAgents(
   return agents
 }
 
-// The project the session runs in, and the poll timer. Both are set again by
+// The folder session.start saw, and the poll timer. Both are set again by
 // session.start, which runs after every load and reload of this module.
-let projectDir: string | undefined
+let startCwd: string | undefined
 let timer: Timer | undefined
 let isPolling = false
 
+// The folders to look in, in order: where the session runs now, its project
+// root, and where it ran at session.start. The working directory moves during
+// a session (`cd`, `/cd`, a worktree), so they are read again at each poll.
+async function folders($: EngineInterface): Promise<string[]> {
+  const found: string[] = []
+  const cwd = await $.session.cwd()
+  const root = await $.session.root()
+  for (const one of [cwd, root, startCwd]) {
+    if (one !== undefined && one !== '' && !found.includes(one)) found.push(one)
+  }
+  return found
+}
+
+async function writeDiagnostics($: EngineInterface, value: GuildaPanelDiagnostics): Promise<void> {
+  await update($, diagnostics, () => value)
+}
+
+async function recordError($: EngineInterface, error: unknown): Promise<void> {
+  const before = await read($, diagnostics)
+  await writeDiagnostics($, { ...before, error: errorText(error), errorAt: await $.clock.now() })
+}
+
 async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
   const before = await read($, snapshot)
-  if (projectDir === undefined || isPolling) return before
+  if (isPolling) return before
   isPolling = true
   try {
-    const bindings = await readJson($, `${projectDir}/.guilda/bindings.json`)
-    const queue = isRecord(bindings) ? await readJson($, `${projectDir}/.guilda/queue.json`) : undefined
     const now = await $.clock.now()
+    const looked = await folders($)
+    let folder = looked[0] ?? ''
+    let isFound = false
+    for (const one of looked) {
+      if (await $.fs.exists(`${one}/.guilda/bindings.json`)) {
+        folder = one
+        isFound = true
+        break
+      }
+    }
+    let bindings: unknown
+    let queue: unknown
+    let error: string | undefined
+    try {
+      bindings = isFound ? await readJson($, `${folder}/.guilda/bindings.json`) : undefined
+      if (isFound && !isRecord(bindings)) throw new Error(`${folder}/.guilda/bindings.json: not a JSON object`)
+      queue = isRecord(bindings) ? await readJson($, `${folder}/.guilda/queue.json`) : undefined
+    } catch (failure) {
+      error = errorText(failure)
+    }
     const agents = buildAgents(bindings, queue, before.agents, now)
+    // The last error stays until a newer one replaces it.
+    const previous = await read($, diagnostics)
+    const seen: GuildaPanelDiagnostics = { folder, looked, isFound, count: agents.length, at: now }
+    const lastError = error ?? previous.error
+    if (lastError !== undefined) {
+      seen.error = lastError
+      seen.errorAt = error !== undefined ? now : (previous.errorAt ?? now)
+    }
+    await writeDiagnostics($, seen)
     if (agents.length === 0 && before.agents.length === 0) return before
 
     for (const agent of agents) {
@@ -117,7 +186,9 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
     const next: GuildaPanelSnapshot = { agents, at: now }
     await update($, snapshot, () => next)
     if (before.agents.length === 0 && agents.length > 0) {
-      void $.ui.open({ id: PANE, title: TITLE })
+      // Unasked, a narrow terminal keeps the pane undrawn: /guilda-agents opens
+      // it as the person's own ask, which is placed at any width.
+      void $.ui.open({ id: PANE, title: TITLE }).catch(error => recordError($, error))
     }
     return next
   } finally {
@@ -125,18 +196,35 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
   }
 }
 
+function timeText(ms: number): string {
+  return ms > 0 ? new Date(ms).toISOString() : 'never'
+}
+
+export function diagnosticsText(diag: GuildaPanelDiagnostics, pane: string): string {
+  const lines = [
+    `guilda-panel: reads ${diag.folder === '' ? '(no folder)' : `${diag.folder}/.guilda/`}`,
+    `  looked in: ${diag.looked.length === 0 ? '(none)' : diag.looked.join(', ')}`,
+    `  bindings.json: ${diag.isFound ? 'found' : 'not found'}`,
+    `  agents: ${diag.count}`,
+    `  last poll: ${timeText(diag.at)}`,
+    `  last error: ${diag.error === undefined ? 'none' : `${diag.error} (at ${timeText(diag.errorAt ?? 0)})`}`,
+    `  pane: ${pane}`,
+  ]
+  return lines.join('\n')
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    projectDir = e.cwd
+    startCwd = e.cwd
     await $.command.register({
       name: 'guilda-agents',
       description: 'Show the guilda agents of this project (Claude or Codex) in a pane',
     })
     timer?.cancel()
     timer = $.clock.every(POLL_MS, () => {
-      void poll($).catch(() => undefined)
+      void poll($).catch(error => recordError($, error))
     })
-    await poll($).catch(() => undefined)
+    await poll($).catch(error => recordError($, error))
 
     return next(e)
   })
@@ -152,13 +240,16 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'guilda-agents' }, async $ => {
-    const now = await poll($).catch(() => EMPTY)
-    if (now.agents.length === 0) {
-      return { text: 'guilda: no agents in this project (no .guilda/bindings.json with agents).' }
+    const now = await poll($).catch(async error => {
+      await recordError($, error)
+      return read($, snapshot)
+    })
+    let pane = 'not opened (no agents)'
+    if (now.agents.length > 0) {
+      const opened = await $.ui.open({ id: PANE, title: TITLE })
+      pane = opened.isPlaced ? 'opened' : `open, not drawn: ${opened.reason}`
     }
-    await $.ui.open({ id: PANE, title: TITLE })
-
-    return { text: `guilda: ${now.agents.length} agent(s) shown in the pane.` }
+    return { text: diagnosticsText(await read($, diagnostics), pane) }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {

@@ -40,10 +40,24 @@ const BAND = {
 } as const
 
 type Files = Record<string, string>
+type Where = { cwd: string; root: string }
 
 // Stands for the engine beneath the plugin: files from memory, a missing one
-// rejects as the engine's read does.
-function engine(on: On, files: Files, opened: string[], toasts: string[] = [], stats = { reads: 0 }) {
+// rejects as the engine's read does; the session's folders from `where`.
+function engine(
+  on: On,
+  files: Files,
+  opened: string[],
+  toasts: string[] = [],
+  stats = { reads: 0 },
+  where: Where = { cwd: PROJECT, root: PROJECT },
+) {
+  on('session.cwd', () => ({ value: where.cwd }))
+  on('session.root', () => ({ value: where.root }))
+  on('fs.exists', (_, e) => {
+    stats.reads += 1
+    return { value: files[e.path] !== undefined }
+  })
   on('fs.read', (_, e) => {
     stats.reads += 1
     const text = files[e.path]
@@ -124,7 +138,8 @@ test('M5: without .guilda/bindings.json nothing is drawn or opened', async ($, o
     origin: { kind: 'composer' },
     presentation: { isFullscreen: true, columns: 160 },
   })
-  expect(JSON.stringify(ran)).toContain('no agents')
+  expect(ran.text).toContain('bindings.json: not found')
+  expect(ran.text).toContain('agents: 0')
   expect(opened).toEqual([])
 })
 
@@ -215,4 +230,98 @@ test('M6: the poll timer stops when the session ends', async ($, on) => {
   await $.session.end({ reason: 'prompt_input_exit', sessionId: 's1', resume: { id: 's1' } })
   await clock.advance(10_000)
   expect(stats.reads).toBe(whileRunning)
+})
+
+const RUN = {
+  command: 'guilda-agents',
+  args: '',
+  origin: { kind: 'composer' },
+  presentation: { isFullscreen: false, columns: 96 },
+} as const
+
+test('/guilda-agents replies with the folder, the file, the count, the poll time and the last error', async ($, on) => {
+  const opened: string[] = []
+  const clock = mock.clock(on, { now: Date.parse('2026-11-09T21:40:00.000Z') })
+  engine(on, { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(BINDINGS) }, opened)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  await clock.advance(2000)
+  const ran = await $.command.run(RUN)
+  expect(ran.text).toContain(`reads ${PROJECT}/.guilda/`)
+  expect(ran.text).toContain('bindings.json: found')
+  expect(ran.text).toContain('agents: 2')
+  expect(ran.text).toContain('last poll: 2026-11-09T21:40:02.000Z')
+  expect(ran.text).toContain('last error: none')
+  expect(ran.text).toContain('pane: opened')
+  // Once from the first poll, once from the command.
+  expect(opened).toEqual(['guilda-agents', 'guilda-agents'])
+})
+
+test('/guilda-agents opens the pane that a narrow terminal kept undrawn', async ($, on) => {
+  const asked: string[] = []
+  const files: Files = { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(BINDINGS) }
+  mock.clock(on, { now: 1_000_000 })
+  on('session.cwd', () => ({ value: PROJECT }))
+  on('session.root', () => ({ value: PROJECT }))
+  on('fs.exists', (_, e) => ({ value: files[e.path] !== undefined }))
+  on('fs.read', (_, e) => {
+    const text = files[e.path]
+    return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text }
+  })
+  on('command.register', () => ({ value: { command: 'guilda-agents' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  // Unasked (the poll) waits under 144 columns; asked (the command) is placed.
+  let isAsked = false
+  on('ui.open', (_, e) => {
+    asked.push(`${e.id}:${isAsked ? 'asked' : 'unasked'}`)
+    return isAsked
+      ? { value: { isPlaced: true } }
+      : { value: { isPlaced: false, reason: 'unasked, 96 columns < 144' } }
+  })
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  isAsked = true
+  const ran = await $.command.run(RUN)
+  expect(ran.text).toContain('pane: opened')
+  expect(asked).toEqual(['guilda-agents:unasked', 'guilda-agents:asked'])
+})
+
+test('a bad bindings file is reported as the last error, not swallowed', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  engine(on, { [`${PROJECT}/.guilda/bindings.json`]: '{ not json' }, [])
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run(RUN)
+  expect(ran.text).toContain('bindings.json: found')
+  expect(ran.text).toContain(`last error: ${PROJECT}/.guilda/bindings.json:`)
+  expect(ran.text).toContain('pane: not opened (no agents)')
+})
+
+test('the folder is read at each poll: the session cwd, then the project root', async ($, on) => {
+  const opened: string[] = []
+  const clock = mock.clock(on, { now: 1_000_000 })
+  const files: Files = {}
+  // The session started in /repo; the agents are in the root /root-dir.
+  const where: Where = { cwd: '/repo', root: '/root-dir' }
+  engine(on, files, opened, [], { reads: 0 }, where)
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  expect(opened).toEqual([])
+
+  files['/root-dir/.guilda/bindings.json'] = JSON.stringify(BINDINGS)
+  await clock.advance(2000)
+  expect(opened).toEqual(['guilda-agents'])
+  let ran = await $.command.run(RUN)
+  expect(ran.text).toContain('reads /root-dir/.guilda/')
+  expect(ran.text).toContain('looked in: /repo, /root-dir')
+  expect(ran.text).toContain('agents: 2')
+
+  // The cwd moves to a folder with agents of its own: that one wins.
+  where.cwd = '/work'
+  files['/work/.guilda/bindings.json'] = JSON.stringify({ 'T2-exe-x': { tool: 'codex', state: 'running' } })
+  await clock.advance(2000)
+  ran = await $.command.run(RUN)
+  expect(ran.text).toContain('reads /work/.guilda/')
+  expect(ran.text).toContain('looked in: /work, /root-dir, /repo')
+  expect(ran.text).toContain('agents: 1')
 })

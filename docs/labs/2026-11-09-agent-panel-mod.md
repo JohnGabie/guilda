@@ -29,8 +29,10 @@ of `2026-11-09-agent-bus.md`).
   `tests/panel.test.tsx`.
 - Every API call was looked up in the types file of the build (`types/claude-code.d.ts` of the plugin-authoring
   skill). What the mod uses:
-  - `session.start`: takes the project dir from `e.cwd`, registers `/guilda-agents`, starts
-    `$.clock.every(2000, poll)` and polls once. The event runs again after each reload, and a reload cancels the
+  - `session.start`: keeps `e.cwd` as a last fallback folder, registers `/guilda-agents`, starts
+    `$.clock.every(2000, poll)` and polls once. (Run 1 took the project dir from `e.cwd` once; see Run 1.)
+  - Folder, read again at each poll: `$.session.cwd()`, then `$.session.root()`, then the `session.start` cwd;
+    the first that has `.guilda/bindings.json` is read, else the first one. The event runs again after each reload, and a reload cancels the
     timers of the old module.
   - `poll`: `$.fs.read` of `<project>/.guilda/bindings.json` (address -> `{ tool, session, state?, updated? }`)
     and, only when that file is a valid object, `<project>/.guilda/queue.json` (an array of
@@ -40,7 +42,11 @@ of `2026-11-09-agent-bus.md`).
     one `$.state` value (`guilda-panel.snapshot`: agents and poll time), so the pane and band redraw on each
     write.
   - `$.ui.open({ id: 'guilda-agents', title: 'guilda agents' })` when the agent list goes from empty to not
-    empty, and from `/guilda-agents`. With no agents the command only answers a text and opens nothing.
+    empty, and from `/guilda-agents`. With no agents the command opens nothing.
+  - Diagnostics: each poll writes `guilda-panel.diagnostics` in `$.state` (folder read, folders looked in,
+    whether `bindings.json` was found, agent count, poll time, last error and its time). A read or parse error
+    is recorded there, not swallowed. `/guilda-agents` always answers these as text, and says whether the pane
+    was opened (`opened`, or `open, not drawn: <reason>`).
   - `ui.render` `Pane` (`requestId: guilda-agents`): one row per agent: address, tool (`Codex` in the theme
     color `ide`, `Claude` in `claude`), state (running = warning, done = success, failed = error, review =
     suggestion), seconds since the last change, task id when the queue has one.
@@ -80,7 +86,10 @@ of `2026-11-09-agent-bus.md`).
 - An earlier draft failed validation: a `$` passed to a function declared inside `register` is refused. Fix: the
   poll function is declared at the top of the module.
 - `tsc -p <tmp>/tsconfig.json`: exit 0.
-- `claude plugin test <mod folder>`: 6 pass, 0 fail (output below).
+- `claude plugin test <mod folder>`: 6 pass, 0 fail (run 1).
+- After the run 1 fix: `validate` passes (calls now also list `$.fs.exists`, `$.session.cwd`, `$.session.root`;
+  state `guilda-panel.diagnostics` and `guilda-panel.snapshot`), `tsc -p` exit 0, and `claude plugin test` on
+  the mods folder and the repo copy:
 
 ```
 (pass) M2: the pane lists each agent with address, tool, state and age
@@ -89,7 +98,11 @@ of `2026-11-09-agent-bus.md`).
 (pass) a change to done raises a toast; the band goes away
 (pass) M4: a Bash row that runs codex keeps the row and adds a Codex label
 (pass) M6: the poll timer stops when the session ends
- 6 pass
+(pass) /guilda-agents replies with the folder, the file, the count, the poll time and the last error
+(pass) /guilda-agents opens the pane that a narrow terminal kept undrawn
+(pass) a bad bindings file is reported as the last error, not swallowed
+(pass) the folder is read at each poll: the session cwd, then the project root
+ 10 pass
  0 fail
 ```
 
@@ -111,12 +124,11 @@ band is gone (the engine's own drawing stands).
 
 ### M3: live update
 
-NOT VERIFIED. Waits for the user: run `node labs/agent-panel/demo.mjs <project dir>` in the project of an
-interactive session that has the mod loaded, and watch the pane go `running` -> `done`.
+Run 1: FAIL (see Run 1). Retest pending.
 
 ### M4: tool label
 
-NOT VERIFIED by the user. Test `M4` (support only): the rows of `codex exec ...`, `timeout 120 codex exec ...` and
+Run 1: FAIL (see Run 1). Retest pending. Test `M4` (support only): the rows of `codex exec ...`, `timeout 120 codex exec ...` and
 `cd <dir> && timeout 120 codex exec ...` draw `Codex` and then the engine row; `echo codex`,
 `git log --grep codex` and `ls codex-notes` draw the engine row alone.
 
@@ -134,6 +146,37 @@ NOT VERIFIED by the user. Test `M4` (support only): the rows of `codex exec ...`
   fail, so the test sees the cancel.
 - Reload: the types file says a hot reload cancels the pending waits of the old module (`clock`), and
   `session.start` cancels a timer it still holds before it starts a new one. Not tested in a live session.
+
+### Run 1 (live, failed)
+
+- What ran: a dispatched agent ran `node labs/agent-panel/demo.mjs ~` (home folder), then a direct
+  `timeout 120 codex exec ...` Bash call. The demo wrote `~/.guilda/bindings.json` (`T1-arc-*` claude `review`,
+  `T1-exe-*` codex `done`) and `~/.guilda/queue.json`.
+- What the user saw: nothing of the mod. No pane, no band, no toast, no Codex label: only the normal prompt and
+  the agent list.
+- Cause (found in the session transcript): the mod loaded while the session's working directory was the guilda
+  repo, not the home folder (the `This mod is now loaded` notice row carries the repo as `cwd`). `session.start`
+  took `projectDir = e.cwd` once, so every poll read `<repo>/.guilda/bindings.json`, which does not exist (that
+  folder holds only `config.json` and `rules.md`). No agents, so no pane, band or toast; `poll` swallowed any
+  error, so nothing said so.
+- Codex label: the `codex exec` Bash call ran in the dispatched agent, so its row is in that agent's transcript,
+  not in the main one the user had on screen.
+- Fix: the folder is read again at each poll (`$.session.cwd()`, `$.session.root()`, the `session.start` cwd;
+  the first with `.guilda/bindings.json` wins); errors are recorded in `$.state`; `/guilda-agents` answers
+  diagnostics and opens the pane as the person's own ask.
+
+### Limits read in the docs (Claude Code 2.1.321 types)
+
+- `ToolUse` for a subagent's tool calls: `ToolUse` is "a tool call's row in the transcript", and the transcript
+  on screen is the main conversation's or one agent's "opened from the tasks list" (`SiteView`). `ToolUse` props
+  carry no `agentId` or `view`. So a subagent's Bash row, and the Codex label on it, is drawn only while the
+  person views that agent's transcript (picked in the tasks list); the main transcript shows the Agent call,
+  not its inner rows. The types do not say more than this; not tested live. For M4 the `codex` command must run
+  in the main session, or the user must open the agent's transcript.
+- Pane opened unasked: `$.ui.open` places a pane "asked ... at any width; unasked, from 144 columns, 110 for one
+  once asked"; below that it "waits undrawn" (`isPlaced: false`). The user's terminal was about 90 to 100
+  columns, so the poll's own open would not draw it. `/guilda-agents` is the person's ask and places it at any
+  width.
 
 ## Verdict
 
