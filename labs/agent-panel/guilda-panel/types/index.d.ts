@@ -44,6 +44,7 @@ declare module 'claude-code' {
     'guilda-panel': {
       snapshot: Shaped<GuildaPanelSnapshot>
       diagnostics: Shaped<GuildaPanelDiagnostics>
+      selected: Shaped<string>
     }
   }
 }

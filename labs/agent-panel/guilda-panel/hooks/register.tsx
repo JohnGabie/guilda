@@ -28,6 +28,9 @@ const diagnostics = atom({ plugin: 'guilda-panel', key: 'diagnostics' } as const
   shape: 'diagnostics-1',
 })
 
+// The agent whose row was clicked last: the pane lists it first, marked.
+const selected = atom({ plugin: 'guilda-panel', key: 'selected' } as const, '', { shape: 'selected-1' })
+
 const TOOL_LABEL: Record<GuildaPanelTool, string> = { claude: 'Claude', codex: 'Codex', other: '?' }
 const TOOL_COLOR: Record<GuildaPanelTool, string> = { claude: 'claude', codex: 'ide', other: 'inactive' }
 const STATE_COLOR: Record<string, string> = {
@@ -263,39 +266,28 @@ export function agentType(agent: GuildaPanelAgent): string {
   return agent.role !== undefined ? `guilda:${agent.role}-${tool}` : tool
 }
 
-function width(text: string): number {
-  return [...text].length
-}
+// The marker before each row: a hollow diamond, not the engine's `○`/`●`,
+// which mark its own pressable agent rows. U+25C7, in the common terminal fonts.
+export const MARKER = '◇'
+// Drawn over the marker while the pointer is on the row: the row opens the
+// detail pane on a click.
+export const HOVER_MARKER = '›'
+// The dim label over the rows, so they read as a group of their own.
+export const HEADING = 'other models'
 
-// Cuts the middle of `text` to `room` cells, an ellipsis in its place.
-function cutMiddle(text: string, room: number): string {
-  const chars = [...text]
-  if (chars.length <= room) return text
-  if (room <= 0) return ''
-  if (room === 1) return '…'
-  const head = Math.ceil((room - 1) / 2)
-  const tail = room - 1 - head
-  return chars.slice(0, head).join('') + '…' + (tail > 0 ? chars.slice(-tail).join('') : '')
-}
+export type RowParts = { type: string; title: string; right: string }
 
-// One row, exactly `columns` cells when it fits: the middle text (address and
-// task) is cut first, never the right end.
-export function agentRow(agent: GuildaPanelAgent, now: number, columns: number): string {
+// The three texts of a row: the type column, the title (the address stays in
+// /guilda-agents and the pane), and the right end, which is never cut.
+export function rowParts(agent: GuildaPanelAgent, now: number): RowParts {
   const end = agent.state === 'running' ? now : agent.changedAt
   const seconds = Math.max(0, Math.round((end - (agent.startedAt ?? agent.changedAt)) / 1000))
-  const right = [`${seconds}s`, agent.state, ...(agent.tokens !== undefined ? [`↓ ${tokenText(agent.tokens)} tokens`] : [])].join(' · ')
-  const left = `○  ${agentType(agent)}  `
-  // The address stays in /guilda-agents and the pane.
-  const middle = agent.title ?? ''
-  const gap = 2
-  const room = columns - width(left) - width(right) - gap
-  if (room < (middle === '' ? 0 : 4)) {
-    // No room for a readable title: type and right end only, or both cut.
-    const pad = columns - width(left) - width(right)
-    return pad >= 0 ? `${left}${' '.repeat(pad)}${right}` : cutMiddle(`${left}${right}`, columns)
-  }
-  const shown = cutMiddle(middle, room)
-  return `${left}${shown}${' '.repeat(columns - width(left) - width(shown) - width(right))}${right}`
+  const right = [
+    `${seconds}s`,
+    agent.state,
+    ...(agent.tokens !== undefined ? [`↓ ${tokenText(agent.tokens)} tokens`] : []),
+  ].join(' · ')
+  return { type: agentType(agent), title: agent.title ?? '', right }
 }
 
 export const register: Register = on => {
@@ -339,7 +331,9 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const { agents, at } = await read($, snapshot)
+    const { agents: all, at } = await read($, snapshot)
+    const chosen = await read($, selected)
+    const agents = [...all.filter(one => one.address === chosen), ...all.filter(one => one.address !== chosen)]
 
     if (agents.length === 0) {
       return (
@@ -353,6 +347,7 @@ export const register: Register = on => {
       <Box flexDirection="column">
         {agents.map(agent => (
           <Box key={`row:${agent.address}`} flexDirection="row" gap={1}>
+            {agent.address === chosen && <Text>{HOVER_MARKER}</Text>}
             <Text>{agent.address}</Text>
             <Text color={TOOL_COLOR[agent.tool]}>{TOOL_LABEL[agent.tool]}</Text>
             <Text color={STATE_COLOR[agent.state]} dimColor={STATE_COLOR[agent.state] === undefined}>
@@ -366,27 +361,57 @@ export const register: Register = on => {
     )
   })
 
-  // The external agents at work, one dim row each, drawn like the engine's own
-  // agent list: `○  guilda:<role>-<tool>  <title>` and, at the right end,
-  // `<elapsed>s · <state>[ · ↓ <n> tokens]`. No render site sits inside or
-  // under that list; the hint line under the prompt is the lowest one, so the
-  // rows go right under the engine's hint line, which is kept as drawn.
+  // The external agents at work, under a dim `other models` heading, one dim
+  // row each, laid out like the engine's own agent list:
+  // `◇  guilda:<role>-<tool>  <title>  ...  <elapsed>s · <state>[ · ↓ <n> tokens]`.
+  // No render site sits inside or under that list; the hint line under the
+  // prompt is the lowest one, so the rows go right under the engine's hint
+  // line, which is kept as drawn. The right end never shrinks; the title takes
+  // what is left and is cut in the middle, on one row.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const { agents, at } = await read($, snapshot)
     const shown = visibleAgents(agents, at)
     if (shown.length === 0) return next(e)
     const line = await next(e)
-    const columns = e.viewport?.columns ?? 80
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const openDetail = (address: string) => () => {
+      void update($, selected, () => address)
+        .then(() => $.ui.open({ id: PANE, title: TITLE }))
+        .catch(error => recordError($, error))
+    }
 
     return (
       <Box flexDirection="column">
         {line}
-        {shown.map(agent => (
-          <Text key={`row:${agent.address}`} dimColor wrap="truncate-end">
-            {agentRow(agent, at, columns)}
-          </Text>
-        ))}
+        <Text key="heading" dimColor wrap="truncate-end">
+          {HEADING}
+        </Text>
+        {shown.map(agent => {
+          const parts = rowParts(agent, at)
+          return (
+            <Box key={`row:${agent.address}`} flexDirection="row" gap={2}>
+              <Box flexShrink={0} width={1}>
+                <Text dimColor>{MARKER}</Text>
+                <Box position="absolute" left={0} top={0} display="none" hover={{ display: 'flex' }}>
+                  <Text>{HOVER_MARKER}</Text>
+                </Box>
+              </Box>
+              <Box flexShrink={0}>
+                <Button key={`open:${agent.address}`} plain dimColor onPress={openDetail(agent.address)}>
+                  {parts.type}
+                </Button>
+              </Box>
+              <Box flexGrow={1} flexShrink={1} minWidth={0}>
+                <Text dimColor wrap="truncate-middle">
+                  {parts.title}
+                </Text>
+              </Box>
+              <Box flexShrink={0}>
+                <Text dimColor>{parts.right}</Text>
+              </Box>
+            </Box>
+          )
+        })}
       </Box>
     )
   })

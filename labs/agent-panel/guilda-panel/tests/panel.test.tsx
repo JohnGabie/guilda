@@ -34,8 +34,18 @@ const HINT = {
   viewport: { columns: 60, rows: 30 },
 } as const
 
-const ROW = (middle: string, right: string, columns = 60) =>
-  `○  guilda:executor-codex  ${middle}${' '.repeat(columns - 26 - middle.length - right.length)}${right}`
+type Hint = { findAll: (query: { type: string }) => Promise<{ text: string; key: string | undefined; props: Record<string, unknown> }[]> }
+
+// What a PromptHint drawing reads as: its texts, and the labels of its
+// buttons (the type column of each row).
+async function drawn(hint: Hint) {
+  const texts = (await hint.findAll({ type: 'Text' })).map(one => one.text)
+  const buttons = (await hint.findAll({ type: 'Button' })).map(one => one.text)
+  return { texts, buttons }
+}
+
+// One row's texts: the marker, the hover arrow drawn over it, the title, the right end.
+const ROW = (title: string, right: string) => ['◇', '›', title, right]
 
 // Stands for the engine's own drawing of every site where the plugin passes.
 function engineDraws(on: On) {
@@ -118,10 +128,15 @@ test('M2: the pane lists each agent with address, tool, state and age', async ($
   // running Codex executor; the Claude reviewer is in session and not shown.
   for (const surface of ['terminal', 'desktop'] as const) {
     const hint = await $.ui.mount({ ...HINT, surface })
-    const rows = await hint.findAll({ type: 'Text' })
-    expect(rows.map(one => one.text)).toEqual(['engine', ROW('Fix the login form', '4s · running')])
-    expect(rows[1]?.props.dimColor).toBe(true)
-    expect(rows[1]?.text).not.toContain('T1-exe-a1b2c3')
+    const { texts, buttons } = await drawn(hint)
+    expect(texts).toEqual(['engine', 'other models', ...ROW('Fix the login form', '4s · running')])
+    expect(buttons).toEqual(['guilda:executor-codex'])
+    expect(texts.join(' ')).not.toContain('T1-exe-a1b2c3')
+    const all = await hint.findAll({ type: 'Text' })
+    // The heading, the marker, the title and the right end are dim; the arrow
+    // over the marker is hidden until the pointer is on the row.
+    for (const at of [1, 2, 4, 5]) expect(all[at]?.props.dimColor).toBe(true)
+    expect(all[2]?.text).not.toBe('○')
     await hint.unmount()
   }
 })
@@ -152,19 +167,54 @@ test('rows: external agents only, guilda:<role>-<tool> type, title, tokens, cut 
 
   for (const columns of [100, 90, 60]) {
     const hint = await $.ui.mount({ ...HINT, surface: 'terminal', viewport: { columns, rows: 30 } })
-    const rows = (await hint.findAll({ type: 'Text' })).map(one => one.text)
-    expect(rows.length).toBe(3)
-    expect(rows[0]).toBe('engine')
-    for (const row of rows.slice(1)) expect([...(row ?? '')].length).toBe(columns)
-    // At 60 columns the title has no readable room left and is dropped.
-    expect(rows[1]?.startsWith(columns >= 90 ? '○  guilda:executor-codex  Rewrite the ' : '○  guilda:executor-codex  ')).toBe(true)
-    expect(rows[1]?.endsWith('28s · running · ↓ 38.6k tokens')).toBe(true)
-    expect(rows[2]?.startsWith('○  gemini  Port the parser ')).toBe(true)
-    expect(rows[2]?.endsWith('28s · running · ↓ 512 tokens')).toBe(true)
-    expect(rows.join('\n')).not.toMatch(/T7-|T8-|T9-|architect|Hidden/)
-    if (columns === 90) expect(rows[1]).toContain('…')
+    const { texts, buttons } = await drawn(hint)
+    expect(texts).toEqual([
+      'engine',
+      'other models',
+      ...ROW('Rewrite the settings page so that every field validates on blur', '28s · running · ↓ 38.6k tokens'),
+      ...ROW('Port the parser', '28s · running · ↓ 512 tokens'),
+    ])
+    expect(buttons).toEqual(['guilda:executor-codex', 'gemini'])
+    expect([...texts, ...buttons].join('\n')).not.toMatch(/T7-|T8-|T9-|architect|Hidden/)
+
+    // The right end never shrinks; the title takes the rest and is cut in the
+    // middle on one row.
+    const all = await hint.findAll({ type: 'Text' })
+    const title = all.find(one => one.text.startsWith('Rewrite'))
+    expect(title?.props.wrap).toBe('truncate-middle')
+    const boxes = await hint.findAll({ type: 'Box' })
+    const shrinking = boxes.filter(one => one.props.flexShrink === 1)
+    expect(shrinking.length).toBe(2)
+    for (const box of shrinking) expect(box.props.flexGrow).toBe(1)
     await hint.unmount()
   }
+})
+
+test('a click on a row type opens the detail pane with that agent first', async ($, on) => {
+  const opened: string[] = []
+  mock.clock(on, { now: 1_000_000 })
+  engine(
+    on,
+    {
+      [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({
+        'T2-exe-aaaaaa': { tool: 'codex', role: 'executor', state: 'running', title: 'First' },
+        'T3-exe-bbbbbb': { tool: 'codex', role: 'reviewer', state: 'running', title: 'Second' },
+      }),
+    },
+    opened,
+  )
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  await hint.press({ key: 'open:T3-exe-bbbbbb' })
+  await hint.unmount()
+  expect(opened).toEqual(['guilda-agents'])
+
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const texts = (await pane.findAll({ type: 'Text' })).map(one => one.text)
+  expect(texts.slice(0, 2)).toEqual(['›', 'T3-exe-bbbbbb'])
+  await pane.unmount()
 })
 
 test('M5: without .guilda/bindings.json nothing is drawn or opened', async ($, on) => {
@@ -220,14 +270,14 @@ test('a change to done raises a toast; the row stays 10 s, then goes away', asyn
   await clock.advance(2000)
   expect(toasts).toEqual(['guilda: T1-exe-a1b2c3 (Codex) done'])
 
-  const doneRow = ['engine', ROW('Fix the login form', '2s · done')]
+  const doneRow = ['engine', 'other models', ...ROW('Fix the login form', '2s · done')]
   let hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
-  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(doneRow)
+  expect((await drawn(hint)).texts).toEqual(doneRow)
   await hint.unmount()
 
   await clock.advance(8000)
   hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
-  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(doneRow)
+  expect((await drawn(hint)).texts).toEqual(doneRow)
   await hint.unmount()
 
   await clock.advance(2000)

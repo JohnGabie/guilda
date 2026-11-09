@@ -192,6 +192,28 @@ Run 1: FAIL (see Run 1). Retest pending. Test `M4` (support only): the rows of `
 - Checks: `validate` passes with warnings, `tsc` passes, `claude plugin test` 12 pass, 0 fail (mod folder and
   repo copy). Not yet seen live.
 
+### Run 3: live feedback
+
+- M3, seen live: while the demo ran, the row `○  guilda:executor-codex  Run the agent panel live demo  19s · ru…`
+  showed under the hint line (user confirmed). Done to hidden after 10 s: not yet confirmed live.
+- Problems seen: the row sat right above the engine's list (`● main`, `○ general-purpose ...`) with nothing
+  between, so it read as part of it or as a bug; its `○` looked like the engine's pressable agent rows; the right
+  end was cut (`19s · ru…`): the hint site is narrower than `e.viewport.columns`, so a row padded to the
+  viewport width overflowed.
+- Changes: a dim `other models` heading over the rows; the marker is `◇` (U+25C7); the row is a flex row: the
+  marker, the type (a plain dim `Button`), the title in a `Box` that grows and shrinks (`wrap="truncate-middle"`)
+  and the right end in a `Box` that never shrinks, so the engine fits the row to the room it really has and only
+  the title is cut.
+- Position: still `PromptHint`. No render site sits after the engine's agent list.
+- Hover and click: the types support both. A keyed `Box` is a hover scope; a `Box` drawn `position="absolute"`,
+  `display="none"` with `hover={{ display: 'flex' }}` paints `›` over the marker while the pointer is on the row,
+  with no hook run. The type is a `Button`; a press stores the agent in `$.state` and opens the detail pane,
+  which lists that agent first, marked `›`. The reference says the terminal reports clicks in fullscreen
+  (`where the surface reports clicks (the fullscreen terminal)`); on the main screen the arrow and the click are
+  not expected to work. `/guilda-agents` opens the same pane from any screen.
+- Checks: `validate` passes with warnings, `tsc` passes, `claude plugin test` 13 pass, 0 fail (mod folder and
+  repo copy).
+
 ### Limits read in the docs (Claude Code 2.1.321 types)
 
 - `ToolUse` for a subagent's tool calls: `ToolUse` is "a tool call's row in the transcript", and the transcript
