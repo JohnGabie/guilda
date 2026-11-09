@@ -214,6 +214,30 @@ Run 1: FAIL (see Run 1). Retest pending. Test `M4` (support only): the rows of `
 - Checks: `validate` passes with warnings, `tsc` passes, `claude plugin test` 13 pass, 0 fail (mod folder and
   repo copy).
 
+### Run 4: hover bug, click opens the agent log
+
+- Seen live: the heading and the `◇  guilda:executor-codex ...  16s · running` row draw well (layout accepted).
+  Bug: with the pointer on the engine's row its `›` shows; on ours nothing changes.
+- Cause, as far as the files show: the drawn tree (dumped in a test with `hint.drawn()`) has exactly the
+  documented reveal: a keyed row `Box`, an absolute `Box` with `display: "none"` and `hover: { display: "flex" }`.
+  So the props reach the surface. The reveal hung on the keyed-Box scope only; the types say a hover applies over
+  "the nearest keyed Box", and a scope that is not met leaves hovers "inert". The types also tie pointer presses
+  to the fullscreen terminal (`where the surface reports clicks (the fullscreen terminal)`); the engine's own row
+  hover is the engine's code, not this path. Not proven which of the two held live.
+- Fix: one hover group per row (`hover: { scope: "row-<address>" }` on every part, the arrow's reveal included),
+  which needs no keyed Box; the type `Button` lights (`dimColor: false`) with the group. `/guilda-agents` now says
+  the screen the hint line was drawn on (`screen: fullscreen | main screen`), and `/guilda-agents log
+  [address|role]` opens a log pane without the pointer.
+- Click: the type `Button` opens the pane `guilda: <type> log`: the type, elapsed time and state at the top, the
+  address, then the last 15 lines of `.guilda/logs/<address>.jsonl`, read again at each poll (only for open log
+  panes, the last 5). No file: `no log yet`. The pane closes like any pane.
+- Log format: one JSON object per line, `{ time, kind, text }`, `kind` one of `command`, `message`, `file`,
+  `tokens`, `state`; written by whoever runs the external agent. `demo.mjs` streams Codex `--json` events into it
+  while Codex runs (command start and end with exit code, agent text, file changes, turn usage, state), and the
+  demo job is now three commands with `sleep 8` between them. Not run.
+- Checks: `validate` passes with warnings, `tsc` passes, `claude plugin test` 16 pass, 0 fail (mod folder and
+  repo copy).
+
 ### Limits read in the docs (Claude Code 2.1.321 types)
 
 - `ToolUse` for a subagent's tool calls: `ToolUse` is "a tool call's row in the transcript", and the transcript

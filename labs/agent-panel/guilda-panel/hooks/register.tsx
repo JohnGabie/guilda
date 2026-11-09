@@ -4,6 +4,8 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import type {
   GuildaPanelAgent,
   GuildaPanelDiagnostics,
+  GuildaPanelLog,
+  GuildaPanelLogLine,
   GuildaPanelSnapshot,
   GuildaPanelTool,
 } from '../types'
@@ -28,8 +30,20 @@ const diagnostics = atom({ plugin: 'guilda-panel', key: 'diagnostics' } as const
   shape: 'diagnostics-1',
 })
 
-// The agent whose row was clicked last: the pane lists it first, marked.
-const selected = atom({ plugin: 'guilda-panel', key: 'selected' } as const, '', { shape: 'selected-1' })
+// The agents whose log pane was opened (the last LOG_PANES), and the tail of
+// each one's log as the last poll read it.
+const LOG_PANES = 5
+const LOG_LINES = 15
+const LOG_PANE_PREFIX = 'guilda-log-'
+const logOpen = atom({ plugin: 'guilda-panel', key: 'logOpen' } as const, [] as string[], { shape: 'log-open-1' })
+const logs = atom({ plugin: 'guilda-panel', key: 'logs' } as const, {} as Record<string, GuildaPanelLog>, {
+  shape: 'logs-1',
+})
+
+// Whether the last PromptHint drawing was on the fullscreen terminal: for
+// /guilda-agents, since the pointer (hover, click) reaches a mod's elements
+// where the surface reports it. A drawing may not write $.state.
+let lastScreen: string = 'not drawn yet'
 
 const TOOL_LABEL: Record<GuildaPanelTool, string> = { claude: 'Claude', codex: 'Codex', other: '?' }
 const TOOL_COLOR: Record<GuildaPanelTool, string> = { claude: 'claude', codex: 'ide', other: 'inactive' }
@@ -127,6 +141,49 @@ export function buildAgents(
   return agents
 }
 
+// An address that is safe as a file name and a pane id: letters, digits,
+// `_`, `-` and `.`, not starting with a dot.
+export function isSafeAddress(address: string): boolean {
+  return /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,55}$/.test(address)
+}
+
+function clockText(ms: number): string {
+  return new Date(ms).toISOString().slice(11, 19)
+}
+
+// One log line as drawn: `HH:MM:SS  <kind>  <text>`, on one row.
+export function logLineText(line: GuildaPanelLogLine): string {
+  const text = line.text.replace(/\s+/g, ' ').trim()
+  return `${line.time !== undefined ? `${clockText(line.time)}  ` : ''}${line.kind.padEnd(7)}  ${text}`
+}
+
+export function logPaneId(address: string): string {
+  return `${LOG_PANE_PREFIX}${address.replace(/[^A-Za-z0-9_-]/g, '_')}`.slice(0, 64)
+}
+
+const LOG_KINDS = new Set(['command', 'message', 'file', 'tokens', 'state'])
+
+// The last `count` lines of a `.guilda/logs/<address>.jsonl` text, one event
+// each: `{ time, kind, text }`. A line that does not parse is kept as text.
+export function logTail(text: string, count = LOG_LINES): GuildaPanelLogLine[] {
+  const lines = text.split('\n').filter(line => line.trim() !== '')
+  return lines.slice(-count).map(line => {
+    try {
+      const event: unknown = JSON.parse(line)
+      if (isRecord(event)) {
+        const kind = typeof event.kind === 'string' && LOG_KINDS.has(event.kind) ? event.kind : 'other'
+        const one: GuildaPanelLogLine = { kind, text: typeof event.text === 'string' ? event.text : '' }
+        const time = toTime(event.time)
+        if (time !== undefined) one.time = time
+        return one
+      }
+    } catch {
+      // kept as text below
+    }
+    return { kind: 'other', text: line }
+  })
+}
+
 // The folder session.start saw, and the poll timer. Both are set again by
 // session.start, which runs after every load and reload of this module.
 let startCwd: string | undefined
@@ -153,6 +210,37 @@ async function writeDiagnostics($: EngineInterface, value: GuildaPanelDiagnostic
 async function recordError($: EngineInterface, error: unknown): Promise<void> {
   const before = await read($, diagnostics)
   await writeDiagnostics($, { ...before, error: errorText(error), errorAt: await $.clock.now() })
+}
+
+// Reads the log of each agent whose log pane is open; a missing file is
+// `isFound: false` ("no log yet").
+async function readLogs($: EngineInterface, folder: string, addresses: readonly string[], now: number): Promise<void> {
+  if (addresses.length === 0 || folder === '') return
+  const read: Record<string, GuildaPanelLog> = {}
+  for (const address of addresses) {
+    if (!isSafeAddress(address)) continue
+    const path = `${folder}/.guilda/logs/${address}.jsonl`
+    try {
+      read[address] = (await $.fs.exists(path))
+        ? { isFound: true, lines: logTail(await $.fs.read(path)), at: now }
+        : { isFound: false, lines: [], at: now }
+    } catch (error) {
+      read[address] = { isFound: false, lines: [], at: now, error: errorText(error) }
+    }
+  }
+  await update($, logs, before => ({ ...before, ...read }))
+}
+
+// Opens the log pane of one agent: remembers it for the poll, reads its log
+// once now, then opens `guilda: <label> log`.
+async function openLog($: EngineInterface, address: string): Promise<void> {
+  const { agents } = await read($, snapshot)
+  const agent = agents.find(one => one.address === address)
+  if (agent === undefined || !isSafeAddress(address)) return
+  const open = await update($, logOpen, before => [...before.filter(one => one !== address), address].slice(-LOG_PANES))
+  const diag = await read($, diagnostics)
+  await readLogs($, diag.folder, open, await $.clock.now())
+  await $.ui.open({ id: logPaneId(address), title: `guilda: ${agentType(agent)} log` })
 }
 
 async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
@@ -203,6 +291,7 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
 
     const next: GuildaPanelSnapshot = { agents, at: now }
     await update($, snapshot, () => next)
+    await readLogs($, folder, await read($, logOpen), now)
     return next
   } finally {
     isPolling = false
@@ -269,8 +358,8 @@ export function agentType(agent: GuildaPanelAgent): string {
 // The marker before each row: a hollow diamond, not the engine's `○`/`●`,
 // which mark its own pressable agent rows. U+25C7, in the common terminal fonts.
 export const MARKER = '◇'
-// Drawn over the marker while the pointer is on the row: the row opens the
-// detail pane on a click.
+// Drawn over the marker while the pointer is on the row: a click on the
+// row's type opens that agent's log pane.
 export const HOVER_MARKER = '›'
 // The dim label over the rows, so they read as a group of their own.
 export const HEADING = 'other models'
@@ -295,7 +384,8 @@ export const register: Register = on => {
     startCwd = e.cwd
     await $.command.register({
       name: 'guilda-agents',
-      description: 'Show the guilda agents of this project (Claude or Codex) in a pane, with diagnostics',
+      description: 'Show the guilda agents of this project in a pane, with diagnostics; `log [address|role]` opens an agent log',
+      argumentHint: '[log [address|role]]',
     })
     timer?.cancel()
     timer = $.clock.every(POLL_MS, () => {
@@ -316,24 +406,35 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'guilda-agents' }, async $ => {
+  on('command.run', { command: 'guilda-agents' }, async ($, e) => {
     const now = await poll($).catch(async error => {
       await recordError($, error)
       return read($, snapshot)
     })
+    // `/guilda-agents log [address or role]` opens a log pane without the pointer.
+    const words = e.args.trim().split(/\s+/).filter(word => word !== '')
+    if (words[0] === 'log') {
+      const wanted = words[1]
+      const external = now.agents.filter(isExternal)
+      const agent =
+        wanted === undefined
+          ? (external.find(one => one.state === 'running') ?? external[0])
+          : external.find(one => one.address === wanted || one.role === wanted)
+      if (agent === undefined) return { text: `guilda-panel: no external agent${wanted !== undefined ? ` matches ${wanted}` : ''}` }
+      await openLog($, agent.address)
+      return { text: `guilda-panel: log of ${agent.address} (${agentType(agent)}) opened` }
+    }
     let pane = 'not opened (no agents)'
     if (now.agents.length > 0) {
       const opened = await $.ui.open({ id: PANE, title: TITLE })
       pane = opened.isPlaced ? 'opened' : `open, not drawn: ${opened.reason}`
     }
-    return { text: diagnosticsText(await read($, diagnostics), pane, now.agents) }
+    return { text: `${diagnosticsText(await read($, diagnostics), pane, now.agents)}\n  screen: ${lastScreen}` }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const { agents: all, at } = await read($, snapshot)
-    const chosen = await read($, selected)
-    const agents = [...all.filter(one => one.address === chosen), ...all.filter(one => one.address !== chosen)]
+    const { agents, at } = await read($, snapshot)
 
     if (agents.length === 0) {
       return (
@@ -347,7 +448,6 @@ export const register: Register = on => {
       <Box flexDirection="column">
         {agents.map(agent => (
           <Box key={`row:${agent.address}`} flexDirection="row" gap={1}>
-            {agent.address === chosen && <Text>{HOVER_MARKER}</Text>}
             <Text>{agent.address}</Text>
             <Text color={TOOL_COLOR[agent.tool]}>{TOOL_LABEL[agent.tool]}</Text>
             <Text color={STATE_COLOR[agent.state]} dimColor={STATE_COLOR[agent.state] === undefined}>
@@ -357,6 +457,43 @@ export const register: Register = on => {
             {agent.task !== undefined && <Text dimColor>{agent.task}</Text>}
           </Box>
         ))}
+      </Box>
+    )
+  })
+
+  // An agent's log pane: its type, state and time at the top, then the last
+  // lines of `.guilda/logs/<address>.jsonl`, read again at each poll.
+  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    const requestId = e.requestId ?? ''
+    if (!requestId.startsWith(LOG_PANE_PREFIX)) return next(e)
+    const { agents, at } = await read($, snapshot)
+    const agent = agents.find(one => logPaneId(one.address) === requestId)
+    const { Box, Text } = $.ui.resolve(e)
+    if (agent === undefined) {
+      return (
+        <Box flexDirection="column">
+          <Text dimColor>This agent is no longer in .guilda/bindings.json.</Text>
+        </Box>
+      )
+    }
+    const log = (await read($, logs))[agent.address]
+    const parts = rowParts(agent, at)
+
+    return (
+      <Box flexDirection="column">
+        <Text wrap="truncate-end">{`${parts.type} · ${parts.right}`}</Text>
+        <Text dimColor wrap="truncate-middle">
+          {agent.address}
+        </Text>
+        {log === undefined || !log.isFound ? (
+          <Text dimColor>no log yet</Text>
+        ) : (
+          log.lines.map((line, index) => (
+            <Text key={`log:${index}`} dimColor={line.kind !== 'message'} wrap="truncate-end">
+              {logLineText(line)}
+            </Text>
+          ))
+        )}
       </Box>
     )
   })
@@ -374,10 +511,9 @@ export const register: Register = on => {
     if (shown.length === 0) return next(e)
     const line = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
-    const openDetail = (address: string) => () => {
-      void update($, selected, () => address)
-        .then(() => $.ui.open({ id: PANE, title: TITLE }))
-        .catch(error => recordError($, error))
+    lastScreen = e.viewport?.isFullscreen === true ? 'fullscreen' : e.viewport?.isFullscreen === false ? 'main screen' : 'unknown'
+    const onOpen = (address: string) => () => {
+      void openLog($, address).catch(error => recordError($, error))
     }
 
     return (
@@ -388,26 +524,40 @@ export const register: Register = on => {
         </Text>
         {shown.map(agent => {
           const parts = rowParts(agent, at)
+          // One hover group per row: the pointer on any of its parts lights all
+          // of them, and reveals the arrow over the marker. A group needs no
+          // keyed Box around it.
+          const scope = `row-${agent.address}`.slice(0, 64)
           return (
-            <Box key={`row:${agent.address}`} flexDirection="row" gap={2}>
-              <Box flexShrink={0} width={1}>
-                <Text dimColor>{MARKER}</Text>
-                <Box position="absolute" left={0} top={0} display="none" hover={{ display: 'flex' }}>
+            <Box key={`row:${agent.address}`} flexDirection="row" gap={2} hover={{ scope }}>
+              <Box flexShrink={0} width={1} hover={{ scope }}>
+                <Text dimColor hover={{ scope }}>
+                  {MARKER}
+                </Text>
+                <Box position="absolute" left={0} top={0} display="none" hover={{ scope, display: 'flex' }}>
                   <Text>{HOVER_MARKER}</Text>
                 </Box>
               </Box>
-              <Box flexShrink={0}>
-                <Button key={`open:${agent.address}`} plain dimColor onPress={openDetail(agent.address)}>
+              <Box flexShrink={0} hover={{ scope }}>
+                <Button
+                  key={`open:${agent.address}`}
+                  plain
+                  dimColor
+                  hover={{ scope, dimColor: false }}
+                  onPress={onOpen(agent.address)}
+                >
                   {parts.type}
                 </Button>
               </Box>
-              <Box flexGrow={1} flexShrink={1} minWidth={0}>
-                <Text dimColor wrap="truncate-middle">
+              <Box flexGrow={1} flexShrink={1} minWidth={0} hover={{ scope }}>
+                <Text dimColor wrap="truncate-middle" hover={{ scope }}>
                   {parts.title}
                 </Text>
               </Box>
-              <Box flexShrink={0}>
-                <Text dimColor>{parts.right}</Text>
+              <Box flexShrink={0} hover={{ scope }}>
+                <Text dimColor hover={{ scope }}>
+                  {parts.right}
+                </Text>
               </Box>
             </Box>
           )

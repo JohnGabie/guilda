@@ -190,16 +190,41 @@ test('rows: external agents only, guilda:<role>-<tool> type, title, tokens, cut 
   }
 })
 
-test('a click on a row type opens the detail pane with that agent first', async ($, on) => {
+const LOG_BINDINGS = {
+  'T2-exe-aaaaaa': { tool: 'codex', role: 'executor', state: 'running', title: 'First' },
+  'T3-exe-bbbbbb': { tool: 'codex', role: 'reviewer', state: 'running', title: 'Second' },
+}
+
+const logLine = (second: number, kind: string, text: string) =>
+  JSON.stringify({ time: `2026-11-09T21:40:${String(second).padStart(2, '0')}.000Z`, kind, text })
+
+const LOG_PANE = (id: string) => ({ ...PANE, requestId: id, props: { ...PANE.props, title: 'guilda log' } })
+
+test('the hover arrow and the row parts share one hover group per row', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  engine(on, { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(LOG_BINDINGS) }, [])
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  const boxes = await hint.findAll({ type: 'Box' })
+  const arrows = boxes.filter(one => one.props.position === 'absolute')
+  expect(arrows.length).toBe(2)
+  expect(arrows.map(one => one.props.display)).toEqual(['none', 'none'])
+  const tree = JSON.stringify(await hint.drawn())
+  expect(tree).toContain('"hover":{"scope":"row-T2-exe-aaaaaa","display":"flex"}')
+  expect(tree).toContain('"hover":{"scope":"row-T3-exe-bbbbbb","display":"flex"}')
+  await hint.unmount()
+})
+
+test('a click on a row type opens the log pane of that agent', async ($, on) => {
   const opened: string[] = []
   mock.clock(on, { now: 1_000_000 })
   engine(
     on,
     {
-      [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({
-        'T2-exe-aaaaaa': { tool: 'codex', role: 'executor', state: 'running', title: 'First' },
-        'T3-exe-bbbbbb': { tool: 'codex', role: 'reviewer', state: 'running', title: 'Second' },
-      }),
+      [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(LOG_BINDINGS),
+      [`${PROJECT}/.guilda/logs/T3-exe-bbbbbb.jsonl`]: logLine(1, 'command', 'echo step 1') + '\n',
     },
     opened,
   )
@@ -209,11 +234,64 @@ test('a click on a row type opens the detail pane with that agent first', async 
   const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
   await hint.press({ key: 'open:T3-exe-bbbbbb' })
   await hint.unmount()
-  expect(opened).toEqual(['guilda-agents'])
+  expect(opened).toEqual(['guilda-log-T3-exe-bbbbbb'])
 
-  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const pane = await $.ui.mount({ ...LOG_PANE('guilda-log-T3-exe-bbbbbb'), surface: 'terminal' })
   const texts = (await pane.findAll({ type: 'Text' })).map(one => one.text)
-  expect(texts.slice(0, 2)).toEqual(['›', 'T3-exe-bbbbbb'])
+  expect(texts).toEqual([
+    'guilda:reviewer-codex · 0s · running',
+    'T3-exe-bbbbbb',
+    '21:40:01  command  echo step 1',
+  ])
+  await pane.unmount()
+})
+
+test('the log pane shows the last 15 lines and follows the log at each poll', async ($, on) => {
+  const opened: string[] = []
+  const clock = mock.clock(on, { now: 1_000_000 })
+  const path = `${PROJECT}/.guilda/logs/T2-exe-aaaaaa.jsonl`
+  const lines = Array.from({ length: 20 }, (_, i) => logLine(i, i % 2 === 0 ? 'command' : 'message', `line ${i}`))
+  const files: Files = {
+    [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(LOG_BINDINGS),
+    [path]: lines.join('\n') + '\n',
+  }
+  engine(on, files, opened)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run({ ...RUN, args: 'log executor' })
+  expect(ran.text).toContain('log of T2-exe-aaaaaa (guilda:executor-codex) opened')
+  expect(opened).toEqual(['guilda-log-T2-exe-aaaaaa'])
+
+  let pane = await $.ui.mount({ ...LOG_PANE('guilda-log-T2-exe-aaaaaa'), surface: 'terminal' })
+  let texts = (await pane.findAll({ type: 'Text' })).map(one => one.text)
+  expect(texts.length).toBe(2 + 15)
+  expect(texts[2]).toBe('21:40:05  message  line 5')
+  expect(texts.at(-1)).toBe('21:40:19  message  line 19')
+  await pane.unmount()
+
+  files[path] += logLine(30, 'tokens', '1200 in, 80 out') + '\n' + 'not json\n'
+  await clock.advance(2000)
+  pane = await $.ui.mount({ ...LOG_PANE('guilda-log-T2-exe-aaaaaa'), surface: 'terminal' })
+  texts = (await pane.findAll({ type: 'Text' })).map(one => one.text)
+  expect(texts.slice(-2)).toEqual(['21:40:30  tokens   1200 in, 80 out', 'other    not json'])
+  expect(texts[0]).toBe('guilda:executor-codex · 2s · running')
+  await pane.unmount()
+})
+
+test('a log pane without a log file says no log yet', async ($, on) => {
+  const opened: string[] = []
+  mock.clock(on, { now: 1_000_000 })
+  engine(on, { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(LOG_BINDINGS) }, opened)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  await $.command.run({ ...RUN, args: 'log T2-exe-aaaaaa' })
+  expect(opened).toEqual(['guilda-log-T2-exe-aaaaaa'])
+  const pane = await $.ui.mount({ ...LOG_PANE('guilda-log-T2-exe-aaaaaa'), surface: 'terminal' })
+  expect((await pane.findAll({ type: 'Text' })).map(one => one.text)).toEqual([
+    'guilda:executor-codex · 0s · running',
+    'T2-exe-aaaaaa',
+    'no log yet',
+  ])
   await pane.unmount()
 })
 
@@ -376,6 +454,7 @@ test('/guilda-agents replies with the folder, the file, the count, the poll time
   expect(ran.text).toContain('last poll: 2026-11-09T21:40:02.000Z')
   expect(ran.text).toContain('last error: none')
   expect(ran.text).toContain('pane: opened')
+  expect(ran.text).toContain('screen: not drawn yet')
   expect(ran.text).toContain('- T1-exe-a1b2c3: guilda:executor-codex, running, Fix the login form')
   expect(ran.text).toContain('- T1-arc-a1b2c3: claude, review (in session, not in the rows)')
   // Only the command opens it.

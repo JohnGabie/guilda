@@ -5,8 +5,8 @@
 //
 // Writes <project dir>/.guilda/bindings.json and .guilda/queue.json the way the
 // lab router does, with two agents:
-//   T1-exe-<rand>  codex   running for the whole Codex run (about 20 s: the
-//                          prompt sleeps 20 s), then done (or failed)
+//   T1-exe-<rand>  codex   running for the whole Codex run (about 20 s: three
+//                          commands with `sleep 8` between), then done (or failed)
 //   T1-arc-<rand>  claude  review (no process: it only shows the second tool;
 //                          the mod skips Claude bindings in its rows)
 // Each binding carries the optional `role` (executor, architect) and `title`
@@ -14,8 +14,17 @@
 // The Codex run is `codex exec --json --skip-git-repo-check -s read-only -C <dir>`
 // with stdin from /dev/null and a 120 s timeout. Each `turn.completed` event's
 // `usage` (input + output tokens) is written to the binding's optional `tokens`
-// field while the agent is still running. It never deletes files: it
-// keeps the other entries of both files and only adds or updates its own.
+// field while the agent is still running.
+//
+// The Codex `--json` events are also streamed, line by line while it runs, to
+// <project dir>/.guilda/logs/<address>.jsonl, one compact event per line:
+//   { "time": ISO, "kind": "command" | "message" | "file" | "tokens" | "state", "text": string }
+// command: a shell command Codex starts or ends (with its exit code); message:
+// the agent's text; file: file changes; tokens: a turn's usage; state: the
+// agent's state. The log is only appended to.
+//
+// It never deletes files: it keeps the other entries of both JSON files and
+// only adds or updates its own.
 
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -23,7 +32,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const TIMEOUT_MS = 120_000;
-const PROMPT = 'Run the shell command: sleep 20. Then reply with only: DEMO-DONE';
+const PROMPT = [
+  'Run these shell commands one at a time, each as its own command:',
+  '`echo step 1`, then `sleep 8`, then `ls`, then `sleep 8`, then `echo step 3`.',
+  'Then reply with only: DEMO-DONE',
+].join(' ');
 const TITLE = 'Run the agent panel live demo';
 
 function readJson(file, fallback) {
@@ -44,6 +57,39 @@ function setAgent(dir, address, entry) {
   process.stderr.write(`[demo] ${address}: ${next[address].tool} ${next[address].state}\n`);
 }
 
+function logLine(dir, address, kind, text) {
+  const file = path.join(dir, '.guilda', 'logs', `${address}.jsonl`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, JSON.stringify({ time: new Date().toISOString(), kind, text }) + '\n');
+}
+
+// One Codex `--json` event as log lines: [kind, text] pairs, none for the
+// events that say nothing to a reader (thread and turn starts, reasoning).
+function logEvents(e) {
+  const item = e.item && typeof e.item === 'object' ? e.item : null;
+  if (e.type === 'turn.completed' && e.usage) {
+    const u = e.usage;
+    return [['tokens', `${u.input_tokens ?? 0} in (${u.cached_input_tokens ?? 0} cached), ${u.output_tokens ?? 0} out`]];
+  }
+  if (e.type === 'turn.failed') return [['state', `turn failed: ${e.error?.message ?? ''}`]];
+  if (e.type === 'error') return [['state', `error: ${e.message ?? ''}`]];
+  if (!item) return [];
+  if (item.type === 'command_execution') {
+    if (e.type === 'item.started') return [['command', `$ ${item.command}`]];
+    if (e.type === 'item.completed') {
+      const output = String(item.aggregated_output ?? '').trim().split('\n').slice(-3).join(' | ');
+      return [['command', `exit ${item.exit_code ?? '?'}: ${item.command}${output ? ` -> ${output}` : ''}`]];
+    }
+  }
+  if (e.type !== 'item.completed') return [];
+  if (item.type === 'agent_message') return [['message', String(item.text ?? '')]];
+  if (item.type === 'file_change') {
+    const changes = Array.isArray(item.changes) ? item.changes : [];
+    return [['file', changes.map((c) => `${c.kind ?? 'change'} ${c.path ?? ''}`).join(', ') || 'file change']];
+  }
+  return [];
+}
+
 function setTask(dir, task) {
   const file = path.join(dir, '.guilda', 'queue.json');
   const queue = readJson(file, []);
@@ -61,8 +107,9 @@ function usageTokens(usage) {
   return input + output;
 }
 
-// onTokens(total) runs on each `turn.completed`, with the sum over turns so far.
-function runCodex(dir, onTokens) {
+// onTokens(total) runs on each `turn.completed`, with the sum over turns so far;
+// onEvent(event) on every `--json` event, as it arrives.
+function runCodex(dir, onTokens, onEvent) {
   return new Promise((resolve) => {
     const args = ['exec', '--json', '--skip-git-repo-check', '-s', 'read-only', '-C', dir, PROMPT];
     // stdin 'ignore' is /dev/null: Codex waits for stdin otherwise.
@@ -81,6 +128,7 @@ function runCodex(dir, onTokens) {
         if (!line.trim().startsWith('{')) continue;
         let e;
         try { e = JSON.parse(line); } catch { continue; }
+        onEvent(e);
         const used = e.type === 'turn.completed' ? usageTokens(e.usage) : null;
         if (used !== null) { tokens += used; onTokens(tokens); }
       }
@@ -121,8 +169,14 @@ async function main() {
 
   const started = Date.now();
   // The agent stays `running` until Codex exits; only `tokens` moves meanwhile.
-  const r = await runCodex(root, (tokens) => setAgent(root, exe, { tool: 'codex', state: 'running', tokens }));
+  logLine(root, exe, 'state', 'running');
+  const r = await runCodex(
+    root,
+    (tokens) => setAgent(root, exe, { tool: 'codex', state: 'running', tokens }),
+    (e) => { for (const [kind, text] of logEvents(e)) logLine(root, exe, kind, text); },
+  );
   const state = r.ok ? 'done' : 'failed';
+  logLine(root, exe, 'state', r.timedOut ? 'failed (timed out)' : state);
   setAgent(root, exe, { tool: 'codex', session: r.session ?? null, state, tokens: r.tokens });
   setTask(root, { id: `T1-${rand}`, state, agent: exe });
 

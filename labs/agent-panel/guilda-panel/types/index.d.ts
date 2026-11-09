@@ -26,6 +26,24 @@ export type GuildaPanelSnapshot = {
   at: number
 }
 
+export type GuildaPanelLogLine = {
+  /** ms, when the line has a time. */
+  time?: number
+  /** `command`, `message`, `file`, `tokens`, `state`, or `other` for a line that does not parse. */
+  kind: string
+  text: string
+}
+
+export type GuildaPanelLog = {
+  /** False while `.guilda/logs/<address>.jsonl` does not exist ("no log yet"). */
+  isFound: boolean
+  /** The last lines of the log, oldest first. */
+  lines: GuildaPanelLogLine[]
+  /** Time of the read, ms. */
+  at: number
+  error?: string
+}
+
 export type GuildaPanelDiagnostics = {
   /** The folder whose .guilda/ the last poll read ('' before any poll). */
   folder: string
@@ -44,7 +62,8 @@ declare module 'claude-code' {
     'guilda-panel': {
       snapshot: Shaped<GuildaPanelSnapshot>
       diagnostics: Shaped<GuildaPanelDiagnostics>
-      selected: Shaped<string>
+      logOpen: Shaped<string[]>
+      logs: Shaped<Record<string, GuildaPanelLog>>
     }
   }
 }
