@@ -11,6 +11,14 @@ export type GuildaPanelAgent = {
   startedAt?: number
   /** Tokens used so far, from the binding's optional `tokens` field. */
   tokens?: number
+  /** The guilda role (`executor`, `architect`), from the binding's optional `role`. */
+  role?: string
+  /** What the agent works on, from the binding's optional `title`, else the queue task's `title`. */
+  title?: string
+  /** The binding's `tool` when it is neither `claude` nor `codex`. */
+  toolName?: string
+  /** True when the binding marks a Claude subagent of this session (`inSession: true`). */
+  inSession?: boolean
 }
 
 export type GuildaPanelSnapshot = {

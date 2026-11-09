@@ -19,7 +19,7 @@ const NO_DIAGNOSTICS: GuildaPanelDiagnostics = { folder: '', looked: [], isFound
 // Bump the shape when the snapshot's fields change: it declines what an older
 // version stored, which outlives a reload.
 const snapshot = atom({ plugin: 'guilda-panel', key: 'snapshot' } as const, EMPTY, {
-  shape: 'snapshot-2',
+  shape: 'snapshot-3',
 })
 
 // What the last poll saw, for /guilda-agents: the folder, whether the file was
@@ -108,6 +108,11 @@ export function buildAgents(
       before !== undefined && before.state === state ? before.changedAt : (toTime(binding.updated) ?? now)
     const agent: GuildaPanelAgent = { address, tool: toTool(binding.tool), state, changedAt }
     if (typeof task?.id === 'string') agent.task = task.id
+    if (typeof binding.role === 'string' && binding.role !== '') agent.role = binding.role
+    const title = typeof binding.title === 'string' ? binding.title : task?.title
+    if (typeof title === 'string' && title !== '') agent.title = title
+    if (agent.tool === 'other' && typeof binding.tool === 'string' && binding.tool !== '') agent.toolName = binding.tool
+    if (binding.inSession === true) agent.inSession = true
     // When it began running: kept from the poll that first saw it running.
     const startedAt = state === 'running' ? (before?.state === 'running' ? before.startedAt : changedAt) : before?.startedAt
     if (startedAt !== undefined) agent.startedAt = startedAt
@@ -188,7 +193,7 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
     for (const agent of agents) {
       const old = before.agents.find(one => one.address === agent.address)
       const isFinished = agent.state === 'done' || agent.state === 'failed'
-      if (old !== undefined && old.state !== agent.state && isFinished) {
+      if (isExternal(agent) && old !== undefined && old.state !== agent.state && isFinished) {
         $.ui.toast(`guilda: ${agent.address} (${TOOL_LABEL[agent.tool]}) ${agent.state}`)
       }
     }
@@ -205,7 +210,11 @@ function timeText(ms: number): string {
   return ms > 0 ? new Date(ms).toISOString() : 'never'
 }
 
-export function diagnosticsText(diag: GuildaPanelDiagnostics, pane: string): string {
+export function diagnosticsText(
+  diag: GuildaPanelDiagnostics,
+  pane: string,
+  agents: readonly GuildaPanelAgent[] = [],
+): string {
   const lines = [
     `guilda-panel: reads ${diag.folder === '' ? '(no folder)' : `${diag.folder}/.guilda/`}`,
     `  looked in: ${diag.looked.length === 0 ? '(none)' : diag.looked.join(', ')}`,
@@ -215,12 +224,24 @@ export function diagnosticsText(diag: GuildaPanelDiagnostics, pane: string): str
     `  last error: ${diag.error === undefined ? 'none' : `${diag.error} (at ${timeText(diag.errorAt ?? 0)})`}`,
     `  pane: ${pane}`,
   ]
+  for (const agent of agents) {
+    const where = isExternal(agent) ? '' : ' (in session, not in the rows)'
+    lines.push(`  - ${agent.address}: ${agentType(agent)}, ${agent.state}${agent.title !== undefined ? `, ${agent.title}` : ''}${where}`)
+  }
   return lines.join('\n')
 }
 
-// Running agents, and those done or failed less than LINGER_MS ago.
+// Agents outside this conversation: an external tool (codex, another CLI).
+// Claude agents, and any binding marked `inSession`, are this session's own
+// subagents, which the engine's agent list already shows.
+export function isExternal(agent: GuildaPanelAgent): boolean {
+  return agent.tool !== 'claude' && agent.inSession !== true
+}
+
+// External agents running, and those done or failed less than LINGER_MS ago.
 export function visibleAgents(agents: readonly GuildaPanelAgent[], now: number): GuildaPanelAgent[] {
   return agents.filter(agent => {
+    if (!isExternal(agent)) return false
     if (agent.state === 'running') return true
     const isFinished = agent.state === 'done' || agent.state === 'failed'
     return isFinished && agent.startedAt !== undefined && now - agent.changedAt < LINGER_MS
@@ -234,6 +255,13 @@ export function tokenText(tokens: number): string {
 }
 
 const TOOL_NAME: Record<GuildaPanelTool, string> = { claude: 'claude', codex: 'codex', other: 'agent' }
+
+// The type column, in guilda's naming: `guilda:<role>-<tool>`
+// (`guilda:executor-codex`), or the tool name alone when the binding has no role.
+export function agentType(agent: GuildaPanelAgent): string {
+  const tool = agent.toolName ?? TOOL_NAME[agent.tool]
+  return agent.role !== undefined ? `guilda:${agent.role}-${tool}` : tool
+}
 
 function width(text: string): number {
   return [...text].length
@@ -256,11 +284,16 @@ export function agentRow(agent: GuildaPanelAgent, now: number, columns: number):
   const end = agent.state === 'running' ? now : agent.changedAt
   const seconds = Math.max(0, Math.round((end - (agent.startedAt ?? agent.changedAt)) / 1000))
   const right = [`${seconds}s`, agent.state, ...(agent.tokens !== undefined ? [`↓ ${tokenText(agent.tokens)} tokens`] : [])].join(' · ')
-  const left = `○  ${TOOL_NAME[agent.tool]}  `
-  const middle = agent.task !== undefined ? `${agent.address}  ${agent.task}` : agent.address
+  const left = `○  ${agentType(agent)}  `
+  // The address stays in /guilda-agents and the pane.
+  const middle = agent.title ?? ''
   const gap = 2
   const room = columns - width(left) - width(right) - gap
-  if (room < 4) return cutMiddle(`${left}${right}`, columns)
+  if (room < (middle === '' ? 0 : 4)) {
+    // No room for a readable title: type and right end only, or both cut.
+    const pad = columns - width(left) - width(right)
+    return pad >= 0 ? `${left}${' '.repeat(pad)}${right}` : cutMiddle(`${left}${right}`, columns)
+  }
   const shown = cutMiddle(middle, room)
   return `${left}${shown}${' '.repeat(columns - width(left) - width(shown) - width(right))}${right}`
 }
@@ -301,7 +334,7 @@ export const register: Register = on => {
       const opened = await $.ui.open({ id: PANE, title: TITLE })
       pane = opened.isPlaced ? 'opened' : `open, not drawn: ${opened.reason}`
     }
-    return { text: diagnosticsText(await read($, diagnostics), pane) }
+    return { text: diagnosticsText(await read($, diagnostics), pane, now.agents) }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -333,21 +366,25 @@ export const register: Register = on => {
     )
   })
 
-  // The guilda agents at work, one dim row each, drawn like the engine's own
-  // agent list: `○  <tool>  <address> <task>` and, at the right end,
-  // `<elapsed>s · <state>[ · ↓ <n> tokens]`.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e)
+  // The external agents at work, one dim row each, drawn like the engine's own
+  // agent list: `○  guilda:<role>-<tool>  <title>` and, at the right end,
+  // `<elapsed>s · <state>[ · ↓ <n> tokens]`. No render site sits inside or
+  // under that list; the hint line under the prompt is the lowest one, so the
+  // rows go right under the engine's hint line, which is kept as drawn.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const { agents, at } = await read($, snapshot)
     const shown = visibleAgents(agents, at)
     if (shown.length === 0) return next(e)
+    const line = await next(e)
+    const columns = e.viewport?.columns ?? 80
     const { Box, Text } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="column">
+        {line}
         {shown.map(agent => (
           <Text key={`row:${agent.address}`} dimColor wrap="truncate-end">
-            {agentRow(agent, at, e.props.bodyColumns)}
+            {agentRow(agent, at, columns)}
           </Text>
         ))}
       </Box>

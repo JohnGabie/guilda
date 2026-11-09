@@ -4,7 +4,7 @@ import { expect, mock, test } from 'claude-code/testing'
 const PROJECT = '/project'
 
 const BINDINGS = {
-  'T1-exe-a1b2c3': { tool: 'codex', session: 's-codex', state: 'running' },
+  'T1-exe-a1b2c3': { tool: 'codex', role: 'executor', title: 'Fix the login form', session: 's-codex', state: 'running' },
   'T1-arc-a1b2c3': { tool: 'claude', session: 's-claude', state: 'review' },
 }
 
@@ -24,20 +24,26 @@ const PANE = {
   },
 } as const
 
-const BAND = {
+// The dim hint line under the prompt, the lowest site a mod draws in; the
+// guilda rows go under it. 60 columns across.
+const HINT = {
   plugin: 'guilda-panel',
-  component: 'AbovePrompt',
-  requestId: 'above-prompt',
-  props: {
-    hasSurvey: false,
-    isCollapsed: false,
-    isWorking: false,
-    maxRows: 10,
-    bodyColumns: 60,
-    scroll: { offset: 0, bodyRows: 10 },
-    view: {},
-  },
+  component: 'PromptHint',
+  requestId: 'prompt-hint',
+  props: { isDraft: false, isWorking: true, hint: 'esc to interrupt' },
+  viewport: { columns: 60, rows: 30 },
 } as const
+
+const ROW = (middle: string, right: string, columns = 60) =>
+  `○  guilda:executor-codex  ${middle}${' '.repeat(columns - 26 - middle.length - right.length)}${right}`
+
+// Stands for the engine's own drawing of every site where the plugin passes.
+function engineDraws(on: On) {
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+}
 
 type Files = Record<string, string>
 type Where = { cwd: string; root: string }
@@ -88,6 +94,8 @@ test('M2: the pane lists each agent with address, tool, state and age', async ($
     opened,
   )
 
+  engineDraws(on)
+
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
   // The pane opens only on /guilda-agents.
   expect(opened).toEqual([])
@@ -106,50 +114,56 @@ test('M2: the pane lists each agent with address, tool, state and age', async ($
     await ui.unmount()
   }
 
-  // Under the prompt: one dim row per running agent only (the reviewer is idle
-  // there), sized to the band's 60 columns.
+  // Under the hint line, kept as the engine draws it: one dim row for the
+  // running Codex executor; the Claude reviewer is in session and not shown.
   for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({ ...BAND, surface })
-    const rows = await band.findAll({ type: 'Text' })
-    expect(rows.map(one => one.text)).toEqual([
-      `○  codex  T1-exe-a1b2c3  T1${' '.repeat(21)}4s · running`,
-    ])
-    expect(rows[0]?.props.dimColor).toBe(true)
-    await band.unmount()
+    const hint = await $.ui.mount({ ...HINT, surface })
+    const rows = await hint.findAll({ type: 'Text' })
+    expect(rows.map(one => one.text)).toEqual(['engine', ROW('Fix the login form', '4s · running')])
+    expect(rows[1]?.props.dimColor).toBe(true)
+    expect(rows[1]?.text).not.toContain('T1-exe-a1b2c3')
+    await hint.unmount()
   }
 })
 
-test('a row shows the tokens of the binding and cuts its middle text to fit, never wrapping', async ($, on) => {
+test('rows: external agents only, guilda:<role>-<tool> type, title, tokens, cut to fit, never wrapped', async ($, on) => {
   const clock = mock.clock(on, { now: 1_000_000 })
   engine(
     on,
     {
       [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({
-        'T7-exe-0f0f0f-with-a-long-address': { tool: 'codex', state: 'running', tokens: 38_612 },
-        'T7-arc-0f0f0f': { tool: 'claude', state: 'running', tokens: 512 },
+        'T7-exe-0f0f0f': { tool: 'codex', role: 'executor', state: 'running', tokens: 38_612 },
+        'T8-exe-1a1a1a': { tool: 'gemini', state: 'running', title: 'Port the parser', tokens: 512 },
+        // This session's own subagents: the engine's list shows them.
+        'T7-arc-0f0f0f': { tool: 'claude', role: 'architect', state: 'running', title: 'Plan T7' },
+        'T9-exe-2b2b2b': { tool: 'codex', role: 'executor', state: 'running', inSession: true, title: 'Hidden' },
       }),
       [`${PROJECT}/.guilda/queue.json`]: JSON.stringify([
-        { id: 'T7-long-task-name-that-goes-on-and-on', state: 'running', agent: 'T7-exe-0f0f0f-with-a-long-address' },
+        { id: 'T7', title: 'Rewrite the settings page so that every field validates on blur', state: 'running', agent: 'T7-exe-0f0f0f' },
       ]),
     },
     [],
   )
+  engineDraws(on)
 
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
   // Polls every 2 s: the last one at 28 s.
   await clock.advance(28_000)
 
   for (const columns of [100, 90, 60]) {
-    const band = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns: columns } })
-    const rows = (await band.findAll({ type: 'Text' })).map(one => one.text)
-    expect(rows.length).toBe(2)
-    for (const row of rows) expect([...row].length).toBe(columns)
-    expect(rows[0]?.startsWith('○  codex  T7-exe-')).toBe(true)
-    expect(rows[0]?.endsWith('28s · running · ↓ 38.6k tokens')).toBe(true)
-    expect(rows[1]?.startsWith('○  claude  T7-arc-0f0f0f')).toBe(true)
-    expect(rows[1]?.endsWith('28s · running · ↓ 512 tokens')).toBe(true)
-    if (columns < 80) expect(rows[0]).toContain('…')
-    await band.unmount()
+    const hint = await $.ui.mount({ ...HINT, surface: 'terminal', viewport: { columns, rows: 30 } })
+    const rows = (await hint.findAll({ type: 'Text' })).map(one => one.text)
+    expect(rows.length).toBe(3)
+    expect(rows[0]).toBe('engine')
+    for (const row of rows.slice(1)) expect([...(row ?? '')].length).toBe(columns)
+    // At 60 columns the title has no readable room left and is dropped.
+    expect(rows[1]?.startsWith(columns >= 90 ? '○  guilda:executor-codex  Rewrite the ' : '○  guilda:executor-codex  ')).toBe(true)
+    expect(rows[1]?.endsWith('28s · running · ↓ 38.6k tokens')).toBe(true)
+    expect(rows[2]?.startsWith('○  gemini  Port the parser ')).toBe(true)
+    expect(rows[2]?.endsWith('28s · running · ↓ 512 tokens')).toBe(true)
+    expect(rows.join('\n')).not.toMatch(/T7-|T8-|T9-|architect|Hidden/)
+    if (columns === 90) expect(rows[1]).toContain('…')
+    await hint.unmount()
   }
 })
 
@@ -157,20 +171,16 @@ test('M5: without .guilda/bindings.json nothing is drawn or opened', async ($, o
   const opened: string[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   engine(on, {}, opened)
-  // Stands for the engine's own drawing where the plugin passes.
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  engineDraws(on)
 
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
   await clock.advance(6000)
   expect(opened).toEqual([])
 
   for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({ ...BAND, surface })
-    expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
-    await band.unmount()
+    const hint = await $.ui.mount({ ...HINT, surface })
+    expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
+    await hint.unmount()
   }
 
   const ran = await $.command.run({
@@ -199,52 +209,44 @@ test('a change to done raises a toast; the row stays 10 s, then goes away', asyn
   const clock = mock.clock(on, { now: 1_000_000 })
   const files: Files = { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify(BINDINGS) }
   engine(on, files, opened, toasts)
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  engineDraws(on)
 
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
   files[`${PROJECT}/.guilda/bindings.json`] = JSON.stringify({
-    ...BINDINGS,
-    'T1-exe-a1b2c3': { tool: 'codex', session: 's-codex', state: 'done' },
+    'T1-exe-a1b2c3': { ...BINDINGS['T1-exe-a1b2c3'], state: 'done' },
+    // An in-session Claude agent finishing raises no toast: the engine has its own.
+    'T1-arc-a1b2c3': { ...BINDINGS['T1-arc-a1b2c3'], state: 'done' },
   })
   await clock.advance(2000)
   expect(toasts).toEqual(['guilda: T1-exe-a1b2c3 (Codex) done'])
 
-  let band = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual([
-    `○  codex  T1-exe-a1b2c3${' '.repeat(28)}2s · done`,
-  ])
-  await band.unmount()
+  const doneRow = ['engine', ROW('Fix the login form', '2s · done')]
+  let hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(doneRow)
+  await hint.unmount()
 
   await clock.advance(8000)
-  band = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual([
-    `○  codex  T1-exe-a1b2c3${' '.repeat(28)}2s · done`,
-  ])
-  await band.unmount()
+  hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(doneRow)
+  await hint.unmount()
 
   await clock.advance(2000)
-  band = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
-  await band.unmount()
+  hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
+  await hint.unmount()
   expect(opened).toEqual([])
 })
 
 test('an agent first seen done (an earlier run) draws no row', async ($, on) => {
   const clock = mock.clock(on, { now: 1_000_000 })
   engine(on, { [`${PROJECT}/.guilda/bindings.json`]: JSON.stringify({ 'T0-exe-x': { tool: 'codex', state: 'done' } }) }, [])
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  engineDraws(on)
 
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
   await clock.advance(2000)
-  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await band.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
-  await band.unmount()
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect((await hint.findAll({ type: 'Text' })).map(one => one.text)).toEqual(['engine'])
+  await hint.unmount()
 })
 
 const BASH_ROW = (command: string) =>
@@ -324,6 +326,8 @@ test('/guilda-agents replies with the folder, the file, the count, the poll time
   expect(ran.text).toContain('last poll: 2026-11-09T21:40:02.000Z')
   expect(ran.text).toContain('last error: none')
   expect(ran.text).toContain('pane: opened')
+  expect(ran.text).toContain('- T1-exe-a1b2c3: guilda:executor-codex, running, Fix the login form')
+  expect(ran.text).toContain('- T1-arc-a1b2c3: claude, review (in session, not in the rows)')
   // Only the command opens it.
   expect(opened).toEqual(['guilda-agents'])
 })

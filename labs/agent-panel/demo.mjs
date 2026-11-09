@@ -7,7 +7,10 @@
 // lab router does, with two agents:
 //   T1-exe-<rand>  codex   running for the whole Codex run (about 20 s: the
 //                          prompt sleeps 20 s), then done (or failed)
-//   T1-arc-<rand>  claude  review (no process: it only shows the second tool)
+//   T1-arc-<rand>  claude  review (no process: it only shows the second tool;
+//                          the mod skips Claude bindings in its rows)
+// Each binding carries the optional `role` (executor, architect) and `title`
+// (the task's title) that the mod draws as `guilda:<role>-<tool>  <title>`.
 // The Codex run is `codex exec --json --skip-git-repo-check -s read-only -C <dir>`
 // with stdin from /dev/null and a 120 s timeout. Each `turn.completed` event's
 // `usage` (input + output tokens) is written to the binding's optional `tokens`
@@ -21,6 +24,7 @@ import path from 'node:path';
 
 const TIMEOUT_MS = 120_000;
 const PROMPT = 'Run the shell command: sleep 20. Then reply with only: DEMO-DONE';
+const TITLE = 'Run the agent panel live demo';
 
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
@@ -111,9 +115,9 @@ async function main() {
   const exe = `T1-exe-${rand}`;
   const arc = `T1-arc-${rand}`;
 
-  setAgent(root, arc, { tool: 'claude', session: null, state: 'review' });
-  setAgent(root, exe, { tool: 'codex', session: null, state: 'running' });
-  setTask(root, { id: `T1-${rand}`, state: 'running', agent: exe });
+  setAgent(root, arc, { tool: 'claude', role: 'architect', title: TITLE, session: null, state: 'review' });
+  setAgent(root, exe, { tool: 'codex', role: 'executor', title: TITLE, session: null, state: 'running' });
+  setTask(root, { id: `T1-${rand}`, title: TITLE, state: 'running', agent: exe });
 
   const started = Date.now();
   // The agent stays `running` until Codex exits; only `tokens` moves meanwhile.
