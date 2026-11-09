@@ -1,0 +1,5 @@
+{
+  "name": "guilda-panel",
+  "version": "0.1.0",
+  "description": "Shows the guilda agents of a project (Claude or Codex, state, time since the last change) from .guilda/bindings.json and .guilda/queue.json."
+}
