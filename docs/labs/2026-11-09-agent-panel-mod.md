@@ -229,4 +229,30 @@ Run 1: FAIL (see Run 1). Retest pending. Test `M4` (support only): the rows of `
 
 ## Verdict
 
+Given by the controller on 2026-11-09, from the agent evidence and the user's screen.
+
+| ID | Verdict | How proven | Not tested |
+|---|---|---|---|
+| M1 | PASS | `claude plugin validate`, type check and `claude plugin test` (13 of 13) in each run. | |
+| M2 | PASS | Tests with fixtures. The user saw the pane with two agents from `/guilda-agents`. | |
+| M3 | PASS, with a condition | Run 1 failed: the mod read the folder of the session at load time. After the fix, the user saw a live row `◇ guilda:executor-codex ... 4s · running` under the heading `other models`. | The user did not report the change to `done`, the notice, or the hide after 10 s. |
+| M4 | NOT VERIFIED | The label on a tool row shows only in the transcript of the agent that ran the command. | All. |
+| M5 | PASS | Tests: no file or an invalid file gives no output. | |
+| M6 | PASS | Tests: no process starts, and the timer stops at session end. | Stop of the timer on reload, and after `/clear`. |
+
+Mouse hover (`›`) and click to open the detail: not tested. The terminal reports the mouse only in full screen.
+
+The user accepted the layout: rows under the prompt, above the native agent list, with the `other models` heading.
+The API of Claude Code 2.1.321 has no component inside or after the native agent list.
+
 ## Lessons
+
+- A mod must read the session folder at each poll, not once at load. The working folder of a session can change.
+- A mod must not drop its errors. `/guilda-agents` reports the folder, the file, the agent count and the last
+  error. This found the cause of run 1 at once.
+- The pane opens without a request only from about 144 columns. Narrow terminals need the command or the rows
+  under the prompt.
+- Show only agents from outside the conversation. Claude subagents of the session already show in the native list.
+- A user-facing name such as `guilda:executor-codex` reads better than an address such as `T1-exe-290290`. Keep
+  the address in the detail view.
+
