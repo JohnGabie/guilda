@@ -8,6 +8,7 @@ import { loadConfig } from '../scripts/lib/project.mjs';
 const PLUGIN_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'), 'utf8'),
 ).version;
+const VERSION_RE = PLUGIN_VERSION.replace(/\./g, '\\.');
 const SCRIPT = 'scripts/hooks/session-start.mjs';
 const run = (dir, source = 'startup') =>
   runHook(SCRIPT, { hook_event_name: 'SessionStart', source, cwd: dir }, dir);
@@ -58,7 +59,7 @@ test('.guilda without config.json: notice with the reason .guilda/config.json is
 test('valid config: context has R1, R25 and the project rule P1', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG, rules: '# Project rules\n\nP1. Use tabs.\n' });
   const ctx = context(run(dir));
-  assert.match(ctx, /^guilda 0\.1\.0 active/);
+  assert.match(ctx, new RegExp('^guilda ' + VERSION_RE + ' active'));
   assert.match(ctx, /### R1 /);
   assert.match(ctx, /### R25 /);
   assert.match(ctx, /P1\. Use tabs/);
@@ -82,11 +83,11 @@ test('compact: context has the newest diary', () => {
 test('version notice for 0.1.0 to 0.2.0', () => {
   const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.0.1' } });
   const ctx = context(run(dir));
-  assert.match(ctx, /guilda updated 0\.0\.1 → 0\.1\.0; run guilda:init to review the project layer/);
+  assert.match(ctx, new RegExp('guilda updated 0\\.0\\.1 → ' + VERSION_RE + '; run guilda:init to review the project layer'));
 });
 
 test('major notice', () => {
-  // installed is 0.1.0, so a config newer than 0.1.0 is not an update; use a fake plugin root.
+  // installed is the plugin version, so a config newer than it is not an update; use a fake plugin root.
   const root = tempProject();
   fs.mkdirSync(path.join(root, '.claude-plugin'));
   fs.writeFileSync(path.join(root, '.claude-plugin', 'plugin.json'), '{"version":"1.0.0"}');
@@ -96,7 +97,7 @@ test('major notice', () => {
 });
 
 test('no notice when versions are equal', () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: PLUGIN_VERSION } });
   assert.doesNotMatch(context(run(dir)), /guilda updated/);
 });
 
