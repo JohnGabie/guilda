@@ -28,3 +28,15 @@ better.
   and the AI artifact gate of D29.
 - `@open` Research before the build: existing practice and tools for each (spikes, proof of concept, dependency
   evaluation; plugin and skill evaluation), with 20 or more sources and a curation that the user approves (D28).
+
+### D37 — The Security Lead is an agent that decides `@decided`
+
+The user decided on 2026-11-09. It refines D16 and D28.
+
+- `@decided` The Security Lead makes many decisions, so it is an agent, not a skill.
+- `@decided` It decides security questions together with the Architect.
+- `@decided` It can use the Lab (D25) to answer a security question before the build.
+- `@decided` With the foreman (D15), it can run many agents that attack or defend the project's own system (the
+  red team and blue team skills of D28, with the limits of D28 as law).
+- `@decided` The plan gets its own part for the Security Lead: its tools and its knowledge, chosen with research,
+  because the user does not know security in depth.
