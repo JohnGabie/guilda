@@ -12,6 +12,9 @@ Each entry has: status, release, who decided and when, the decision, the items w
 `Replaced by:` when it applies, and the labs. The status of an entry is the tag of its heading in the earlier file.
 An item inside the entry keeps its own tag. A `@proposed` item inside a `@decided` entry still needs approval.
 
+(2026-11-10) The user confirmed each `@proposed` item of the 0.2.0 checklist (0.2.0 spec, section 5) as `@decided`,
+and the releases of D34 to D46 as proposed. The `@open` items stay open until their answer.
+
 ## Release plan `@decided`
 
 The user decided on 2026-11-09. One theme for each release. Each release works alone, and the next one builds on
