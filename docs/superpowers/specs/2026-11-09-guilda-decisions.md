@@ -1015,5 +1015,24 @@ user on 2026-11-10.
 - `@open` To research (sources on short structured argument, for example claim-evidence-reasoning or the Toulmin
   model, and on debate formats) and to test in the Lab: one council with the skill against one without, measured by
   the quality of the decision, the turns and the tokens.
-- `@open` The council skill is loaded by leads of every group. This conflicts with D43 (each agent loads only the
-  skills of its own group). It joins the open question of shared skills.
+- The conflict with D43 (leads of every group load the council skill) is solved by the council group above.
+- `@decided` (2026-11-10, the user) The council is a small role group of its own, like a court (a fifth group). The
+  council skill and the Judge belong to it. A lead that joins a council acts as a member of the council group while it
+  runs, so it can load the council skill. This removes the conflict with D43.
+- `@decided` A council can happen at any time of the development, but only while the user is present. If the user is
+  away, the council waits until the user comes back (D48).
+
+### D48 — User presence: away mode `@decided`
+
+Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by the user on 2026-11-10.
+
+- `@decided` The user can say "I am away now" or "I am away for N hours". The work goes on.
+- `@decided` Only high-level roles know that the user is away: the Architect and the supervisor. Other agents are not
+  told, so that they do not act differently (the alignment research of D39 shows that a model can act differently
+  when it knows it is watched or not).
+- `@decided` While the user is away, each decision that belongs to the user (R12) waits. The queue (D14) gets a state
+  for it ("waiting for the user"); the other tasks go on. A council (D47) waits too.
+- `@decided` When the user comes back, the Architect gives the waiting decisions one at a time, through the question
+  tool (D23).
+- `@open` For the Lab, with the study of D46: hiding the absence is easy (it is not in the briefs), but an agent that
+  gets no answer for hours can guess it. Test whether this changes how agents act.
