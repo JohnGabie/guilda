@@ -10,15 +10,16 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ### Added
 
-- The decision register (D1 to D38, E1, E2), the 0.1.1 and 0.2.0 specs, and a backlog for 0.3.0 to 0.5.0.
-- `skill-creator` is a required plugin dependency. The README install adds the official marketplace first.
+- The decision register (D1 to D50, E1, E2), the 0.1.1 and 0.2.0 specs, and a backlog for 0.3.0 to 0.5.0.
+- `skill-creator` is a required plugin dependency. The README install adds the official marketplace first. The
+  0.2.0 spec moves it, with `superpowers`, to the extension plugin; the core plugin gets no dependency (D40).
 - `ROADMAP.md`, with one GitHub milestone for each release.
 
 ### Changed
 
 - The CHANGELOG uses the Keep a Changelog form. `scripts/changelog.mjs` reads the new headings and the old ones.
-- `RELEASING.md`: while the major number is 0, a core rule that changes meaning raises the minor number. Each tag
-  gets a GitHub release with notes.
+- `RELEASING.md`: while the major number is 0, a core rule that changes meaning raises the minor number. A rule
+  changes in place, so no project runs `guilda:init` again. Each tag gets a GitHub release with notes.
 
 ## [0.1.0] - 2026-11-02
 

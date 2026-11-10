@@ -22,14 +22,19 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 
 | Release | Theme | Scope |
 |---|---|---|
-| 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats |
-| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34 `@proposed`, D36, the plan file name and its R4 hook (D27), D40 to D46 `@proposed` as each one states |
-| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35 `@proposed`, D32, the mod part of D24 |
+| 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats, the fail-closed laws fix (D40) |
+| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27), D40 to D46 as each one states |
+| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35, D32, the mod part of D24 |
 | 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`), D49 `@proposed` |
-| 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 `@proposed` with the red team of D28, D38 `@proposed`, D47 and D48 `@proposed` |
+| 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 with the red team and blue team skills of D28, D38, D47 and D48 `@proposed` |
 
 - `@decided` While the major number is 0, a core rule that changes meaning raises the minor number. The CHANGELOG
-  entry tells projects to run `guilda:init` again. `RELEASING.md` says this.
+  entry lists the rule IDs that changed. `RELEASING.md` says this.
+- `@replaced` "The CHANGELOG entry tells projects to run `guilda:init` again." Replaced by: D40 (rules change in place,
+  and migrations run by themselves).
+- `@decided` (2026-11-10, the user) Labs are part of the development process. Each release spec lists the labs that
+  gate its parts. The plan of the release runs each lab as a task in a dispatched agent (R26). The lab task comes
+  before the task that builds the part that the lab gates. A lab with NO-GO or MORE DATA stops that part, and the part goes to the user.
 - `@decided` (2026-11-09) The CHANGELOG format changes in two steps, so that `guilda:update` of 0.1.0 can still
   read the changes. 0.1.1 ships the parser that reads both formats and keeps the old format in its CHANGELOG. The
   "Keep a Changelog" format reaches `main` only with 0.2.0. A 0.1.0 install updates to 0.1.1 first.
@@ -37,8 +42,8 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 - `@decided` (2026-11-09) Open source practice on GitHub: one milestone for each release with its issues, a short
   `ROADMAP.md`, the CHANGELOG in the "Keep a Changelog" form, and a GitHub release with notes for each tag. The
   register stays the source of the decisions.
-- `@proposed` (2026-11-10, the split) D34 goes to 0.2.0, D35 to 0.3.0, D37 and D38 to 0.5.0. The plan of the
-  controller set these releases. The user confirms them. A cell with `@proposed` in the table above is one of them.
+- `@decided` (2026-11-10, the split) D34 goes to 0.2.0, D35 to 0.3.0, D37 and D38 to 0.5.0. The user confirmed this
+  in the 0.2.0 checklist. D40 to D46 go to 0.2.0. A cell with `@proposed` in the table above still needs the user.
 - `@decided` D36 is in 0.2.0: the user put all domain skills of D25, D28, D29 and D36 in 0.2.0 (D28).
 - `@proposed` (2026-11-10, audit, the user's words) The table lists D40 to D49. Each one has the release of its
   decision. D39 and D50 have no release yet. D39 comes after the Lab is ready, and D50 after D31 and the stores. The
@@ -72,7 +77,9 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
 
 - `@replaced` The four-level table (`sketch`, `light`, `standard`, `full`). Replaced by: the item "two levels until
   E1" below. The table stays a starting point for E1 only.
-- `@decided` The levels are not decided on paper. They enter a release only after E1 runs on real work at each level.
+- `@replaced` The levels are not decided on paper. They enter a release only after E1 runs on real work at each level.
+  Replaced by: U1 below.
+- `@decided` (2026-11-10, the user, U1) 0.2.0 ships the levels `light` and `full`; E1 sets their gates later.
 - `@decided` The review cycle and the QA cycle depend on the level. At `full`: for each task. At `light`: one time,
   at the end of the integration. The Reviewer reads the level from `.guilda/config.json`. The rules that change
   meaning are R24 and R11 (see the 0.2.0 spec).
@@ -93,7 +100,7 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
   project. Release: 0.5.0, with the `red-team` skill.
 - `@proposed` (2026-11-10) Security tests in 0.2.0, before the `red-team` skill. The Security role reviews each
   security zone. The injection tests of an AI artifact use the injection test set of `ai-evals` (D29).
-- `@open` The release of the `blue-team` skill: 0.2.0 with the other domain skills, or 0.5.0 with `red-team`.
+- `@replaced` "`@open` The release of the `blue-team` skill." Replaced by: U5 in D28 (0.5.0, with `red-team`).
 
 ### D2 — Activation check
 
@@ -108,9 +115,13 @@ A hook cannot warn when the plugin did not load, so the warning comes from a fil
   evidence. The activation check shows its result. From 0.3.0 the mod (D20) also shows it.
 - `@proposed` The README says that a project-scope install loads only when Claude Code starts in that project folder.
 - `@proposed` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
-- Risk (2026-11-10): the dependency of D28 can stop the load of guilda. The activation check must detect that case.
-- `@decided` (2026-11-10, the user, U3) The 0.2.0 `guilda:init` and the activation check detect a project layer of
-  0.1.x and tell the user to run `guilda:init` again. This works from any earlier version.
+- Risk (2026-11-10): the dependencies of D28 can stop the load of the extension plugin (D40). The activation check
+  must detect that case.
+- `@replaced` (U3) "The 0.2.0 `guilda:init` and the activation check detect a project layer of 0.1.x and tell the user
+  to run `guilda:init` again." Replaced by: the next item (D40).
+- `@decided` (2026-11-10, the user, U3 with D40) The 0.2.0 session start detects a project layer of 0.1.x. It migrates
+  that layer (D40). It asks the user only when a value cannot be inferred. This works from any earlier version.
+- `@decided` (2026-11-10, the user) The core plugin tells the user when the extension plugin did not load (D40).
 
 ### D3 — Field report skill `guilda:report`
 
@@ -152,11 +163,11 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
 - `@proposed` The ARC6 hook also validates a brief file. For a prompt with a `Brief file: <path>` line, the hook
   checks the text of that file.
 - `@proposed` The hook also checks a dispatch of another agent type when the prompt has a `Role: executor` line.
-- `@proposed` New brief fields: `Decisions:`, `Mutants:`, `Conflict cases:` (#5) and `Base commit:` (#13). They are
-  optional in 0.2, so that existing briefs stay valid.
-- `@open` Is the field `Base commit:` required, or optional?
-- `@decided` (2026-11-10, the user, U6) `Base commit:` is a required brief field in 0.2.0. The ARC6 hook refuses a brief
-  without it. This changes the brief format (CHANGELOG "Changed"); briefs written for 0.1.0 need the field.
+- `@proposed` New optional brief fields: `Decisions:`, `Mutants:` and `Conflict cases:` (#5).
+- `@decided` (2026-11-10, the user, U6) `Base commit:` (#13) is a required field of a new brief in 0.2.0. The ARC6 hook
+  refuses a new brief without it. This changes the brief format (CHANGELOG "Changed").
+- `@decided` (2026-11-10, the user) The tolerant reader of D40 applies to stored files (config, CHANGELOG, queue,
+  state). It does not apply to a brief that the Architect writes at dispatch.
 
 ### D6 — Concrete specs
 
@@ -164,7 +175,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #4, 
 
 - `@proposed` ARC7, ARC8 and ARC10 as written in #5: exact scenarios, one owner task for each `@decided` item, and
   a glossary entry for each new term. The EF-system project used them as project rules, with evidence of value.
-  Texts in the 0.2.0 spec.
+  Texts in the 0.2.0 spec, approved 2026-11-10.
 - `@proposed` A builder check before approval (#4): a fresh subagent reads the spec cold and lists its guesses. The
   Architect sorts them into three groups: answered already, minor, the user's.
 - `@proposed` A ruling that changes behavior enters the spec in the same step, before the Executor continues. The
@@ -177,7 +188,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #4, 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, #10, #11.
 
 - `@decided` ARC9 (#5): each new test has one named mutant of the product code that makes the test fail. Required at
-  `full`. The Architect's choice at `light`. Text (`@proposed`) in the 0.2.0 spec.
+  `full`. The Architect's choice at `light`. Text in the 0.2.0 spec, approved 2026-11-10.
 - `@decided` Classification (#10): the Reviewer classifies each mutant as killed, survived (weak test) or equivalent
   (with the reason). An equivalent mutant is noted and does not go to a fix round. A kill counts only if the failing
   assertion targets the mutant.
@@ -220,7 +231,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #13.
 - `@proposed` `QA: covered by review` when each Acceptance scenario names a check that the Reviewer already ran (#2
   finding 7).
 - `@proposed` The Executor, QA and the Reviewer never publish or share anything outside the worktree (#2 finding 9).
-- `@proposed` EXE2 becomes "show the new test failing against the old code" (#13 finding 5). Text in the 0.2.0 spec.
+- `@proposed` EXE2 becomes "show the new test failing against the old code" (#13 finding 5). Text in the 0.2.0 spec, approved 2026-11-10.
 - `@proposed` Each dispatch states the reply language of `config.languages` (#13 finding 6).
 - `@proposed` ARC4 fallback (#13 finding 4). If the model of a tier is not available, use one tier lower. Tell the
   user.
@@ -273,7 +284,7 @@ Status: `@proposed` · Release: 0.3.0 · Proposed by the user, 2026-11-09.
 The flow must not live only in the context of one agent. The queue is the source of truth and the check of the
 flow. A hook cannot start an agent, so the queue does not run the agents.
 
-- `@decided` (2026-11-09) One writer. Only the foreman (D15) writes the queue. Until the foreman exists (0.5.0), the
+- `@decided` (2026-11-09) One writer. Only the supervisor (D15) writes the queue. Until the supervisor exists (0.5.0), the
   Architect writes it. Hooks and other agents never write it.
 - `@decided` (2026-11-09) A state changes only on a signal from the agent: `running` when the agent says that it
   started, `review` when it delivers its report. The writer does not infer a start from a dispatch.
@@ -305,6 +316,8 @@ flow. A hook cannot start an agent, so the queue does not run the agents.
   or branch.
 - `@proposed` Recovery after a restart: take the lock, replay the journal (skip a last partial line), turn new signal
   files into events, check the timeouts again.
+- `@decided` (from D48) The table gets a state `held`. A `held` task is never `ready`. The state has no field that
+  says why the task waits; only the Architect knows the reason.
 - `@proposed` JSONL, not SQLite: `node:sqlite` is still experimental in Node 24.
 - Research (SQS, Temporal, BullMQ, single writer, event sourcing; `nq`, task-spooler, GNU parallel, `node:sqlite`;
   Claude Code agent teams). Not used: task-spooler (it starts a server), the agent teams task list (many writers).
@@ -314,39 +327,39 @@ flow. A hook cannot start an agent, so the queue does not run the agents.
 
 ### D15 — Foreman
 
-Status: `@open` (the role name is `@decided`) · Release: 0.5.0 · The user, 2026-11-09.
+Status: `@open` (the role name `supervisor` is `@decided`, U4) · Release: 0.5.0 · The user, 2026-11-09.
 
-The foreman runs the work that the Architect designed. It keeps the pace and the health of the flow, and does not
-own the project. The earlier file and the scenario catalog use the working name `orchestrator` for this role.
+The supervisor runs the work that the Architect designed. It keeps the pace and the health of the flow, and does not
+own the project. The earlier file used the working names `foreman` and `orchestrator` for this role.
 
-- `@decided` (2026-11-09, the user) The role name is `foreman`. Glossary proposal below.
-- `@proposed` The foreman comes after the Architect, not above it. The user talks to the Architect first, for the
-  spec and the plan. Then the work goes to the foreman.
-- `@proposed` The user talks only to the main session. The foreman runs in the background and does not talk to the
-  user. Agents send their messages to the foreman. A decision of the user goes up through the main session (R12).
-- `@proposed` The foreman routes each message to its address (D17), dispatches the next ready task (D14), and finds
+- `@replaced` (2026-11-09, the user) The role name is `foreman`. Replaced by: U4 below (`supervisor`).
+- `@proposed` The supervisor comes after the Architect, not above it. The user talks to the Architect first, for the
+  spec and the plan. Then the work goes to the supervisor.
+- `@proposed` The user talks only to the main session. The supervisor runs in the background and does not talk to the
+  user. Agents send their messages to the supervisor. A decision of the user goes up through the main session (R12).
+- `@proposed` The supervisor routes each message to its address (D17), dispatches the next ready task (D14), and finds
   a stalled agent (#7). It does not write product code and does not review (R7, R12).
 - `@proposed` It can run on another model. The queue, the addresses and the logs are files that any model can read.
 - Research (Claude Code and Codex docs, not verified live): no official mechanism makes an idle session act without a
   process or a scheduled trigger. `/loop` ends with the session and expires after 7 days. A `Stop` hook acts only at
   the end of a turn. `SendMessage` gives an idle local session a new turn, but does not reach Codex.
-- `@proposed` The foreman is a Claude Code session with `/loop`. Each tick runs the internal `tick` script. A `Stop`
+- `@proposed` The supervisor is a Claude Code session with `/loop`. Each tick runs the internal `tick` script. A `Stop`
   hook blocks the end of a turn while a task is ready.
 - `@proposed` Sleep in code, wake the model only for an action (the user's idea). The internal `watch` script runs as
   a background command. It prints nothing while the flow is healthy. On a ready, stalled or failed task it prints one
-  line and ends, and the end notice wakes the foreman.
+  line and ends, and the end notice wakes the supervisor.
 - `@open` Lab before the build: the `Stop` hook in interactive and `-p` mode, `/loop` while idle, the token cost of a
   tick, `Stop` hooks in `codex exec`.
-- `@decided` G5: after a restart of the session or the machine, only the user starts the foreman again. No hook
+- `@decided` G5: after a restart of the session or the machine, only the user starts the supervisor again. No hook
   starts it, and no hook asks. D38 adds a separate case for a usage-limit stop.
 - `@decided` G10: the `cswap` fork also reads Codex usage, if it can. If a Codex run fails, the code records where
-  and why it stopped. The foreman then resumes it, waits, gives it to a Claude Code agent, or queues it again.
-- `@decided` G16: no reserved slots for the user's own side tasks. The foreman reads the usage percent and keeps the
+  and why it stopped. The supervisor then resumes it, waits, gives it to a Claude Code agent, or queues it again.
+- `@decided` G16: no reserved slots for the user's own side tasks. The supervisor reads the usage percent and keeps the
   work going. The user has the final decision on the engineering of the project.
 - `@decided` (2026-11-10, audit, the user's words) G16 principle: the supervisor does not predict each detail. Changes
   are expected, and the talks with the user are part of the plan.
-- `@decided` G18: the foreman can stop an agent, also a stalled one, to keep the pace. A stop without a safe save
-  first is an extreme step, and for an extreme case the foreman talks to the Architect first.
+- `@decided` G18: the supervisor can stop an agent, also a stalled one, to keep the pace. A stop without a safe save
+  first is an extreme step, and for an extreme case the supervisor talks to the Architect first.
 - Scenario catalog: `2026-11-09-orchestrator-scenarios.md` (written before G18 and the final queue design; see its
   header note).
 - `@decided` (2026-11-10, the user, U4) The role is named `supervisor`. This replaces the name `foreman`. "lead" is not
@@ -424,7 +437,7 @@ writes the hypothesis and the PASS criteria, dispatches the agent with the lab b
 verdict.
 
 - `@proposed` A core rule with this text, cited by the Architect procedure, `guilda:lab` and the experiments. Its
-  ID is R26, the next free core ID after R25. Text in the 0.2.0 spec.
+  ID is R26, the next free core ID after R25. Text in the 0.2.0 spec, approved 2026-11-10.
 - `@proposed` Check: gate. The Reviewer rejects a lab report that has no agent ID of the agent that ran it (D34).
 
 ### D20 — Agent panel as a terminal mod
@@ -471,8 +484,8 @@ hours that the user wants for the work.
   automatic change needs a policy that the user turns on.
 - `@decided` (#3) Tokens are not shown as an exact share of a subscription. The plan never switches accounts by itself.
 - `@replaced` "A running agent is never stopped to meet a number." Replaced by: D15 G18.
-- `@decided` The Architect sets the pace with the user in the plan of the feature. The foreman only executes the pace.
-- `@decided` Near a limit, or under the pace, the foreman assesses the risk and asks the Architect one precise question
+- `@decided` The Architect sets the pace with the user in the plan of the feature. The supervisor only executes the pace.
+- `@decided` Near a limit, or under the pace, the supervisor assesses the risk and asks the Architect one precise question
   with the facts, 2 or 3 options and its recommendation. The Architect decides.
 - `@decided` The usage source is the user's fork of `cswap`, with a minimal command (for example `cswap pace --json`):
   for each account, the usage percent and the reset time of the 5-hour and the 7-day windows. guilda never uses
@@ -505,11 +518,12 @@ five times.
 - `@decided` The Architect adapts the question to the level of the user, and asks again in simpler words when an answer
   shows that the user did not understand.
 - `@proposed` A setting `explain: "brief" | "full"` in `.guilda/config.json`, asked by `guilda:init`.
-- `@proposed` New text of ARC1 and R13. Text in the 0.2.0 spec.
+- `@proposed` New text of ARC1 and R13. Text in the 0.2.0 spec, approved 2026-11-10.
 
 ### D24 — Few commands
 
-Status: `@proposed` · Release: the commands part in 0.2.0, the mod part in 0.3.0 · The user, 2026-11-09: too many
+Status: `@proposed`; its 0.2.0 items are `@decided` (0.2.0 checklist) · Release: the commands part in 0.2.0, the
+mod part in 0.3.0 · The user, 2026-11-09: too many
 commands make noise.
 
 - `@proposed` (0.2.0) Internal scripts: `doctor` (D2) and `report-send` (D3). Agents run them. The user does not
@@ -530,10 +544,11 @@ commands make noise.
 
 ### D25 — Agent groups and the lab roles
 
-Status: `@proposed` (with `@decided` items) · Release: 0.2.0 · Asked by the user, 2026-11-09.
+Status: `@decided` (the user confirmed the `@proposed` items in the 0.2.0 checklist) · Release: 0.2.0 · Asked by the
+user, 2026-11-09.
 
 - `@decided` Three groups of roles:
-  - Engineering: the Architect, the Executor, the Reviewer, QA, Version Control, and the foreman (D15, 0.5.0).
+  - Engineering: the Architect, the Executor, the Reviewer, QA, Version Control, and the supervisor (D15, 0.5.0).
   - Lab: `lab-researcher` (primary web sources), `lab-reader` (code, docs and local projects, changes nothing),
     `lab-experimenter` (tests a hypothesis against PASS criteria written before the run, D19).
   - Security: the Security Lead (D16, D37). The red team and blue team are skills of D28, not roles.
@@ -630,9 +645,10 @@ Areas are knowledge, so they are skills, not agents.
   `hooks/hooks.json` that filters on `agent_type`.
 - `@decided` (2026-11-09) `skill-creator` is a required dependency (`skill-creator@claude-plugins-official`). Verified
   on Claude Code 2.1.321: with the official marketplace added, both load. Without it, guilda installs but does not
-  load. The README install adds the official marketplace first.
+  load. The README install adds the official marketplace first. From 0.2.0 this is true only of the extension plugin
+  (D40); the core plugin has no dependency.
 - `@proposed` (risk, 2026-11-10) An activation test covers the install without the official marketplace. D2 must
-  tell the user that guilda did not load.
+  tell the user that the extension plugin did not load, while the core plugin keeps the laws on (D40).
 - `@proposed` guilda can create a new domain skill and add it to the triage table (D25).
 - `@open` (2026-11-10, audit, the user's words) The user wants more than a new domain skill. guilda gets the power to
   create a new role group. A tool lets the user change guilda to do what the user needs. Candidates: the agent
@@ -642,20 +658,26 @@ Areas are knowledge, so they are skills, not agents.
 - Research (Claude Code docs, Anthropic posts, OpenAI agent guide, Cognition, arXiv 2601.04748, 2505.18286,
   2503.13657): skills specialize one agent; skill choice gets worse with many similar skills.
 - `@decided` (2026-11-10, the user, U2) `skill-creator` (anthropics/skills) and `superpowers` (obra/superpowers) are
-  both required dependencies of guilda. Without their marketplaces, guilda does not load, so: the README gives one
-  install command that adds both marketplaces and then installs guilda; a clear warning says how to check that guilda
-  loaded; `guilda:init` checks both dependencies. `superpowers` as a required dependency is new: the 0.1.0 design
-  (6.6) only named it as a related plugin.
+  both required dependencies of guilda. The README gives one install command that adds both marketplaces and then
+  installs guilda; a clear warning says how to check that guilda loaded; `guilda:init` checks both dependencies.
+  `superpowers` as a required dependency is new: the 0.1.0 design (6.6) only named it as a related plugin.
+- `@decided` (2026-11-10, the user, U2 with D40) The core plugin always loads, with no dependency. The laws are
+  always on. "guilda does not load without `skill-creator` and `superpowers`" applies only to the extension plugin.
+  The core tells the user when the extension did not load (D2).
 - `@decided` (2026-11-10, the user, U1) 0.2.0 ships the levels `light` and `full`; E1 sets their gates later. This
-  replaces the D1 item "the levels enter a release only after E1 runs".
+  replaces the D1 item "the levels enter a release only after E1 runs" (D1 records it too).
 - `@decided` (2026-11-10, the user, U5) The `blue-team` skill comes in 0.5.0, with the `red-team` skill and the
   Security Lead.
+- `@decided` (2026-11-10, the user, with D43) The skill group of an agent comes from its agent definition. The
+  Engineering Executor loads the skills of the Engineering group and of the shared group. `red-team` and `blue-team`
+  load only in a Security Executor: a separate agent definition with restricted tools, in 0.5.0.
 
 ### D29 — AI engineering, for guilda and for user projects
 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09.
 
-- `@decided` No fourth group. Domain skills `ai-engineering` and `ai-evals`, built on `skill-creator` and
+- `@replaced` No fourth group. Replaced by: D45 (AI is a fourth role group).
+- `@decided` Domain skills `ai-engineering` and `ai-evals`, built on `skill-creator` and
   `plugin-dev`. AI security goes to the Security group: a knowledge file with OWASP LLM01 to LLM10, a risk area `ai`,
   and red team tests through the `red-team` skill (0.5.0). promptfoo is an optional tool (D26 pattern).
 - `@proposed` (2026-11-10) The `red-team` skill comes in 0.5.0. Until then, the injection tests of the gate use the
@@ -681,6 +703,8 @@ is lost. Measured: `skills/architect/SKILL.md` is 121 lines, about 2,000 tokens.
 - `@proposed` Reference files in `skills/architect/reference/`, read only when a step needs them: `spec.md`,
   `brief.md`, `waves.md`, `lab.md`, `verdicts.md`, `qa-tools.md`. `pace.md` comes with the pace in 0.5.0.
 - `@proposed` The Architect reads a reference again at each use, because a compaction can drop it.
+- `@open` (2026-11-10) Where the lab brief method lives: the reference `lab.md` of the Architect, or the `guilda:lab`
+  skill of D24. One home only.
 - `@decided` (2026-11-10, the user) The split lab runs at the start of the 0.2.0 build, before the split.
 - Lab: 5 fixed situations, one file against the split, 3 runs each. PASS: at least as correct, 25% fewer
   tokens or more, the correct reference in 14 of 15 cases.
@@ -715,9 +739,9 @@ Status: `@proposed` · Release: 0.3.0 · Proposed by the user, 2026-11-09.
 - `@proposed` Each agent action is recorded (D13, D14, D27). A sentence such as "Executor X made a mistake in the
   login screen" leads to the task, the brief, its blocks, the commits, the review and the log lines.
 - `@proposed` The Architect collects those facts, finds the cause, and proposes the fix with the owner of each step.
-  From 0.5.0 the foreman (D15) collects the facts. A rule change goes to the Architect; a user decision goes to the
+  From 0.5.0 the supervisor (D15) collects the facts. A rule change goes to the Architect; a user decision goes to the
   user (R12).
-- `@replaced` "the `orchestrator`, or the Architect until 0.3.0". Replaced by: the release plan. The foreman comes in 0.5.0.
+- `@replaced` "the `orchestrator`, or the Architect until 0.3.0". Replaced by: the release plan. The supervisor comes in 0.5.0.
 - `@open` The form of an agent name in text, so that it can be found and linked (D33).
 
 ### D33 — Click a reference, open the right place
@@ -745,7 +769,7 @@ right place, in the tool that the user works with.
 
 ### D34 — Lab report format
 
-Status: `@proposed` · Release: 0.2.0 `@proposed` · Written by the Architect, 2026-11-10, from the lab reports of 2026-11-09 and
+Status: `@decided` (0.2.0 checklist, 2026-11-10) · Release: 0.2.0 · Written by the Architect, 2026-11-10, from the lab reports of 2026-11-09 and
 the data checklist of D25.
 
 Each lab, experiment or spike writes one report `docs/labs/<date>-<name>.md` on its lab branch, in this form:
@@ -767,7 +791,7 @@ The controller writes its own verdict in the register (D19). The report verdict 
 
 ### D35 — Measure token use at every level
 
-Status: `@decided` · Release: 0.3.0 `@proposed` (with the measure of D22) · The user, 2026-11-09.
+Status: `@decided` · Release: 0.3.0 (with the measure of D22) · The user, 2026-11-09.
 
 - `@decided` Measure the token use of each task, of each spec block (D27), and of a whole session or build.
 - `@decided` At the end of a build (for example a release), guilda writes a record with the total tokens and the cost
@@ -776,7 +800,7 @@ Status: `@decided` · Release: 0.3.0 `@proposed` (with the measure of D22) · Th
   record, never from memory. The record states the price date and the exchange rate.
 - `@proposed` Sources: the token counts in the log (D13), the usage that agent runs report, and the `cswap` usage.
 - `@proposed` The data skill (D25) turns the record into information: cost per task, per block, per release, trend.
-- `@proposed` (2026-11-10) Release of each part: all of D35 in 0.3.0. The user confirms this.
+- `@decided` (2026-11-10) Release of each part: all of D35 in 0.3.0. The user confirmed this in the 0.2.0 checklist.
 
 ### D36 — Two lab skills for experiments
 
@@ -792,18 +816,18 @@ The Lab group (D25) gets two domain skills (D28). They can be one skill if resea
 
 ### D37 — The Security Lead is an agent that decides
 
-Status: `@decided` · Release: 0.5.0 `@proposed` (with D16) · The user, 2026-11-09. It refines D16 and D28.
+Status: `@decided` · Release: 0.5.0 (with D16) · The user, 2026-11-09. It refines D16 and D28.
 
 - `@decided` The Security Lead makes many decisions, so it is an agent, not a skill.
 - `@decided` It decides security questions together with the Architect.
 - `@decided` It can use the Lab (D25) to answer a security question before the build.
-- `@decided` With the foreman (D15), it can run many agents that attack or defend the project's own system (the red
+- `@decided` With the supervisor (D15), it can run many agents that attack or defend the project's own system (the red
   team and blue team skills of D28, with the limits of D16 as law).
 - `@decided` The plan gets its own part for the Security Lead: its tools and its knowledge, chosen with research.
 
 ### D38 — Resume after a usage limit, only in the same project
 
-Status: `@decided` · Release: 0.5.0 `@proposed` (with the foreman) · The user, 2026-11-09. It adds to D15 (G5) and D22.
+Status: `@decided` · Release: 0.5.0 (with the supervisor) · The user, 2026-11-09. It adds to D15 (G5) and D22.
 
 - `@decided` G5 stays: after a restart of the machine or the session, only the user starts the work again.
 - `@decided` When the work stops because the usage of the accounts ran out, a scheduled trigger reads the reset times
@@ -832,51 +856,13 @@ Release: after the Lab is ready (D25, D34, D36), not before 0.2.0. Decided by th
   never punished; agent output treated as untrusted data by the Reviewer (no instructions hidden in file names); a
   destructive action blocked at once by a hook, not only seen later; a Reviewer calibrated between strictness and
   friction.
-
-## Experiments
 - `@decided` (2026-11-10, the user) The same study covers D46 (truth first in every role): research more sources and
   test in the Lab how to make agents report the truth, in particular the Reviewer and the graders.
 
-### E1 — Process levels
-
-Status: `@decided` (to run) · Between 0.2.0 and later releases · The user, 2026-11-09.
-Run the same feature at each level of D1 on the Glasshaus project. Measure defects found before and after merge,
-tokens, time and user interventions. Output: the gates of each level.
-
-### E2 — Persistent agent identity
-
-Status: `@decided` (to run) · Before the build of D17 reuse · The user, 2026-11-09.
-Compare an address bound to the same agent across tasks with a fresh agent for each task. Use planted defects in
-the tasks and between the tasks. Measure defects found, tokens, time and compactions. No claim of a gain before the
-result.
-
-## Glossary proposals
-
-`@proposed` (2026-11-10) New lines for `core/glossary.md`. The user approves them with the merge of the release that
-first uses each term.
-
-| Term | Release | Proposed line |
-|---|---|---|
-| supervisor | 0.2.0 (name decided by the user, D15 U4) | `- **supervisor**: the background role that runs the work that the Architect designed, keeps the pace and the health of the flow, and does not own the project. Forbidden: orchestrator, leader, foreman.` |
-| field report | 0.2.0 | `- **field report**: the output of guilda:report, a report from a project to the guilda repository, apart from the reports of the Executor and of QA. Forbidden: feedback, bug report.` |
-| lab report | 0.2.0 | `- **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.` |
-| block | 0.3.0 | `- **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.` |
-| agent ID | 0.3.0 | `- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.` |
-| address | 0.4.0 | `- **address**: the code of one dispatch (task, role, short random part) that stays the same when the agent behind it changes. Forbidden: mailbox name, agent ID.` |
-
-- `@replaced` "lead" as a forbidden word for `foreman` conflicts with the role name "Security Lead" and with the verb
-  "lead". The `ste-check` script matches the word in any case. Options: forbid "lead" only as a role name in text, or rename the
-  Security Lead. Replaced by: D15 U4.
-- `@decided` (2026-11-10, audit, the user's words) The `supervisor` line replaces the `foreman` line. "lead" is not a
-  forbidden word, and the Security Lead keeps its name. `foreman` and `orchestrator` were working names of this role.
-- `@proposed` (2026-11-10) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
-  `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
-- `@proposed` The `architect` line changes in 0.4.0 (D31): the Architect runs as its own agent, not in the main
-  session.
-
 ### D40 — Compatibility: a core plugin and extension plugins `@decided`
 
-Release: 0.2.0 (the split and the core); the other practices as listed. Decided by the user on 2026-11-10, after a
+Release: 0.2.0 (the split, the core and the other practices; the user confirmed them in the 0.2.0 checklist); the
+fail-closed fix in 0.1.1. Decided by the user on 2026-11-10, after a
 web research (Fowler "Tolerant Reader"; Kubernetes deprecation policy; Claude Code plugin dependencies and manifest
 docs; VS Code extension manifest `engines`).
 
@@ -884,16 +870,20 @@ docs; VS Code extension manifest `engines`).
   check. It has no dependency and works without `guilda:init`. An extension plugin holds the full process (skills,
   agents) and requires `skill-creator` and `superpowers` (U2) with version ranges. So the laws never turn off when a
   dependency is missing or broken.
+- `@decided` (2026-11-10, the user) The core plugin always loads and the laws are always on. The core tells the user
+  when the extension plugin did not load (D2, U2 in D28).
 - `@decided` The core works with no `.guilda/config.json` or with an invalid one: safe defaults, all laws on, and one
   clear notice ("guilda without init: laws on, default process"). Found in 0.1.0: `scripts/hooks/pre-tool-use.mjs`
   returns early when the config is missing or invalid, so the R19 scan is off exactly when init failed. A law must
-  fail closed. `@proposed` fix in 0.1.1.
-- `@proposed` Tolerant reader: each reader of a guilda file (config, briefs, verdicts, CHANGELOG, queue) accepts the
-  current and the earlier format, ignores unknown fields, and uses a default for a missing field.
+  fail closed. `@decided` fix in 0.1.1 (the user approved the 0.1.1 scope on 2026-11-10).
+- `@proposed` Tolerant reader: each reader of a stored guilda file (config, verdicts, CHANGELOG, queue, state)
+  accepts the current and the earlier format, ignores unknown fields, and uses a default for a missing field.
+  (2026-11-10, the user) A brief written at dispatch is not a stored file. The ARC6 hook refuses a new brief without
+  `Base commit:` (D5, U6).
 - `@proposed` No change in place: a rule that changes meaning gets a new ID; the old ID is marked deprecated, points
   to the new one, and still works for one release. This would replace the in-place rewrites of R24, R11 and R13 in
   0.2.0, and remove the need to run `guilda:init` again for them.
-  `@replaced` by the next item.
+  `@replaced` by the next item. The 0.2.0 checklist item "new IDs" is replaced in the same way.
 - `@decided` (2026-11-10, the user, after the research in `docs/research/2026-11-10-rule-changes/`) A rule that
   changes meaning is rewritten in place, as ESLint does; a deprecation marker is only for a rule that is removed or
   replaced. No project runs `guilda:init` again after an update:
@@ -910,12 +900,13 @@ docs; VS Code extension manifest `engines`).
 - `@proposed` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
 - `@proposed` Compatibility tests: fixtures of each published version (config, briefs, CHANGELOG) and an update test
   from each published version. A test runs the laws in a project with no `.guilda/` folder.
-- `@open` Not verified: whether the Claude Code plugin manifest has a minimum host version field. If not, guilda checks
-  that a feature exists instead of a version number.
+- `@replaced` "`@open` Not verified: whether the Claude Code plugin manifest has a minimum host version field."
+  Replaced by: the research item above (no such field; guilda checks that a feature exists).
 
 ### D41 — An agent creator at the level of skill-creator `@decided`
 
-Release: `@proposed` 0.2.0, with the AI engineering skills (D29). Decided by the user on 2026-11-10.
+Release: 0.2.0, with the AI engineering skills (D29); the user confirmed it in the 0.2.0 checklist. Decided by the
+user on 2026-11-10.
 
 - `@decided` guilda needs an agent creator with the same quality as `skill-creator`: it creates or changes an agent
   (a subagent definition: role text, tools, model, limits), and it measures the agent with evals before the agent
@@ -931,7 +922,8 @@ Release: `@proposed` 0.2.0, with the AI engineering skills (D29). Decided by the
 
 ### D42 — DevOps: an advisor agent, a skill and a production lock `@decided`
 
-Release: `@proposed` 0.2.0 for the skill; the agent and the lock with it. Decided by the user on 2026-11-10.
+Release: 0.2.0 for the skill, the agent and the lock; the user confirmed it in the 0.2.0 checklist. Decided by the
+user on 2026-11-10.
 
 - `@decided` DevOps is in the Engineering group. It has its own agent that helps the Architect decide on deploy and
   infrastructure, for example "serverless or a VPS for this system?". This is like the Security Lead (D37): a role
@@ -943,35 +935,42 @@ Release: `@proposed` 0.2.0 for the skill; the agent and the lock with it. Decide
 
 ### D43 — Skills isolated by role group `@decided`
 
-Release: `@proposed` 0.2.0. Decided by the user on 2026-11-10.
+Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 checklist. Decided by the user on
+2026-11-10.
 
-- `@decided` Each skill belongs to one role group (Engineering, Lab, Security). An agent loads only the skills of its
-  own group. For example, an Engineering Executor cannot load the `red-team` skill.
+- `@decided` Each skill belongs to one role group or to the shared group. The groups: Engineering, Lab, Security, AI
+  (D45) and Council (D47). An agent loads only the skills of its own group and of the shared group.
+- `@decided` (2026-11-10, the user) The group of an agent comes from its agent definition. The Engineering Executor
+  loads the Engineering skills and the shared group. `red-team` and `blue-team` load only in a Security Executor, a
+  separate agent definition with restricted tools (0.5.0, as D28 plans). So an Engineering Executor cannot load the
+  `red-team` skill.
 - `@proposed` A hook enforces it: it refuses a skill call from an agent outside the skill's group. `@open` Not
   verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
-- `@decided` (2026-11-10, the user) Skills that more than one group needs (the data skill, `ai-evals`,
-  `lab-experiment`) go in an explicit shared group: one copy of each skill, and each skill lists the groups that can
+- `@decided` (2026-11-10, the user) Skills that more than one group needs (the data skill, `ai-evals`, the lab skills
+  of D36) go in an explicit shared group: one copy of each skill, and each skill lists the groups that can
   load it.
 - `@decided` (2026-11-10, the user) The isolation is about which skills an agent loads. Groups still work together
   through the Architect: for example, the AI group asks the Lab to run an experiment.
 
 ### D44 — The Architect plans each skill and calls the area leads `@decided`
 
-Release: `@proposed` 0.2.0 (Architect procedure). Decided by the user on 2026-11-10.
+Release: 0.2.0 (Architect procedure); the user confirmed it in the 0.2.0 checklist. Decided by the user on 2026-11-10.
 
 - `@decided` For each use of a skill or a role, the spec and the plan say: when it is used, who calls it, where (the
   step or the task), and what it must deliver. A skill with no such line is not used.
 - `@decided` In the process, the Architect calls the lead of each area to decide with it: the Security Lead (D37), the
   DevOps advisor (D42), and the leads of other groups.
+- `@decided` (2026-11-10, the user) Until 0.5.0 the existing `security` agent fills the part of the Security Lead.
 
 ### D45 — AI is a fourth role group `@decided`
 
-Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 2026-11-10.
+Release: 0.2.0 for the group, its skills and its lead agent; the user confirmed it in the 0.2.0 checklist. Decided by
+the user on 2026-11-10.
 
 - `@decided` AI is a role group of its own, next to Engineering, Lab and Security, because this area will grow. Replaced
-  by this: the D29 item "No fourth group" and the D25 statement "three groups, for now".
+  by this: the D29 item "No fourth group" and the D25 statement "Three groups of roles".
 - `@decided` (corrected 2026-11-10 by the user) The AI group builds AI features: harnesses, prompt engineering,
-  agents and skills (with `agent-creator`, D41, and `skill-creator`), and checks against prompt injection and the
+  agents and skills (with the agent creator of D41, and `skill-creator`), and checks against prompt injection and the
   other failures seen in the alignment research (D39).
 - `@proposed` (an idea, registered for later) The AI group keeps reading alignment sources, such as the OpenAI
   alignment reports, and brings new lessons to the Architect.
@@ -983,7 +982,7 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
   and the Lab data skill processes that data. D43 isolates which skills an agent loads; it does not stop groups from
   working together.
 - `@decided` (2026-11-10, audit, the user) The estimate of consumption before a build lives in the AI group, done by
-  the AI data engineer.
+  the AI data engineer skill (below).
 - `@proposed` The estimate method: run a small real sample (3 to 5 runs), measure the real tokens, multiply by the
   expected volume with a range, convert with the official price of the day, and compare models.
 - `@decided` (2026-11-10, the user) AI security (prompt injection, OWASP LLM Top 10, an agent that acts outside the
@@ -999,7 +998,8 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 
 ### D46 — Truth first, and disagree when needed, in every role `@decided`
 
-Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided by the user on 2026-11-10.
+Release: 0.2.0, as a core principle that every role loads; the user confirmed it in the 0.2.0 checklist. Decided by
+the user on 2026-11-10.
 
 - `@decided` Every role stays faithful to the truth: it reports what the evidence shows, with its limits, and never
   makes a result look better to please the user, the Architect or another agent.
@@ -1021,11 +1021,16 @@ Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided b
   leads' duty.
 - `@decided` (2026-11-10, the user) How to make truth real in each role is not decided: today it is only an
   assumption. It is studied in the Lab with more sources, together with the Reviewer work of D39 and the OpenAI
-  alignment documents (`docs/research/2026-11-10-alignment/`). The core rule text waits for that study.
+  alignment documents (`docs/research/2026-11-10-alignment/`). The study refines the rule text in a later release.
+- `@decided` (2026-11-10, the user) 0.2.0 ships a core principle now, with what is decided. Report what the evidence
+  shows, with its limits. Never make a result look better. Only the leads disagree with the user. Other roles report
+  to their lead. Its ID is R27 (text in the 0.2.0 spec).
+- `@decided` (2026-11-10, the user) Until 0.5.0 the existing `security` agent fills the part of the Security Lead.
 
 ### D47 — The guild council (Cúpula da Guilda) `@decided`
 
-Release: `@proposed` 0.5.0 or later (it needs the bus of D17, 0.4.0, and the leads of D37, D42, 0.5.0). Decided by the
+Release: `@proposed` 0.5.0 or later (it needs the bus of D17, 0.4.0, the Security Lead of D37, 0.5.0, and the DevOps
+advisor of D42, 0.2.0). Decided by the
 user on 2026-11-10.
 
 - `@decided` A council is a live group chat between the leads of one problem (and the user and the Architect), on the
@@ -1149,3 +1154,45 @@ in the Lab.
   PDFs, into a queryable knowledge graph, as a `/graphify` skill for Claude Code, Cursor, Codex and Gemini CLI, with
   local deterministic AST parsing, each edge explained, and no vector store. Not yet read or tested; to study in the
   Lab as the map for the project memory of D50.
+
+## Experiments
+
+### E1 — Process levels
+
+Status: `@decided` (to run) · Between 0.2.0 and later releases · The user, 2026-11-09.
+Run the same feature at each level of D1 on the Glasshaus project. Measure defects found before and after merge,
+tokens, time and user interventions. Output: the gates of each level.
+
+### E2 — Persistent agent identity
+
+Status: `@decided` (to run) · Before the build of D17 reuse · The user, 2026-11-09.
+Compare an address bound to the same agent across tasks with a fresh agent for each task. Use planted defects in
+the tasks and between the tasks. Measure defects found, tokens, time and compactions. No claim of a gain before the
+result.
+
+## Glossary proposals
+
+`@proposed` (2026-11-10) New lines for `core/glossary.md`. The user approves them with the merge of the release that
+first uses each term.
+
+| Term | Release | Proposed line |
+|---|---|---|
+| supervisor | 0.5.0 (the text approved in the 0.2.0 checklist; name decided by the user, D15 U4) | `- **supervisor**: the background role that runs the work that the Architect designed, keeps the pace and the health of the flow, and does not own the project. Forbidden: orchestrator, leader, foreman.` |
+| field report | 0.2.0 | `- **field report**: the output of guilda:report, a report from a project to the guilda repository, apart from the reports of the Executor and of QA. Forbidden: feedback, bug report.` |
+| lab report | 0.2.0 | `- **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.` |
+| Lab group | 0.2.0 (`@proposed`, 2026-11-10) | `- **Lab group**: the role group that researches, runs experiments and studies data for the other groups (D25, D45); one run of it is a lab. Forbidden: research team, lab team.` |
+| block | 0.3.0 | `- **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.` |
+| agent ID | 0.3.0 | `- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.` |
+| address | 0.4.0 | `- **address**: the code of one dispatch (task, role, short random part) that stays the same when the agent behind it changes. Forbidden: mailbox name, agent ID.` |
+
+- `@replaced` "lead" as a forbidden word for `foreman` conflicts with the role name "Security Lead" and with the verb
+  "lead". The `ste-check` script matches the word in any case. Options: forbid "lead" only as a role name in text, or rename the
+  Security Lead. Replaced by: D15 U4.
+- `@decided` (2026-11-10, audit, the user's words) The `supervisor` line replaces the `foreman` line. "lead" is not a
+  forbidden word, and the Security Lead keeps its name. `foreman` and `orchestrator` were working names of this role.
+- `@proposed` (2026-11-10) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
+  `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
+- `@proposed` (2026-11-10) The word `lab` has two uses: one run (the `lab` line of `core/glossary.md`) and the role
+  group (D45). The `Lab group` line above names the group, and the `lab` line keeps the run.
+- `@proposed` The `architect` line changes in 0.4.0 (D31): the Architect runs as its own agent, not in the main
+  session.
