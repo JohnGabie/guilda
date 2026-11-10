@@ -813,6 +813,8 @@ Release: after the Lab is ready (D25, D34, D36), not before 0.2.0. Decided by th
   friction.
 
 ## Experiments
+- `@decided` (2026-11-10, the user) The same study covers D46 (truth first in every role): research more sources and
+  test in the Lab how to make agents report the truth, in particular the Reviewer and the graders.
 
 ### E1 — Process levels
 
@@ -973,3 +975,6 @@ Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided b
   lead reports a problem or an objection to the lead of its group, and the lead decides if it goes to the user. The
   alignment case of D39 was a common role (a grader) that preferred a fake success, so truth cannot be only the
   leads' duty.
+- `@decided` (2026-11-10, the user) How to make truth real in each role is not decided: today it is only an
+  assumption. It is studied in the Lab with more sources, together with the Reviewer work of D39 and the OpenAI
+  alignment documents (`docs/research/2026-11-10-alignment/`). The core rule text waits for that study.
