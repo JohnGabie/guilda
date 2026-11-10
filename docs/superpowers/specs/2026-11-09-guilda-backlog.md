@@ -36,6 +36,7 @@ D12 and D13.
 | D18 | Agent life cycle: no agent left running | `@proposed`, not approved for the build |
 | D33 | Click a reference, open the right place | `@proposed` |
 | — | Codex adapter (lab `external-agent`) | conditional GO |
+| D49 | Mention an agent in the main session to talk to it directly | `@decided`; the release with D31 is `@proposed` |
 
 Before the build: the larger D31 lab (more runs, a second scenario, a compaction), the D18 failure cases, the sender
 check of D31, and E2 for address reuse. D33 has MORE DATA on its preferred link form. Glossary changes: the
@@ -43,22 +44,33 @@ check of D31, and E2 for address reuse. D33 has MORE DATA on its preferred link 
 
 Risk: a link (D33) can come from injected text. A link opens only a file inside the project folder.
 
-## 0.5.0 — foreman and pace
+## 0.5.0 — supervisor and pace
 
 | ID | Item | Status |
 |---|---|---|
-| D15 | Foreman, the internal `watch` and `tick` scripts (D24) | `@open`, the name `@decided` |
+| D15 | Supervisor (working names: foreman, orchestrator), the internal `watch` and `tick` scripts (D24) | `@open`, the name `@decided` (U4) |
 | D22 | The pace, with the `cswap` fork plan | `@proposed` with `@decided` items |
 | D16 | The Security Lead and the red team limits | `@replaced` in part, the rest `@proposed` |
 | D37 | The Security Lead is an agent that decides | `@decided`; the release 0.5.0 is `@proposed` |
 | D28 | The red team skill and its blocking hook, the Security Executor (D1) | `@decided` |
 | D38 | Resume after a usage limit, only in the same project | `@decided`; the release 0.5.0 is `@proposed` |
+| D47 | The guild council (Cúpula da Guilda), its Judge and its council group | `@decided`; the release "0.5.0 or later" is `@proposed` |
+| D48 | User presence: away mode | `@decided`; the release with D14 and the supervisor is `@proposed` |
 
 Before the build: the D15 lab, the D38 lab, the open level rule of D16, and the gaps of the
 [scenario catalog](2026-11-09-orchestrator-scenarios.md).
 
 Risk: the terms of use of each provider for more than one account are not verified (D22). The pace does not ship
 before an answer.
+
+## No release yet
+
+(2026-11-10, audit, the user's words) These decisions have no release in the register.
+
+| ID | Item | Status |
+|---|---|---|
+| D39 | Make the Reviewer stronger from alignment research | `@decided`; after the Lab is ready (D25, D34, D36), not before 0.2.0 |
+| D50 | The main session is only the chat; the truth lives in a project memory store | `@proposed`; after D31 (0.4.0) and the stores of D13, D14, D27, D35 |
 
 ## Between releases
 

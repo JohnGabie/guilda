@@ -20,10 +20,10 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 | Release | Theme | Scope |
 |---|---|---|
 | 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats |
-| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34 `@proposed`, D36, the plan file name and its R4 hook (D27) |
+| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34 `@proposed`, D36, the plan file name and its R4 hook (D27), D40 to D46 `@proposed` as each one states |
 | 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35 `@proposed`, D32, the mod part of D24 |
-| 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`) |
-| 0.5.0 | foreman and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 `@proposed` with the red team of D28, D38 `@proposed` |
+| 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`), D49 `@proposed` |
+| 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 `@proposed` with the red team of D28, D38 `@proposed`, D47 and D48 `@proposed` |
 
 - `@decided` While the major number is 0, a core rule that changes meaning raises the minor number. The CHANGELOG
   entry tells projects to run `guilda:init` again. `RELEASING.md` says this.
@@ -37,6 +37,9 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 - `@proposed` (2026-11-10, the split) D34 goes to 0.2.0, D35 to 0.3.0, D37 and D38 to 0.5.0. The plan of the
   controller set these releases. The user confirms them. A cell with `@proposed` in the table above is one of them.
 - `@decided` D36 is in 0.2.0: the user put all domain skills of D25, D28, D29 and D36 in 0.2.0 (D28).
+- `@proposed` (2026-11-10, audit, the user's words) The table lists D40 to D49. Each one has the release of its
+  decision. D39 and D50 have no release yet. D39 comes after the Lab is ready, and D50 after D31 and the stores. The
+  user approves the release of each one in the 0.2.0 checklist or in the backlog.
 
 ## Builder check of 2026-11-09 `@decided`
 
@@ -337,6 +340,8 @@ own the project. The earlier file and the scenario catalog use the working name 
   and why it stopped. The foreman then resumes it, waits, gives it to a Claude Code agent, or queues it again.
 - `@decided` G16: no reserved slots for the user's own side tasks. The foreman reads the usage percent and keeps the
   work going. The user has the final decision on the engineering of the project.
+- `@decided` (2026-11-10, audit, the user's words) G16 principle: the supervisor does not predict each detail. Changes
+  are expected, and the talks with the user are part of the plan.
 - `@decided` G18: the foreman can stop an agent, also a stalled one, to keep the pace. A stop without a safe save
   first is an extreme step, and for an extreme case the foreman talks to the Architect first.
 - Scenario catalog: `2026-11-09-orchestrator-scenarios.md` (written before G18 and the final queue design; see its
@@ -434,6 +439,9 @@ without the mod sees no change.
 - Lab `lab/agent-panel` (`docs/labs/2026-11-09-agent-panel-mod.md`): a conditional GO with one live view. The user saw
   one live row for one Codex agent and accepted the layout. Not verified: the hide after `done`, hover and click, the
   label on a tool row. Defect: the log command opened the oldest agent.
+- `@decided` (2026-11-10, audit, the user's words) When the mouse is over a row, the row shows a `›` arrow.
+- `@decided` (2026-11-10, audit, the user's words) A click on a row opens the live log of that running agent.
+- `@decided` (2026-11-10, audit, the user's words) The panel shows an estimate of the agent work hours (D24).
 - Limits (mod docs of Claude Code 2.1.321): no mod component inside the native agent list; a pane opens without a
   request only in a wide terminal; a timer and file reads, no file watch.
 - `@open` Whether one plugin can hold both command hooks and a mod module.
@@ -472,7 +480,8 @@ hours that the user wants for the work.
 - `@proposed` The `cswap` fork plan: smart switching that keeps the usage of all accounts even.
 - `@proposed` (reclassified 2026-11-10, D24) The pace talk is part of the plan step of the Architect, with the
   reference file `pace.md` (D30) and an internal script. There is no `guilda:pace` skill.
-- `@proposed` The concurrency limit counts every agent: each role, each external tool, each side task (#11).
+- `@replaced` "The concurrency limit counts every agent: each role, each external tool, each side task (#11)."
+  Replaced by: D15 G16 (2026-11-10, audit, the user's words).
 - `@proposed` Seven pace scenarios to specify (near a limit, a heavy start, under the pace, weekly limit, one early
   reset, uneven use, old data). Detail in the scenario catalog.
 - `@open` A usage source for Codex accounts.
@@ -511,6 +520,7 @@ commands make noise.
 - `@proposed` (0.2.0) `guilda:consolidate <name>` is a code marker (D9), not a command.
 - `@proposed` (0.3.0, moved: it depends on D20) The mod is the interface. In the area of the agents it shows the
   external agents, their work time, the pace, and a mark when a `doctor` check fails.
+- `@decided` (2026-11-10, audit, the user's words) The mod shows an estimate of the agent work hours.
 - `@proposed` (0.3.0, moved with the mod) `guilda:init` shows its progress in a mod pane. Its questions still go
   through the question tool (D23).
 - `@open` (0.3.0) The detail command of the mod (`/guilda-agents`): keep it, or open the detail only by a click.
@@ -621,6 +631,9 @@ Areas are knowledge, so they are skills, not agents.
 - `@proposed` (risk, 2026-11-10) An activation test covers the install without the official marketplace. D2 must
   tell the user that guilda did not load.
 - `@proposed` guilda can create a new domain skill and add it to the triage table (D25).
+- `@open` (2026-11-10, audit, the user's words) The user wants more than a new domain skill. guilda gets the power to
+  create a new role group. A tool lets the user change guilda to do what the user needs. Candidates: the agent
+  creator (D41), `skill-creator`, the extension plugins (D40). The "new role" flow of D25 needs this too.
 - `@proposed` Starting points for the curation: `anthropics/skills`, `trailofbits/skills` (CC-BY-SA-4.0, needs care).
   Each third-party skill is audited before use.
 - Research (Claude Code docs, Anthropic posts, OpenAI agent guide, Cognition, arXiv 2601.04748, 2505.18286,
@@ -721,6 +734,9 @@ right place, in the tool that the user works with.
 - Lab `lab/links` (`docs/labs/2026-11-09-links.md`): in kitty a plain Ctrl+click does nothing by default; a
   `file://` link opens the folder, not the line.
 - `@open` A PASS in each place: a click on D14 opens the right line in 3 of 3 tries.
+- `@decided` (2026-11-10, audit, the user's words) Each reference in the assistant's chat becomes a link. A reference is
+  a spec ID, a commit hash, a file or a code location. Code in the Claude Code mod makes the link when the chat
+  renders. The model spends zero tokens on it. A code reference shows a relative path or the file name, with `:line`.
 
 ### D34 — Lab report format
 
@@ -836,16 +852,18 @@ first uses each term.
 
 | Term | Release | Proposed line |
 |---|---|---|
-| foreman | 0.2.0 (name decided by the user, D15) | `- **foreman**: the background role that runs the work that the Architect designed, keeps the pace and the health of the flow, and does not own the project. Forbidden: orchestrator, leader, lead.` |
+| supervisor | 0.2.0 (name decided by the user, D15 U4) | `- **supervisor**: the background role that runs the work that the Architect designed, keeps the pace and the health of the flow, and does not own the project. Forbidden: orchestrator, leader, foreman.` |
 | field report | 0.2.0 | `- **field report**: the output of guilda:report, a report from a project to the guilda repository, apart from the reports of the Executor and of QA. Forbidden: feedback, bug report.` |
 | lab report | 0.2.0 | `- **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.` |
 | block | 0.3.0 | `- **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.` |
 | agent ID | 0.3.0 | `- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.` |
 | address | 0.4.0 | `- **address**: the code of one dispatch (task, role, short random part) that stays the same when the agent behind it changes. Forbidden: mailbox name, agent ID.` |
 
-- `@open` "lead" as a forbidden word for `foreman` conflicts with the role name "Security Lead" and with the verb
+- `@replaced` "lead" as a forbidden word for `foreman` conflicts with the role name "Security Lead" and with the verb
   "lead". The `ste-check` script matches the word in any case. Options: forbid "lead" only as a role name in text, or rename the
-  Security Lead.
+  Security Lead. Replaced by: D15 U4.
+- `@decided` (2026-11-10, audit, the user's words) The `supervisor` line replaces the `foreman` line. "lead" is not a
+  forbidden word, and the Security Lead keeps its name. `foreman` and `orchestrator` were working names of this role.
 - `@proposed` (2026-11-10) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
   `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
 - `@proposed` The `architect` line changes in 0.4.0 (D31): the Architect runs as its own agent, not in the main
@@ -1003,8 +1021,8 @@ user on 2026-11-10.
   open it.
 - `@decided` (2026-11-10, the user) A council has order, like a court. Nobody speaks without the floor. A separate
   Judge agent runs it: it opens the session, gives the floor in turn ("now the DevOps advisor", "now the Security Lead",
-  "now the user"), and closes it. The Judge has no view on the merit; the user decides the outcome (R12). It runs on a
-  small model and belongs to the Engineering group.
+  "now the user"), and closes it. The Judge has no view on the merit; the user decides the outcome (R12). The Judge
+  belongs to the council group (below). (2026-11-10, audit, the user's words) The user named no model for the Judge.
 - `@decided` Two formats: adversarial (one lead attacks an idea, another defends it, in turns) or a debate (the Judge
   orders the turns).
 - `@decided` A speaker can call another lead to answer by marking it in the chat. The Judge grants that voice or not.

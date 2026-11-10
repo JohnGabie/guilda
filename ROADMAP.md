@@ -19,6 +19,9 @@ Fix the QA report parser and `lint-rules` with formatters. The README says when 
 Process levels `light` and `full`, an activation check, decisions through the question tool, and the field report
 skill. Role groups, one Executor with domain skills, AI engineering skills, and a lean Architect.
 
+To approve for 0.2.0: a core plugin that works without `guilda:init`, and extension plugins. An agent creator, a
+DevOps skill, an AI role group with its lead, skills isolated by role group, and truth first in every role.
+
 ## 0.3.0 — traceability and state
 
 [Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
@@ -31,12 +34,13 @@ and token measures in tokens and money.
 [Milestone 0.4.0](https://github.com/JohnGabie/guilda/milestone/4)
 
 The Architect as its own agent. An agent bus with a clear life cycle, clickable references, and a Codex adapter.
+A mention that sends a message to one agent from the main session.
 
-## 0.5.0 — foreman and pace
+## 0.5.0 — supervisor and pace
 
 [Milestone 0.5.0](https://github.com/JohnGabie/guilda/milestone/5)
 
-A foreman that keeps the flow running, and a pace from account usage. A resume after a usage limit. The Security
-Lead as an agent, with a red team.
+A supervisor that keeps the flow running, and a pace from account usage. A resume after a usage limit. The Security
+Lead as an agent, with a red team. A guild council of the leads, and an away mode for the user.
 
 Experiments E1 and E2 run between releases. Each lab with a conditional GO gets a larger run before 1.0.
