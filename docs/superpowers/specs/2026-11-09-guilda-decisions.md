@@ -618,6 +618,13 @@ Areas are knowledge, so they are skills, not agents.
   Each third-party skill is audited before use.
 - Research (Claude Code docs, Anthropic posts, OpenAI agent guide, Cognition, arXiv 2601.04748, 2505.18286,
   2503.13657): skills specialize one agent; skill choice gets worse with many similar skills.
+- `@decided` (2026-11-10, the user, U2) `skill-creator` (anthropics/skills) and `superpowers` (obra/superpowers) are
+  both required dependencies of guilda. Without their marketplaces, guilda does not load, so: the README gives one
+  install command that adds both marketplaces and then installs guilda; a clear warning says how to check that guilda
+  loaded; `guilda:init` checks both dependencies. `superpowers` as a required dependency is new: the 0.1.0 design
+  (6.6) only named it as a related plugin.
+- `@decided` (2026-11-10, the user, U1) 0.2.0 ships the levels `light` and `full`; E1 sets their gates later. This
+  replaces the D1 item "the levels enter a release only after E1 runs".
 
 ### D29 — AI engineering, for guilda and for user projects
 
