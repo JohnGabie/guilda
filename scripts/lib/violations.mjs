@@ -31,12 +31,13 @@ export function ensureIgnored(guildaDir) {
 
 /**
  * Append one violation record to .guilda/violations.jsonl.
+ * Writes only when the .guilda folder exists, and never creates it (D40).
  * The record holds only ts, rule, level, source, action, branch. Never throws.
  */
 export function appendViolation(projectDir, { rule, level, source, action }) {
   try {
     const dir = path.join(projectDir, '.guilda');
-    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.statSync(dir).isDirectory()) return;
     ensureIgnored(dir);
     const record = {
       ts: new Date().toISOString(),
