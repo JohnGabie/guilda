@@ -937,8 +937,10 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
   other failures seen in the alignment research (D39).
 - `@proposed` (an idea, registered for later) The AI group keeps reading alignment sources, such as the OpenAI
   alignment reports, and brings new lessons to the Architect.
-- `@decided` (corrected 2026-11-10) The Lab is the place to check ideas and to experiment. Its data skill (D25) is
-  necessary and serves that context: it processes the data of the experiments. There is no separate data engineer
+- `@decided` (corrected again 2026-11-10 by the user) The Lab is the place to test and study anything: a large research
+  on an idea, articles, experiments on platforms, and the processing of a large volume of data to reach a conclusion.
+  It is a full role group with its own skills and space. Its data skill (D25) serves all of this, not only small
+  measures. Earlier texts limited the Lab; this replaces them. There is no separate data engineer
   in the AI group; an earlier text of this decision said so by mistake.
 - `@decided` Groups work together in one process that the Architect leads. The AI group uses the Lab to test an idea,
   and the Lab data skill processes that data. D43 isolates which skills an agent loads; it does not stop groups from
@@ -948,3 +950,18 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
   expected volume with a range, convert with the official price of the day, and compare models.
 - `@open` AI security (prompt injection, OWASP LLM Top 10) stays in the Security group, or moves to the AI group.
 - `@open` The AI group gets a lead agent, like the Security Lead.
+
+### D46 — Truth first, and disagree when needed, in every role `@decided`
+
+Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided by the user on 2026-11-10.
+
+- `@decided` Every role stays faithful to the truth: it reports what the evidence shows, with its limits, and never
+  makes a result look better to please the user, the Architect or another agent.
+- `@decided` Every role disagrees when it has a reason, also with the user: it gives the disagreement, the reason and
+  the evidence. Then the person who owns the decision decides (R12).
+- `@decided` This is intrinsic to guilda: in the core rules, in each role, in each project that uses guilda.
+- Today this exists only in parts: R14 (only the Architect must disagree), R5 (memory is a guess), R6 (evidence).
+  `@proposed` One core rule that covers every role, with these as its parts, so that it is not only the Architect's
+  duty.
+- Why: the alignment research (D39) shows the failure that this stops: a grader that preferred a fake success to an
+  honest failure. A biased process builds a wrong product.
