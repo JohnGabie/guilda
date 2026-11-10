@@ -980,3 +980,22 @@ Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided b
 - `@decided` (2026-11-10, the user) How to make truth real in each role is not decided: today it is only an
   assumption. It is studied in the Lab with more sources, together with the Reviewer work of D39 and the OpenAI
   alignment documents (`docs/research/2026-11-10-alignment/`). The core rule text waits for that study.
+
+### D47 — The guild council (Cúpula da Guilda) `@decided`
+
+Release: `@proposed` 0.5.0 or later (it needs the bus of D17, 0.4.0, and the leads of D37, D42, 0.5.0). Decided by the
+user on 2026-11-10.
+
+- `@decided` A council is a live group chat between the leads of one problem (and the user and the Architect), on the
+  bus of D17: the leads talk in one shared channel, answer each other and disagree with reasons and evidence (D46).
+  The user makes the final decision (R12). A council record (the question, each lead's position, the decision and why)
+  enters the decisions register.
+- `@decided` A council is only for a real and serious problem. It uses many tokens (each lead is an agent with its own
+  context), so it is a strong measure.
+- `@decided` A lead can ask for a council. The Architect refuses the request when it does not make sense: the problem
+  is not that large, it can be solved without a council, or a question to the user is enough.
+- `@decided` The user gives the final yes to open a council ("ok, open the council"). Nothing starts before it.
+- `@proposed` Starting points to study: the user's local agent chat project (agents in one chat through MCP) and Claude
+  Code agent teams (experimental; teammates send messages to each other).
+- `@open` The English name of the feature in the plugin (for example `council`), and how the user and the Architect
+  open it.
