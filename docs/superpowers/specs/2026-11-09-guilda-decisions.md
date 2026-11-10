@@ -891,3 +891,26 @@ Release: `@proposed` 0.2.0, with the AI engineering skills (D29). Decided by the
 - `@open` Start point: the `agent-creator` agent of the official `plugin-dev` plugin (D29 research) is a generator
   with no eval loop. Build on it, or write a new skill. Research and a curation of sources (20 or more, approved by
   the user) come first, as for each research skill.
+
+### D42 — DevOps: an advisor agent, a skill and a production lock `@decided`
+
+Release: `@proposed` 0.2.0 for the skill; the agent and the lock with it. Decided by the user on 2026-11-10.
+
+- `@decided` DevOps is in the Engineering group. It has its own agent that helps the Architect decide on deploy and
+  infrastructure, for example "serverless or a VPS for this system?". This is like the Security Lead (D37): a role
+  that decides is an agent; the knowledge is a skill.
+- `@decided` A domain skill `devops`: CI/CD pipelines, infrastructure, diagnosis from server logs (with the data skill
+  of D25).
+- `@decided` An action in production (deploy, rollback, an infrastructure change) runs only through an agent with
+  restricted tools, and a hook refuses it without the user's explicit approval (R12).
+
+### D43 — Skills isolated by role group `@decided`
+
+Release: `@proposed` 0.2.0. Decided by the user on 2026-11-10.
+
+- `@decided` Each skill belongs to one role group (Engineering, Lab, Security). An agent loads only the skills of its
+  own group. For example, an Engineering Executor cannot load the `red-team` skill.
+- `@proposed` A hook enforces it: it refuses a skill call from an agent outside the skill's group. `@open` Not
+  verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
+- `@open` Skills that more than one group needs (the data skill, `ai-evals`, `lab-experiment`): one copy in each group,
+  or an explicit shared group. To decide with the 0.2.0 checklist.
