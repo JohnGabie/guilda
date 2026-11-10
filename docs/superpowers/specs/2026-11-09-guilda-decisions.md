@@ -1074,3 +1074,21 @@ Release: `@proposed` with D31 (0.4.0). Proposed on 2026-11-10 from the user's re
 - Different from D32 (mention an agent to trace its work) and from the native subagent panel (select the agent and
   press Enter, which the user confirmed works).
 - `@open` Lab: can a mod route a prompt to a named agent (prompt submit hook plus `SendMessage` or the bus of D17)?
+
+### D50 — The main session is only the chat; the truth lives in code `@proposed`
+
+Release: `@proposed` after D31 (0.4.0) and the stores of D13, D14, D27, D35. Proposed by the user on 2026-11-10, to test
+in the Lab.
+
+- `@proposed` The main session stops being the source of truth and the place that compacts. It is only the chat with
+  the user.
+- `@proposed` The source of truth lives in code and files that do not compact: the queue journal (D14), the audit log
+  (D13), the decisions register and the block index (D27), costs, times and measures (D35), and the calibration of the
+  agents. Each part is delegated to its owner role. An agent reads what it needs by ID.
+- `@proposed` So the user can clear the main session (`/clear`) at any time and lose nothing. The design is close to
+  event sourcing: the state is the journal of events, and anyone can rebuild the present from it.
+- `@proposed` Messages to agents go through the main session with a mention (D49). A different sign sends a message
+  straight to a new agent. `!` cannot be that sign: in Claude Code, `!` at the start of a prompt runs a shell command.
+- Risk (seen in the D31 lab: the light main session said "the plan has 10 tasks" from an old summary): every question
+  about the state goes to the store, never to the main session's memory. `@open` A rule and a Lab test for it.
+- Signal so far: in the D31 lab the main session was about 70% smaller with the Architect outside it.
