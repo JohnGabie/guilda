@@ -1,0 +1,8 @@
+{
+  "name": "l4ext",
+  "version": "0.0.1",
+  "description": "Throwaway extension plugin of lab L4",
+  "author": {
+    "name": "lab"
+  }
+}

@@ -1,0 +1,244 @@
+== both-1
+"subtype":"hook_started","hook_id":"0e529ae5-ab7b-4704-a6e2-0f537b95e059","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"b68398f0-d785-46f9-9552-6457e42d67b2","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"a4d21a3c-49f6-46da-b030-1785be6b2dfa","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"8c39f1c3-dd1f-43ab-a4c6-439e6d90e0a1","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"a4d21a3c-49f6-46da-b030-1785be6b2dfa","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"8c39f1c3-dd1f-43ab-a4c6-439e6d90e0a1","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"b68398f0-d785-46f9-9552-6457e42d67b2","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"0e529ae5-ab7b-4704-a6e2-0f537b95e059","hook_name":"SessionStart:startup"
+"result":"OK"
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== both-2
+"subtype":"hook_started","hook_id":"029ddfff-3ba6-4127-9e61-49a0ed40bc15","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"b451c769-1846-4943-a14c-fafa2fb14daa","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"d3b79089-d313-48ef-84b0-04f4dc65e008","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"89b85fdc-6223-4330-8dde-e036671a4090","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"d3b79089-d313-48ef-84b0-04f4dc65e008","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"b451c769-1846-4943-a14c-fafa2fb14daa","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"89b85fdc-6223-4330-8dde-e036671a4090","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"029ddfff-3ba6-4127-9e61-49a0ed40bc15","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== both-3
+"subtype":"hook_started","hook_id":"7404ff47-4307-40c7-ba3b-88a217dbb4e5","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"a406ada7-0bc6-4fc7-b688-5f911fcbbfc2","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"49743c6d-6993-413b-8271-7d3d19b0d438","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"5001c5c3-ac4f-4210-b75c-127a42fd9d5d","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"49743c6d-6993-413b-8271-7d3d19b0d438","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"5001c5c3-ac4f-4210-b75c-127a42fd9d5d","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"a406ada7-0bc6-4fc7-b688-5f911fcbbfc2","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"7404ff47-4307-40c7-ba3b-88a217dbb4e5","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== both-4
+"subtype":"hook_started","hook_id":"38fc184d-146e-4f29-977f-f034100f243b","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"6e3d9ce0-a69c-431b-8f6c-7106616289bc","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"d5c01438-f9f5-4895-9e97-3caec8f17532","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"20b0e780-76ed-4af9-b746-9e3794bda1fa","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"d5c01438-f9f5-4895-9e97-3caec8f17532","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"20b0e780-76ed-4af9-b746-9e3794bda1fa","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"6e3d9ce0-a69c-431b-8f6c-7106616289bc","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"38fc184d-146e-4f29-977f-f034100f243b","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== both-5
+"subtype":"hook_started","hook_id":"56c21380-dfee-433e-b5d4-aa4cb2e09530","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"e3e70ab0-4124-4d9a-8d30-cca50c37f8c0","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"c88961ce-3d9a-4aff-875f-977206318c34","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"d92fa962-79d9-4f26-a310-5fa0da2781d7","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"c88961ce-3d9a-4aff-875f-977206318c34","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"d92fa962-79d9-4f26-a310-5fa0da2781d7","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"e3e70ab0-4124-4d9a-8d30-cca50c37f8c0","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"56c21380-dfee-433e-b5d4-aa4cb2e09530","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== core-1
+"subtype":"hook_started","hook_id":"74d567b7-0462-4235-8523-ded67eafc435","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"acef47ac-7be7-4f41-a9b4-79aa94394a10","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"1af31b77-6eaf-4c7e-8af3-6b4285dfc1c2","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"acef47ac-7be7-4f41-a9b4-79aa94394a10","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"1af31b77-6eaf-4c7e-8af3-6b4285dfc1c2","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"74d567b7-0462-4235-8523-ded67eafc435","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== core-2
+"subtype":"hook_started","hook_id":"19b22b59-acf9-4f91-b4da-1ca57ba0adad","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"c7e2f2cc-d5ad-4ec5-93a2-38216c8e91bd","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"fa945637-f199-46bc-91e6-3b64cb69b508","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"c7e2f2cc-d5ad-4ec5-93a2-38216c8e91bd","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"fa945637-f199-46bc-91e6-3b64cb69b508","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"19b22b59-acf9-4f91-b4da-1ca57ba0adad","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== core-3
+"subtype":"hook_started","hook_id":"750f39b3-a136-4b11-b47a-4faf3db8741a","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"dd16b0f6-0ece-4c56-b583-e3e8c60dce26","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"e2540b27-5735-49d7-b569-ba36a6b7e27e","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"dd16b0f6-0ece-4c56-b583-e3e8c60dce26","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"e2540b27-5735-49d7-b569-ba36a6b7e27e","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"750f39b3-a136-4b11-b47a-4faf3db8741a","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== core-4
+"subtype":"hook_started","hook_id":"bfb29183-5aca-4afd-bb30-efe9b367f65e","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"c51bacce-ba17-4040-a488-09346016e559","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"0d2d3f7a-747b-4eb3-aff5-744c81145d8e","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"c51bacce-ba17-4040-a488-09346016e559","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"0d2d3f7a-747b-4eb3-aff5-744c81145d8e","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"bfb29183-5aca-4afd-bb30-efe9b367f65e","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== core-5
+"subtype":"hook_started","hook_id":"ba2b971c-b319-40df-b698-989d57392348","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"e809eea7-070d-4dd9-abe1-b8fc52bf9071","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"bfa77313-22e1-45e7-96cc-624f7e6db5ca","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"e809eea7-070d-4dd9-abe1-b8fc52bf9071","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"bfa77313-22e1-45e7-96cc-624f7e6db5ca","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"ba2b971c-b319-40df-b698-989d57392348","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== direct-1
+"subtype":"hook_started","hook_id":"0548c24c-d06b-47f7-87da-c64dd814c880","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"02133948-51fd-4dfb-a51b-43c248e0c22e","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"68b550ce-0c72-425e-8fc1-424abd3c80b8","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"cc792dea-ab58-48fc-9db3-bfdd35a90044","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"68b550ce-0c72-425e-8fc1-424abd3c80b8","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"02133948-51fd-4dfb-a51b-43c248e0c22e","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"cc792dea-ab58-48fc-9db3-bfdd35a90044","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"0548c24c-d06b-47f7-87da-c64dd814c880","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== direct-2
+"subtype":"hook_started","hook_id":"67bad8e3-3b4a-401a-8ea5-43c5fa4f89ab","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"42062d7b-d836-4276-867a-3c16e1db9f7b","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"dd816628-5db7-4f95-a078-a69347c85bb4","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"fdb9726d-ab95-462b-845b-580af22f1ddd","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"dd816628-5db7-4f95-a078-a69347c85bb4","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"42062d7b-d836-4276-867a-3c16e1db9f7b","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"fdb9726d-ab95-462b-845b-580af22f1ddd","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"67bad8e3-3b4a-401a-8ea5-43c5fa4f89ab","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== direct-3
+"subtype":"hook_started","hook_id":"46ceb1a3-0a95-45db-ae00-f16cf036692e","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"50e6e14b-087e-40b0-82cd-e97616d68d81","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"d9626dbd-dad2-4760-be68-bec66ded58a4","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"ca43e77e-46dc-4a51-a29c-57244454e46a","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"d9626dbd-dad2-4760-be68-bec66ded58a4","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"50e6e14b-087e-40b0-82cd-e97616d68d81","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"ca43e77e-46dc-4a51-a29c-57244454e46a","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"46ceb1a3-0a95-45db-ae00-f16cf036692e","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== stale-1
+"subtype":"hook_started","hook_id":"3e392446-3a2e-4864-9239-687e661cca0f","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"2b247a30-d33a-4a22-84ff-67c40fdc9834","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"472b2e14-098c-43cd-9206-1a60f1ba24ef","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"2b247a30-d33a-4a22-84ff-67c40fdc9834","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"472b2e14-098c-43cd-9206-1a60f1ba24ef","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"3e392446-3a2e-4864-9239-687e661cca0f","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== stress-1
+"subtype":"hook_started","hook_id":"2fc3824f-8c5f-4b39-95b7-ed35c4b1b688","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"fd2c3f49-8060-4443-acd9-d3050b8e0d2a","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"7f4aea17-5127-450b-8bf7-c89f47b8ee98","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"1484cea0-f54a-4a1e-b61f-7b2fd55dcd25","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"7f4aea17-5127-450b-8bf7-c89f47b8ee98","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"1484cea0-f54a-4a1e-b61f-7b2fd55dcd25","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"fd2c3f49-8060-4443-acd9-d3050b8e0d2a","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"2fc3824f-8c5f-4b39-95b7-ed35c4b1b688","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== stress-2
+"subtype":"hook_started","hook_id":"f5c88e44-9a30-4210-b6a7-6dc74628ce67","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"f4e8b565-4205-41c7-95dc-abada7036931","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"1306bf3d-a1b2-4d3c-8bcf-ccbfcf75e0c8","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"08ff2f8f-d820-4bd3-91c4-6cc14cf12916","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"1306bf3d-a1b2-4d3c-8bcf-ccbfcf75e0c8","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"f4e8b565-4205-41c7-95dc-abada7036931","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"08ff2f8f-d820-4bd3-91c4-6cc14cf12916","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"f5c88e44-9a30-4210-b6a7-6dc74628ce67","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
+== stress-3
+"subtype":"hook_started","hook_id":"18e23141-be55-43f2-bb9a-4ceccce043ff","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"8375edb7-9651-4bf6-a8c2-b4495ad95f2c","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"da3257a5-90ac-47e1-9180-1b425ccc90d6","hook_name":"SessionStart:startup"
+"subtype":"hook_started","hook_id":"1da61918-db33-444e-be7c-8ba0bbf8ddee","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"da3257a5-90ac-47e1-9180-1b425ccc90d6","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"1da61918-db33-444e-be7c-8ba0bbf8ddee","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"8375edb7-9651-4bf6-a8c2-b4495ad95f2c","hook_name":"SessionStart:startup"
+"subtype":"hook_response","hook_id":"18e23141-be55-43f2-bb9a-4ceccce043ff","hook_name":"SessionStart:startup"
+"result":"OK"
+-- git status
+ M .guilda/.gitignore
+-- .guilda/.gitignore
+.hooks-live.json
+.extension-live.json
