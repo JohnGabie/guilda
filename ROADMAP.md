@@ -1,0 +1,39 @@
+# Roadmap
+
+Each release has one theme. Each release works alone, and the next one builds on it. Each release has a GitHub
+milestone with its issues. The decisions are in the
+[0.2 design spec](docs/superpowers/specs/2026-11-09-guilda-0.2-design.md), which stays the source of truth.
+
+## 0.1.1 — fixes
+
+[Milestone 0.1.1](https://github.com/JohnGabie/guilda/milestone/1)
+
+Fix the QA report parser and `lint-rules` with formatters. The README says when a project-scope install loads.
+
+## 0.2.0 — process
+
+[Milestone 0.2.0](https://github.com/JohnGabie/guilda/milestone/2)
+
+Process levels `light` and `full`, an activation check, decisions through the question tool, and the field report
+skill. Role groups, one Executor with domain skills, AI engineering skills, and a lean Architect.
+
+## 0.3.0 — traceability and state
+
+[Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
+
+A block index with content hashes, agent identity, an audit log and a task queue. An agent panel, a status command
+and token measures.
+
+## 0.4.0 — the Architect outside the main session
+
+[Milestone 0.4.0](https://github.com/JohnGabie/guilda/milestone/4)
+
+The Architect as its own agent. An agent bus with a clear life cycle, clickable references, and a Codex adapter.
+
+## 0.5.0 — orchestrator and pace
+
+[Milestone 0.5.0](https://github.com/JohnGabie/guilda/milestone/5)
+
+An orchestrator that keeps the flow running, a pace from account usage, and the Security Lead with a red team.
+
+Experiments E1 and E2 run between releases. Each lab with a conditional GO gets a larger run before 1.0.

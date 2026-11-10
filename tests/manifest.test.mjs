@@ -20,10 +20,10 @@ test('marketplace entry name equals plugin name and source is "./"', () => {
   assert.equal(entry.source, './');
 });
 
-test('CHANGELOG top entry equals plugin version', () => {
+test('CHANGELOG top released entry equals plugin version', () => {
   const plugin = readJson('.claude-plugin/plugin.json');
   const text = fs.readFileSync(new URL('CHANGELOG.md', root), 'utf8');
-  const m = text.match(/^## (\d+\.\d+\.\d+) — \d{4}-\d{2}-\d{2}$/m);
+  const m = text.match(/^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$/m);
   assert.ok(m, 'CHANGELOG has an entry heading');
   assert.equal(m[1], plugin.version);
 });
