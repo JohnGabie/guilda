@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { appendViolation, countViolations } from '../scripts/lib/violations.mjs';
+import { appendViolation, countViolations, ensureIgnored, IGNORED } from '../scripts/lib/violations.mjs';
 import { tempProject } from './helpers.mjs';
 
 const V = { rule: 'R1', level: 'gate', source: 'hook', action: 'blocked' };
@@ -35,7 +35,7 @@ test('appendViolation creates .guilda/.gitignore', () => {
   appendViolation(dir, V);
   assert.deepEqual(
     fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
-    ['violations.jsonl', 'format-retries.json'],
+    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', 'reports/'],
   );
 });
 
@@ -75,4 +75,21 @@ test('countViolations skips malformed lines', () => {
 
 test('countViolations returns an empty map without a log', () => {
   assert.equal(countViolations(tempProject()).size, 0);
+});
+
+test('ensureIgnored adds .hooks-live.json and reports/ one time', () => {
+  const dir = tempProject();
+  const guildaDir = path.join(dir, '.guilda');
+  fs.mkdirSync(guildaDir);
+  fs.writeFileSync(path.join(guildaDir, '.gitignore'), 'violations.jsonl\nformat-retries.json\n');
+  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', 'reports/']);
+  ensureIgnored(guildaDir);
+  const first = fs.readFileSync(path.join(guildaDir, '.gitignore'), 'utf8');
+  ensureIgnored(guildaDir);
+  const second = fs.readFileSync(path.join(guildaDir, '.gitignore'), 'utf8');
+  assert.equal(second, first);
+  const lines = second.split('\n');
+  for (const name of ['.hooks-live.json', 'reports/', 'violations.jsonl', 'format-retries.json']) {
+    assert.equal(lines.filter((l) => l === name).length, 1, name);
+  }
 });

@@ -1,0 +1,24 @@
+{
+  "guildaVersion": "0.1.0",
+  "languages": {
+    "replies": "en",
+    "docs": "en"
+  },
+  "tiers": {
+    "master": "opus",
+    "journeyman": "sonnet",
+    "apprentice": "haiku"
+  },
+  "writing": {
+    "free": [],
+    "exceptions": []
+  },
+  "security": {
+    "enabled": false,
+    "riskAreas": []
+  },
+  "checks": [],
+  "scan": {
+    "ignore": []
+  }
+}
