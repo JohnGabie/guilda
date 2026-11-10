@@ -20,6 +20,23 @@ function isOneSentence(s) {
 }
 
 /**
+ * Indices of the real lines of the block of the heading on line i.
+ * For each of the three lines it skips at most one blank line, then takes the next line.
+ * It stops at a second blank line in a row, so it can return fewer than three indices.
+ */
+function blockLines(lines, i) {
+  const indices = [];
+  let n = i + 1;
+  for (let k = 0; k < 3; k++) {
+    if (n < lines.length && lines[n].trim() === '') n++;
+    if (n >= lines.length || lines[n].trim() === '') break;
+    indices.push(n);
+    n++;
+  }
+  return indices;
+}
+
+/**
  * Lint rule blocks in a Markdown text. Each `### ` heading must open a block:
  *   ### <prefix><n> — <title>
  *   Rule:  <one sentence, 20 words or fewer>
@@ -36,7 +53,8 @@ export function lintRules(markdown, { prefix = 'R' } = {}) {
 
   lines.forEach((line, i) => {
     if (!line.startsWith('### ')) return;
-    [i + 1, i + 2, i + 3].forEach((n) => inBlock.add(n));
+    const idx = blockLines(lines, i);
+    idx.forEach((n) => inBlock.add(n));
     const m = line.match(heading);
     if (!m) {
       errors.push(`line ${i + 1}: heading is not "### ${prefix}<n> — <title>": ${line.slice(0, 60)}`);
@@ -46,7 +64,7 @@ export function lintRules(markdown, { prefix = 'R' } = {}) {
     if (seen.has(id)) errors.push(`line ${i + 1}: duplicate ID ${id}`);
     seen.add(id);
 
-    const [ruleLine = '', whyLine = '', checkLine = ''] = lines.slice(i + 1, i + 4);
+    const [ruleLine = '', whyLine = '', checkLine = ''] = idx.map((n) => lines[n]);
     const rule = ruleLine.match(/^Rule:\s+(\S.*)$/);
     const why = whyLine.match(/^Why:\s+(\S.*)$/);
     const check = checkLine.match(/^Check:\s+(\S+)(?: — (\S.*))?$/);

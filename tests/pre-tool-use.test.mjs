@@ -51,10 +51,47 @@ test('no config: allow, nothing written', () => {
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
-test('invalid config: allow silently', () => {
-  const dir = tempProject({ config: '{ nope', git: true });
+// A config that fails checkSchema: MINIMAL_CONFIG without tiers.
+const { tiers: _tiers, ...NO_TIERS } = MINIMAL_CONFIG;
+
+/** A git project with a .guilda folder. `config` is a string, an object, or undefined for no config.json. */
+const brokenProject = (config) => {
+  const dir = tempProject({ git: true });
+  fs.mkdirSync(path.join(dir, '.guilda'));
+  if (config !== undefined) {
+    const text = typeof config === 'string' ? config : JSON.stringify(config, null, 2);
+    fs.writeFileSync(path.join(dir, '.guilda', 'config.json'), text);
+  }
+  return dir;
+};
+
+test('broken project layer: a staged token is refused with R19 (S9)', () => {
+  for (const [name, config] of [
+    ['no config.json', undefined],
+    ['not JSON', '{ not json'],
+    ['no tiers', NO_TIERS],
+  ]) {
+    const dir = brokenProject(config);
+    stage(dir, 'a.txt', GH);
+    assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19:/, name);
+    const v = violations(dir);
+    assert.equal(v.length, 1, name);
+    assert.equal(v[0].rule, 'R19', name);
+  }
+});
+
+test('broken project layer: a new plan file is refused with R4 (S10)', () => {
+  const dir = brokenProject('{ not json');
+  assert.match(assertDeny(file(dir, 'Write', path.join(dir, 'docs/superpowers/plans/new.md'))), /^R4:/);
+  const v = violations(dir);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].rule, 'R4');
+});
+
+test('broken project layer: the scan.ignore of a broken config is not used', () => {
+  const dir = brokenProject({ ...NO_TIERS, scan: { ignore: ['**'] } });
   stage(dir, 'a.txt', GH);
-  assertAllow(bash(dir, 'git commit -m x'));
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19:/);
 });
 
 test('git commit with a staged fake ghp_ token: deny, one R19 record, reason holds no secret', () => {

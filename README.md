@@ -14,6 +14,8 @@ claude plugin install guilda@guilda
 dependency. If the official marketplace is not added, `guilda` installs but does not load. The first line adds it;
 skip that line if `claude plugin marketplace list` already shows the official marketplace.
 
+A project-scope install loads only when Claude Code starts in that project folder.
+
 To try `guilda` for one session without a change to your settings, load it from a local copy:
 
 ```

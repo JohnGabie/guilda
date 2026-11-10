@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, readProjectRules } from '../lib/project.mjs';
+import { projectState, readProjectRules } from '../lib/project.mjs';
 import { countViolations } from '../lib/violations.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
 
 const DIARY_LINES = 220;
 const ESCALATION_THRESHOLD = 2;
+const BROKEN_NOTICE_TAIL =
+  'The laws R4, R18, R19 and ARC6 run with safe defaults. Run guilda:init to fix .guilda/config.json.';
 
 function readCore(root, name) {
   try {
@@ -44,13 +46,16 @@ function emit(additionalContext) {
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const pluginRoot = resolvePluginRoot();
-  const loaded = loadConfig(projectDir);
-  if (loaded === null) {
+  const project = projectState(projectDir);
+  if (project.state === 'none') {
     // Not a guilda project: print nothing.
-  } else if (!loaded.ok) {
-    emit(`guilda: ${loaded.reason}`);
+  } else if (project.state === 'broken') {
+    // One notice per session: only at startup and clear.
+    if (input.source === 'startup' || input.source === 'clear') {
+      emit(`guilda: ${project.reason}. ${BROKEN_NOTICE_TAIL}`);
+    }
   } else {
-    const { config } = loaded;
+    const { config } = project;
     const installed = installedVersion(pluginRoot);
     const parts = [`guilda ${installed} active`];
     parts.push(readCore(pluginRoot, 'rules.md'), readCore(pluginRoot, 'writing.md'));
