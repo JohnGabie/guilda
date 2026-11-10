@@ -40,6 +40,8 @@ const rows = [
   ['G', 'OSC 8 link to the vscode:// URL, BEL terminator', osc8Bel(vscodeUrl, `${id} (vscode, BEL)`)],
   ['H', 'Markdown link, relative', `[${id}](${rel}#L${line})`],
   ['I', 'Markdown link, vscode://', `[${id}](${vscodeUrl})`],
+  ['J', 'OSC 8 link to file://<path>#<line>', osc8(`${fileUrl}#${line}`, `${id} (file#${line})`)],
+  ['K', 'OSC 8 link to file://<path>#L<line>', osc8(`${fileUrl}#L${line}`, `${id} (file#L${line})`)],
 ];
 
 process.stdout.write(`Target: ${id}, the line "${lines[index]}"\n`);
