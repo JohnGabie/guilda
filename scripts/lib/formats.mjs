@@ -86,7 +86,13 @@ export function validateVerdict(text, kind) {
 }
 
 const SCENARIO_START = /^[ \t]*(?:\d+[.)]|[-*])[ \t]/;
-const SECTION_START = /^\S[^:]*:/;
+
+/** Labels that start a section of a QA report, in the order of agents/qa.md. */
+export const QA_SECTION_LABELS = [
+  'Environment:', 'Tools:', 'Scenarios:', 'Phase 2 plan:', 'Phase 2 findings:', 'States checked:',
+  'Persistence after reload:', 'Logs:', 'Out-of-scope notes (for the Architect):', 'User must look:',
+  'Limits of this check:',
+];
 const SCENARIO_RESULT = /\b(PASSED|FAILED|NOT VERIFIED)\b[ \t]*[—–-]+[ \t]*\S/;
 
 /** Errors of a QA report. */
@@ -95,9 +101,9 @@ export function validateQaReport(text) {
   const start = all.findIndex((l) => /^Scenarios:/.test(l));
   if (start < 0) return ['Scenarios section missing'];
 
-  // Group the section lines into scenarios. The section ends at the next unindented label.
+  // Group the section lines into scenarios. The section ends at the next QA label at column 0.
   const scenarios = [];
-  for (let i = start + 1; i < all.length && !SECTION_START.test(all[i]); i += 1) {
+  for (let i = start + 1; i < all.length && !QA_SECTION_LABELS.some((l) => all[i].startsWith(l)); i += 1) {
     if (SCENARIO_START.test(all[i])) scenarios.push([all[i]]);
     else if (scenarios.length > 0 && all[i].trim()) scenarios[scenarios.length - 1].push(all[i]);
   }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBrief, validateVerdict, validateQaReport } from '../scripts/lib/formats.mjs';
+import { validateBrief, validateVerdict, validateQaReport, QA_SECTION_LABELS } from '../scripts/lib/formats.mjs';
 
 const BRIEF = `ID / title: T1 — Add login
 Goal: Let a user sign in.
@@ -110,4 +110,28 @@ test('QA report without Scenarios section, or with a scenario with no result -> 
 test('a "Not verified because" in a later scenario does not rescue an earlier one', () => {
   const t = QA.replace('  1. User signs in -> PASSED — npm run e2e, exit 0', '  1. User signs in -> NOT VERIFIED — none');
   assert.equal(validateQaReport(t).length, 1);
+});
+
+test('a scenario line with a colon stays in the section (S1)', () => {
+  assert.deepEqual(validateQaReport('Scenarios:\n1. Login works: PASSED - the form logs in\nLogs: none'), []);
+});
+
+test('an unindented continuation line stays in its scenario (S2)', () => {
+  assert.deepEqual(validateQaReport('Scenarios:\n1. Login works ->\nPASSED — output: 3 tests pass\nLogs: none'), []);
+});
+
+const SCENARIO_1_ERROR = 'Scenario 1: needs PASSED, FAILED or NOT VERIFIED, then a dash and evidence';
+
+test('a real section heading still ends the section (S3)', () => {
+  assert.deepEqual(
+    validateQaReport('Scenarios:\n1. Login works ->\nOut-of-scope notes (for the Architect): PASSED — not a scenario'),
+    [SCENARIO_1_ERROR],
+  );
+});
+
+test('each QA label ends the section, a label word without its colon does not', () => {
+  for (const label of QA_SECTION_LABELS.filter((l) => l !== 'Scenarios:')) {
+    assert.deepEqual(validateQaReport('Scenarios:\n1. A ->\n' + label + ' PASSED — x'), [SCENARIO_1_ERROR], label);
+  }
+  assert.deepEqual(validateQaReport('Scenarios:\n1. A ->\nLogs are clean: PASSED — x'), []);
 });
