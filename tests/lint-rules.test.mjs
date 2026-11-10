@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { lintRules, lintModelNames } from '../scripts/lint-rules.mjs';
-import { tempProject } from './helpers.mjs';
+import { spawnSync } from 'node:child_process';
+import { tempProject, REPO_ROOT } from './helpers.mjs';
 
 const block = ({
   id = 'R1',
@@ -123,4 +124,42 @@ test('does not flag the .claude-plugin folder name', () => {
   const dir = tempProject();
   const file = writeFile(dir, 'README.md', 'Raise the version in `.claude-plugin/plugin.json`.\n');
   assert.deepEqual(lintModelNames([file]), []);
+});
+
+const FIXTURES = 'tests/fixtures/lint-rules';
+const runCli = (file) =>
+  spawnSync(process.execPath, ['scripts/lint-rules.mjs', '--prefix', 'R', `${FIXTURES}/${file}`], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+
+test('accepts a formatted file (S4)', () => {
+  const text = fs.readFileSync(path.join(REPO_ROOT, FIXTURES, 'formatted.md'), 'utf8');
+  assert.deepEqual(lintRules(text, { prefix: 'R' }), []);
+});
+
+test('CLI exits 0 on the formatted fixture (S4)', () => {
+  assert.equal(runCli('formatted.md').status, 0);
+});
+
+test('CLI rejects a formatted block with no Why line (S5)', () => {
+  const r = runCli('formatted-missing-why.md');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout, /R2/);
+});
+
+test('rejects two blank lines in a row', () => {
+  const errors = lintRules('### R1 — T\n\n\nRule:  Do it.\nWhy:   Because.\nCheck: gate — X.\n', { prefix: 'R' });
+  assert.ok(errors.length >= 1);
+  assert.match(errors.join('\n'), /R1/);
+});
+
+test('accepts a blank line that holds only spaces', () => {
+  const text = block().split('\n').join('\n   \n');
+  assert.deepEqual(lintRules(text, { prefix: 'R' }), []);
+});
+
+test('accepts a blank line before only some lines', () => {
+  const text = block().replace('Why:', '\nWhy:');
+  assert.deepEqual(lintRules(text, { prefix: 'R' }), []);
 });
