@@ -1125,7 +1125,7 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
   spec, section 3a).
 - `@proposed` (2026-11-10, the Architect, fifth cold review) A guilda skill always has a `groups` field. The hook
   refuses a guilda skill whose file or `groups` field is missing or malformed (fail closed). The item "a skill with
-  no `groups` field is not refused" now covers only the skills that guilda does not own. The four user skills
+  no `groups` field is not refused" now covers only the skills of other plugins. The four user skills
   and `guilda:lab` get `groups: [architect]`. The lab must show that the hook input names the agent type. The 0.2.0
   spec has the details (sections 2 and 3e).
 
