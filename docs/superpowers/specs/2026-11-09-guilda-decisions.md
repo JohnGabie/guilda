@@ -1104,3 +1104,8 @@ in the Lab.
   study in the Lab. Candidate leads to check (not verified, from memory): a "repo map" that ranks code symbols, the
   `llms.txt` index files, and the block index of D27 used for logs as well as specs. The research of D50 was stopped
   by the user on 2026-11-10 and waits.
+- `@open` (2026-11-10, the user) The map idea to study first: Graphify (https://github.com/Graphify-Labs/graphify,
+  Apache-2.0, active on 2026-11-09). Its own description: it turns a codebase, with its docs, SQL schemas, configs and
+  PDFs, into a queryable knowledge graph, as a `/graphify` skill for Claude Code, Cursor, Codex and Gemini CLI, with
+  local deterministic AST parsing, each edge explained, and no vector store. Not yet read or tested; to study in the
+  Lab as the map for the project memory of D50.
