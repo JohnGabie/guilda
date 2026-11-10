@@ -1062,12 +1062,15 @@ Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by t
   variables), so the hook catches common cases, not all. Until 0.4.0 the Architect runs in the main session, with no
   agent ID; the hook knows it as the main session.
 
-### D49 — Mention an agent in the main session to talk to it directly `@proposed`
+### D49 — Mention an agent in the main session to talk to it directly `@decided`
 
 Release: `@proposed` with D31 (0.4.0). Proposed on 2026-11-10 from the user's request.
 
-- `@proposed` The user mentions an agent in the main session (for example `@architect ...` or `@security-lead ...`) and
-  the message goes straight to that agent, which answers at once. A mod sees the prompt before the model and routes it.
+- `@decided` (2026-11-10, the user) The user mentions an agent in the main session (for example `@architect ...` or
+  `@security-lead ...`) and the message goes straight to that agent, which answers at once. It is part of the
+  communication pattern of D17 (addresses and the bus): the mention is the address. The user uses it to talk to the
+  agents and the leads, also to ask a lead for a direct opinion.
+- `@proposed` A mod sees the prompt before the model and routes it.
 - Different from D32 (mention an agent to trace its work) and from the native subagent panel (select the agent and
   press Enter, which the user confirmed works).
 - `@open` Lab: can a mod route a prompt to a named agent (prompt submit hook plus `SendMessage` or the bus of D17)?
