@@ -950,7 +950,9 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 - `@open` Where the estimate of consumption before a build lives (the AI group, or the Lab as an experiment).
 - `@proposed` The estimate method: run a small real sample (3 to 5 runs), measure the real tokens, multiply by the
   expected volume with a range, convert with the official price of the day, and compare models.
-- `@open` AI security (prompt injection, OWASP LLM Top 10) stays in the Security group, or moves to the AI group.
+- `@decided` (2026-11-10, the user) AI security (prompt injection, OWASP LLM Top 10, an agent that acts outside the
+  request) stays in the Security group, with the Security Lead as the one owner of risk. The AI group builds with the
+  defenses and asks the Security Lead, through the Architect, to check them.
 - `@open` The AI group gets a lead agent, like the Security Lead.
 
 ### D46 — Truth first, and disagree when needed, in every role `@decided`
