@@ -149,6 +149,8 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
 - `@proposed` New brief fields: `Decisions:`, `Mutants:`, `Conflict cases:` (#5) and `Base commit:` (#13). They are
   optional in 0.2, so that existing briefs stay valid.
 - `@open` Is the field `Base commit:` required, or optional?
+- `@decided` (2026-11-10, the user, U6) `Base commit:` is a required brief field in 0.2.0. The ARC6 hook refuses a brief
+  without it. This changes the brief format (CHANGELOG "Changed"); briefs written for 0.1.0 need the field.
 
 ### D6 — Concrete specs
 
@@ -630,6 +632,8 @@ Areas are knowledge, so they are skills, not agents.
   (6.6) only named it as a related plugin.
 - `@decided` (2026-11-10, the user, U1) 0.2.0 ships the levels `light` and `full`; E1 sets their gates later. This
   replaces the D1 item "the levels enter a release only after E1 runs".
+- `@decided` (2026-11-10, the user, U5) The `blue-team` skill comes in 0.5.0, with the `red-team` skill and the
+  Security Lead.
 
 ### D29 — AI engineering, for guilda and for user projects
 
