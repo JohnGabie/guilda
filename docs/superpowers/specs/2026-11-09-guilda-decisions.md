@@ -1010,3 +1010,11 @@ user on 2026-11-10.
 - `@decided` A speaker can call another lead to answer by marking it in the chat. The Judge grants that voice or not.
 - Why a separate Judge and not the Architect: in a council the Architect is also a party (it has a view, and it is
   sometimes the side under attack).
+- `@decided` (2026-11-10, the user) A council skill is given to each agent that takes part. It holds the council
+  rules and an argument style: a way to make a point that is clear and uses few words (for example a claim, its
+  evidence and its reason), so that a council does not use many tokens on long explanations.
+- `@open` To research (sources on short structured argument, for example claim-evidence-reasoning or the Toulmin
+  model, and on debate formats) and to test in the Lab: one council with the skill against one without, measured in
+  tokens, turns and the quality of the decision.
+- `@open` The council skill is loaded by leads of every group. This conflicts with D43 (each agent loads only the
+  skills of its own group). It joins the open question of shared skills.
