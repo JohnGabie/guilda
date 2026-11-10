@@ -93,7 +93,7 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
   (0.2.0 spec, section 3d). `scripts/config-write.mjs` and `scripts/config-check.mjs` refuse an invalid value.
 - `@replaced` "`checkSchema` validates the value." Replaced by: the next item. `loadConfig` calls `checkSchema` in
   each hook, so that check would turn an invalid `process` into a broken project layer.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) Two functions. `checkSchema` stays tolerant, for the
+- `@decided` (2026-11-10, the user) Two functions. `checkSchema` stays tolerant, for the
   hooks. `checkStrict` is new, for `scripts/config-write.mjs` and `scripts/config-check.mjs`. `projectState` changes
   an invalid `process` or `explain` to `full` and returns the notice (0.2.0 spec, section 3d).
 - Correction (2026-11-10): the earlier text cited R22 for "QA for each task". R22 is QA in two phases. The level
@@ -134,7 +134,7 @@ A hook cannot warn when the plugin did not load, so the warning comes from a fil
   It gives the evidence source of each check. "Hooks live" reads a marker file `.guilda/.hooks-live.json` that the
   session-start hook writes. The caller gives the session ID and the agent list. The Architect runs `doctor` before
   the first dispatch of a session, and `guilda:init` runs it at its end.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) Fixes of the `doctor` contract. The session start
+- `@decided` (2026-11-10, the user) Fixes of the `doctor` contract. The session start
   calls `ensureIgnored`, so a 0.1.x project does not commit the marker. `--agents` takes names in the form
   `guilda:executor`. The O1 lab runs before the `doctor` task. The notice of a missing extension names both
   dependencies, and not the missing one (0.2.0 spec, section 4a, S13, S21).
@@ -178,7 +178,7 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
   section 4a. The input is a Markdown report file and a required `--type`. The target comes from `--repo` or from
   the config field `report.repo`, and the default is this repository. The labels are `report-improvement`,
   `report-bug`, `report-feature` and `report-other`.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) Fixes of the `report-send` contract. The body has no
+- `@decided` (2026-11-10, the user) Fixes of the `report-send` contract. The body has no
   title line. A repository value is `owner/name` or a GitHub URL, and the script changes the URL to `owner/name`.
   With no `.guilda/` folder the script refuses with the set-up notice (R28) (0.2.0 spec, section 4a).
 - `@decided` (2026-11-10, the user) `.guilda/reports/` is git-ignored. guilda adds it to `.guilda/.gitignore`.
@@ -252,7 +252,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #10, #13
 - `@decided` (#2 finding 12) A re-review of a small fix can run at the journeyman tier. Small means: about 50 changed
   lines or fewer, no risk area, no shared code. The first review and the final review stay at the master tier.
   (2026-11-10, the Architect's choice) The limit is 50 changed lines.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) The definitions. The changed lines are the added
+- `@decided` (2026-11-10, the user) The definitions. The changed lines are the added
   plus the deleted lines of `git diff --numstat`. Shared code is a file that another task of the plan may also
   touch. A file of the producer/consumer table (D9) is shared code too. The owner file is `skills/architect/SKILL.md` (0.2.0 spec,
   S8).
@@ -689,7 +689,7 @@ Coherent links between specs, plans and agents, so that a change in a spec reach
   a command that creates a plan file in `docs/superpowers/plans/`, or an orphan `*.plan.md`.
 - `@decided` (2026-11-10, the user) The spec states the limit. A hook catches the common shell forms, not each
   form (0.2.0 spec, section 3, R4, and S46).
-- `@proposed` (2026-11-10, the Architect) The forms that the hook reads: a redirection (`>`, `>>`), `tee`, `cp`,
+- `@decided` (2026-11-10, the user) The forms that the hook reads: a redirection (`>`, `>>`), `tee`, `cp`,
   `mv` and `touch`.
 
 ### D28 — A generic Executor with domain skills
@@ -782,7 +782,7 @@ is lost. Measured: `skills/architect/SKILL.md` is 121 lines, about 2,000 tokens.
 - `@decided` (2026-11-10, the user) The split lab runs at the start of the 0.2.0 build, before the split.
 - Lab: 5 fixed situations, one file against the split, 3 runs each. PASS: at least as correct, 25% fewer
   tokens or more, the correct reference in 14 of 15 cases.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) The NO-GO path. The 140-line check holds only on a
+- `@decided` (2026-11-10, the user) The NO-GO path. The 140-line check holds only on a
   GO. In one file, the ARC7 to ARC10 blocks alone pass 140 lines. On a NO-GO, the file has no line limit
   until the user answers. The tasks that change a rule block or a procedure step run. The tasks whose text goes to
   a reference file wait (0.2.0 spec, S15).
@@ -1033,6 +1033,8 @@ user on 2026-11-10.
 - `@open` Start point: the `agent-creator` agent of the official `plugin-dev` plugin (D29 research) is a generator
   with no eval loop. Build on it, or write a new skill. Research and a curation of sources (20 or more, approved by
   the user) come first, as for each research skill.
+- `@decided` (2026-11-10, the user) The agent creator is a skill, in the extension plugin. Its name is part of O3 of
+  the 0.2.0 spec.
 
 ### D42 — DevOps: an advisor agent, a skill and a production lock `@decided`
 
@@ -1359,7 +1361,7 @@ package, seen on 2026-11-10.
 - `@decided` (2026-11-10, the user) Version policy: the three plugins share one version. They are the core
   `guilda`, the extension and `ios-on-linux`. They bump together in each release. `RELEASING.md` says this (0.2.0
   spec, section 3g, S45).
-- `@proposed` (2026-11-10, the Architect, fourth cold review) The destination path of each copy is in the 0.2.0
+- `@decided` (2026-11-10, the user) The destination path of each copy is in the 0.2.0
   spec, section 3f. Each copy is in the core plugin. The bump script has its own `.version-bump.json`.
 
 ## Experiments
