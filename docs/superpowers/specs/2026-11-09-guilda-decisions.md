@@ -1098,3 +1098,9 @@ in the Lab.
   journal (D14), the audit log (D13), the block index (D27) and the measures (D35) become parts of this one memory.
 - Tension to resolve: D14 chose JSONL over SQLite because `node:sqlite` is experimental in Node 24. A project memory
   may need a real database. `@open` Research runs now: existing repositories of long-term memory for agents.
+- `@open` (2026-11-10, the user) A map instead of queries. A queue plus a relational database can repeat the mistake
+  seen with the specs: agents make many queries and read too much. The user recalls an approach seen online where an
+  agent first reads a map of the logs and the memory, and then goes straight to the exact point. To research and to
+  study in the Lab. Candidate leads to check (not verified, from memory): a "repo map" that ranks code symbols, the
+  `llms.txt` index files, and the block index of D27 used for logs as well as specs. The research of D50 was stopped
+  by the user on 2026-11-10 and waits.
