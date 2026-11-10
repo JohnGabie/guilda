@@ -5,9 +5,21 @@ import { projectState } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
-import { findGitCommits, parseAddedLines } from '../lib/git-command.mjs';
+import { findGitCommits, parseAddedLines, resolveDir } from '../lib/git-command.mjs';
+import { findCreatedFiles } from '../lib/shell-writes.mjs';
 
 const PLANS_DIR = ['docs', 'superpowers', 'plans'];
+const PLAN_SUFFIX = '.plan.md';
+const R4_PROBLEMS = {
+  plans: {
+    action: 'new file refused in docs/superpowers/plans',
+    reason: 'R4: plans are a "## Plan: Part N" section of the feature MD, or <feature>.plan.md next to it',
+  },
+  orphan: {
+    action: 'orphan plan file refused',
+    reason: 'R4: <name>.plan.md needs <name>.md in the same folder',
+  },
+};
 
 function deny(reason) {
   process.stdout.write(
@@ -109,11 +121,29 @@ function scanTargets(found, startCwd, projectDir) {
   });
 }
 
-function isNewPlanFile(projectDir, filePath) {
-  const abs = path.resolve(projectDir, filePath.replace(/\\/g, '/'));
-  const rel = path.relative(path.join(projectDir, ...PLANS_DIR), abs);
-  const inside = rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
-  return inside && !fs.existsSync(abs);
+/**
+ * The R4 problem of a file that a tool is about to write: 'plans' for a new file inside docs/superpowers/plans/,
+ * 'orphan' for a new <name>.plan.md whose folder has no <name>.md, else null. An existing file is never a problem.
+ */
+function planFileProblem(projectDir, absPath) {
+  if (fs.existsSync(absPath)) return null;
+  const rel = path.relative(path.join(projectDir, ...PLANS_DIR), absPath);
+  if (rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)) return 'plans';
+  const base = path.basename(absPath);
+  if (!base.endsWith(PLAN_SUFFIX)) return null;
+  const spec = path.join(path.dirname(absPath), `${base.slice(0, -PLAN_SUFFIX.length)}.md`);
+  return fs.existsSync(spec) ? null : 'orphan';
+}
+
+/** The first R4 problem of the files that a shell command creates, from the project folder and from the command cwd. */
+function commandPlanProblem(projectDir, command, startCwd) {
+  for (const entry of findCreatedFiles(command, startCwd)) {
+    for (const base of [projectDir, entry.cwd]) {
+      const problem = planFileProblem(projectDir, resolveDir(base, entry.path));
+      if (problem) return problem;
+    }
+  }
+  return null;
 }
 
 await runHookMain(async (input) => {
@@ -129,6 +159,13 @@ await runHookMain(async (input) => {
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
     const startCwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : projectDir;
+    // R4 runs first: a command with no git commit returns early below.
+    const planProblem = commandPlanProblem(projectDir, command, startCwd);
+    if (planProblem) {
+      record('R4', R4_PROBLEMS[planProblem].action);
+      deny(R4_PROBLEMS[planProblem].reason);
+      return 0;
+    }
     const found = findGitCommits(command, startCwd);
     if (found.commits.length === 0 && !found.mentioned) return 0;
     // The hook runs before the command, so the scan cannot see what this command will stage.
@@ -150,9 +187,10 @@ await runHookMain(async (input) => {
 
   if (input.tool_name === 'Write' || input.tool_name === 'Edit') {
     const filePath = typeof toolInput.file_path === 'string' ? toolInput.file_path : '';
-    if (filePath && isNewPlanFile(projectDir, filePath)) {
-      record('R4', 'new file refused in docs/superpowers/plans');
-      deny('R4: plans are a "## Plan: Part N" section of the feature MD');
+    const problem = filePath ? planFileProblem(projectDir, path.resolve(projectDir, filePath.replace(/\\/g, '/'))) : null;
+    if (problem) {
+      record('R4', R4_PROBLEMS[problem].action);
+      deny(R4_PROBLEMS[problem].reason);
     }
   }
   return 0;

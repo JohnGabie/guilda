@@ -293,7 +293,7 @@ test('git status: allow', () => {
 test('Write of a new file in docs/superpowers/plans: deny, one R4 record', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const reason = assertDeny(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'plans', 'new.md')));
-  assert.equal(reason, 'R4: plans are a "## Plan: Part N" section of the feature MD');
+  assert.equal(reason, 'R4: plans are a "## Plan: Part N" section of the feature MD, or <feature>.plan.md next to it');
   const v = violations(dir);
   assert.equal(v.length, 1);
   assert.equal(v[0].rule, 'R4');
@@ -502,4 +502,139 @@ test('a NUL byte in a target does not throw, and the session directory is still 
     assertDeny(r);
     assert.doesNotMatch(r.stderr, /options\.cwd|null bytes/, command);
   }
+});
+
+const PLANS_TEXT = 'R4: plans are a "## Plan: Part N" section of the feature MD, or <feature>.plan.md next to it';
+const ORPHAN_TEXT = 'R4: <name>.plan.md needs <name>.md in the same folder';
+
+/** A project with a .guilda folder and docs/superpowers/specs/login.md, but no billing.md and no plan file. */
+const specProject = (config = MINIMAL_CONFIG, opts = {}) => {
+  const dir = tempProject({ config, ...opts });
+  fs.mkdirSync(path.join(dir, 'docs', 'superpowers', 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'superpowers', 'specs', 'login.md'), '# login\n');
+  fs.writeFileSync(path.join(dir, 'notes.md'), 'notes\n');
+  return dir;
+};
+
+test('S11: login.plan.md next to login.md passes; docs/superpowers/plans/login.md is refused; billing.plan.md with no billing.md is refused', () => {
+  const dir = specProject();
+  assertAllow(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'specs', 'login.plan.md')));
+  assert.equal(violations(dir).length, 0);
+  assert.match(assertDeny(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'plans', 'login.md'))), /^R4:/);
+  assert.equal(assertDeny(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'specs', 'billing.plan.md'))), ORPHAN_TEXT);
+  const v = violations(dir);
+  assert.equal(v.length, 2);
+  assert.deepEqual(
+    v.map((r) => [r.rule, r.level, r.source, r.action]),
+    [
+      ['R4', 'law', 'pre-tool-use', 'new file refused in docs/superpowers/plans'],
+      ['R4', 'law', 'pre-tool-use', 'orphan plan file refused'],
+    ],
+  );
+});
+
+test('S11: an existing orphan plan file can be edited', () => {
+  const dir = specProject();
+  const p = path.join(dir, 'docs', 'superpowers', 'specs', 'billing.plan.md');
+  fs.writeFileSync(p, 'x');
+  assertAllow(file(dir, 'Edit', p));
+  assert.equal(violations(dir).length, 0);
+});
+
+// The commands of S46 and the result of each: a deny text, or null for a pass.
+const S46 = [
+  ['cat > docs/superpowers/plans/x.md', PLANS_TEXT],
+  ['echo text | tee docs/superpowers/plans/x.md', PLANS_TEXT],
+  ['echo text >> docs/superpowers/plans/x.md', PLANS_TEXT],
+  ['cp notes.md docs/superpowers/plans/x.md', PLANS_TEXT],
+  ['touch docs/superpowers/specs/billing.plan.md', ORPHAN_TEXT],
+  ['echo text > docs/superpowers/specs/login.plan.md', null],
+  ['cat docs/superpowers/plans/x.md', null],
+  ['P=docs/superpowers/plans/x.md; cat > "$P"', null],
+  ['mv notes.md docs/superpowers/plans/x.md', PLANS_TEXT],
+  ['cd docs/superpowers && touch plans/x.md', PLANS_TEXT],
+  ['cd "$DOCS" && touch plans/x.md', null],
+];
+
+S46.forEach(([command, expected], i) => {
+  test(`S46 command ${i + 1}: ${command} -> ${expected ? 'refused with R4' : 'passes'}`, () => {
+    const dir = specProject();
+    const r = bash(dir, command);
+    if (expected) assert.equal(assertDeny(r), expected);
+    else {
+      assertAllow(r);
+      assert.equal(violations(dir).length, 0);
+    }
+  });
+});
+
+test('S46: each refusal adds one R4 record', () => {
+  const dir = specProject();
+  let refused = 0;
+  for (const [command, expected] of S46) {
+    const r = bash(dir, command);
+    if (!expected) continue;
+    assertDeny(r);
+    refused += 1;
+    const v = violations(dir);
+    assert.equal(v.length, refused, command);
+    const last = v[v.length - 1];
+    assert.equal(last.rule, 'R4', command);
+    assert.equal(last.level, 'law', command);
+    assert.equal(last.source, 'pre-tool-use', command);
+    const action = expected === ORPHAN_TEXT ? 'orphan plan file refused' : 'new file refused in docs/superpowers/plans';
+    assert.equal(last.action, action, command);
+  }
+  assert.equal(refused, 7);
+});
+
+test('S46: a cd that the session started in a subfolder is followed from the hook cwd', () => {
+  const dir = specProject();
+  const cwd = path.join(dir, 'docs', 'superpowers');
+  const r = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'touch plans/x.md' }, cwd }, dir);
+  assert.equal(assertDeny(r), PLANS_TEXT);
+});
+
+test('S46: a redirection with no space and a quoted path with a space are refused', () => {
+  const dir = specProject();
+  assert.equal(assertDeny(bash(dir, 'echo x >docs/superpowers/plans/x.md')), PLANS_TEXT);
+  assert.equal(assertDeny(bash(dir, 'touch "docs/superpowers/plans/my plan.md"')), PLANS_TEXT);
+});
+
+test('the R19 scan still runs after the R4 check', () => {
+  const dir = specProject(MINIMAL_CONFIG, { git: true });
+  stage(dir, 'a.txt', GH);
+  assert.match(assertDeny(bash(dir, 'echo text > notes.txt && git commit -m x')), /^R19:/);
+  const v = violations(dir);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].rule, 'R19');
+});
+
+test('S2: the R4 and R19 cases with process light', () => {
+  const light = { ...MINIMAL_CONFIG, process: 'light' };
+  const dir = specProject(light, { git: true });
+  assert.match(assertDeny(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'plans', 'new.md'))), /^R4:/);
+  stage(dir, 'a.txt', GH);
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19:/);
+  assert.deepEqual(
+    violations(dir).map((r) => [r.rule, r.level]),
+    [
+      ['R4', 'law'],
+      ['R19', 'law'],
+    ],
+  );
+});
+
+test('no .guilda folder: command 1 passes', () => {
+  const dir = tempProject();
+  assertAllow(bash(dir, 'cat > docs/superpowers/plans/x.md'));
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('S46: a quoted > in a commit message or an echo passes with no R4 record', () => {
+  const dir = specProject();
+  for (const command of ['git commit -m "docs: plan -> login.plan.md"', 'echo "a>docs/superpowers/plans/x.md"']) {
+    assertAllow(bash(dir, command));
+  }
+  assert.equal(violations(dir).length, 0);
 });

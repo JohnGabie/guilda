@@ -64,7 +64,7 @@ function skipHeredocBody(command, start, { strip, delimiter }) {
 }
 
 /** Split a command into simple commands. Each simple command is a list of words, without quotes. */
-function splitCommands(command) {
+export function splitCommands(command) {
   const commands = [];
   let words = [];
   let word = '';
@@ -140,7 +140,7 @@ function splitCommands(command) {
 }
 
 /** Remove keywords and variable assignments from the start of a simple command. */
-function stripPrefix(words) {
+export function stripPrefix(words) {
   const env = {};
   let i = 0;
   while (i < words.length) {
@@ -157,11 +157,11 @@ function stripPrefix(words) {
   return { rest: words.slice(i), env };
 }
 
-function isVariable(text) {
+export function isVariable(text) {
   return /[$`]/.test(text);
 }
 
-function resolveDir(cwd, dir) {
+export function resolveDir(cwd, dir) {
   const expanded = dir === '~' || dir.startsWith('~/') ? path.join(os.homedir(), dir.slice(1)) : dir;
   return path.resolve(cwd, expanded);
 }
