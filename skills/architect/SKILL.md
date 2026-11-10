@@ -82,6 +82,7 @@ Suggested tier: master | journeyman | apprentice
 Risk area: none | <area>
 Deletion rules: none | <copy of core/deletion-safety.md>
 Dependencies: none | <task IDs that must be done first>
+Base commit: <the SHA that the task starts from>
 ```
 
 ## Tier choice

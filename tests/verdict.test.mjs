@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseVerdict } from '../scripts/lib/verdict.mjs';
+import { validateVerdict } from '../scripts/lib/formats.mjs';
 
 // Filled from the Output format template in agents/reviewer.md.
 const REVIEWER = `Result: APPROVED
@@ -69,4 +70,8 @@ test('drops tokens that are not rule IDs', () => {
 test('no Result line -> null; non-string input is safe', () => {
   assert.equal(parseVerdict('nothing here').result, null);
   assert.deepEqual(parseVerdict(undefined), { result: null, violations: [] });
+});
+
+test('Stage: spec is a valid stage (S25)', () => {
+  assert.deepEqual(validateVerdict('Stage: spec\nResult: REJECTED-SMALL\nViolations: ARC7', 'reviewer'), []);
 });

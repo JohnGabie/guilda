@@ -141,13 +141,13 @@ test('architect skill has name and description frontmatter', () => {
   assert.match(fields.description, /^Use when /);
 });
 
-test('architect brief template has the 12 Ruling B fields, one line each', () => {
+test('architect brief template has the 13 Ruling B fields, one line each', () => {
   const body = parse(SKILL).body;
   const lines = fence(section(body, 'Brief format'));
   const names = lines.filter((l) => /^\S[^:]*:/.test(l)).map((l) => l.split(':')[0]);
   assert.deepEqual(names, ['ID / title', 'Goal', 'Context', 'Out of scope', 'Files it may touch',
     'Contract / interfaces', 'Tests that must pass', 'Acceptance', 'Suggested tier', 'Risk area', 'Deletion rules',
-    'Dependencies']);
+    'Dependencies', 'Base commit']);
   assert.ok(lines.includes('Suggested tier: master | journeyman | apprentice'));
 });
 

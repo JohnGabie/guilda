@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateBrief, validateVerdict, validateQaReport, QA_SECTION_LABELS } from '../scripts/lib/formats.mjs';
+import * as formats from '../scripts/lib/formats.mjs';
 
 const BRIEF = `ID / title: T1 — Add login
 Goal: Let a user sign in.
@@ -13,7 +14,8 @@ Acceptance: S1 user signs in (QA tool: browser)
 Suggested tier: journeyman
 Risk area: none
 Deletion rules: none
-Dependencies: none`;
+Dependencies: none
+Base commit: 0123456789abcdef0123456789abcdef01234567`;
 
 const without = (name) => BRIEF.split('\n').filter((l) => !l.startsWith(`${name}:`)).join('\n');
 
@@ -45,7 +47,27 @@ test('unfilled tier placeholder -> error', () => {
 });
 
 test('non-string brief -> all fields missing', () => {
-  assert.equal(validateBrief(undefined).length, 12);
+  assert.equal(validateBrief(undefined).length, 13);
+});
+
+test('a brief without Base commit names the field', () => {
+  assert.deepEqual(validateBrief(without('Base commit')), ['Base commit']);
+});
+
+test('a brief with the 13 fields is valid', () => {
+  assert.equal(formats.BRIEF_FIELDS?.length, 13);
+  assert.equal(formats.BRIEF_FIELDS[12], 'Base commit');
+  const names = BRIEF.split('\n').map((l) => l.split(':')[0]);
+  assert.deepEqual(names, formats.BRIEF_FIELDS);
+  assert.deepEqual(validateBrief(BRIEF), []);
+});
+
+test('the optional fields are not required', () => {
+  assert.deepEqual(formats.OPTIONAL_BRIEF_FIELDS, ['Decisions', 'Mutants', 'Conflict cases', 'Skills']);
+  for (const name of formats.OPTIONAL_BRIEF_FIELDS) assert.ok(!BRIEF.includes(`${name}:`), name);
+  assert.deepEqual(validateBrief(BRIEF), []);
+  const withOptional = `${BRIEF}\nDecisions: D1\nMutants: none\nConflict cases: none\nSkills: none`;
+  assert.deepEqual(validateBrief(withOptional), []);
 });
 
 test('reviewer verdict with REJECTED-SMALL and Violations -> no errors', () => {

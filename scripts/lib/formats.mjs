@@ -1,7 +1,7 @@
 // Format checks for the briefs, verdicts and QA reports that the guilda roles write.
 // Each function returns a list of error strings. An empty list means the text is valid.
 
-const BRIEF_FIELDS = [
+export const BRIEF_FIELDS = [
   'ID / title',
   'Goal',
   'Context',
@@ -14,14 +14,17 @@ const BRIEF_FIELDS = [
   'Risk area',
   'Deletion rules',
   'Dependencies',
+  'Base commit',
 ];
+/** Brief fields that a brief can have. validateBrief does not need them. */
+export const OPTIONAL_BRIEF_FIELDS = ['Decisions', 'Mutants', 'Conflict cases', 'Skills'];
 const TIERS = ['master', 'journeyman', 'apprentice'];
 
 const RESULTS = {
   reviewer: ['APPROVED', 'REJECTED-SMALL', 'REJECTED-LARGE'],
   security: ['APPROVED', 'REJECTED'],
 };
-const STAGES = ['code', 'final'];
+const STAGES = ['code', 'final', 'spec'];
 
 const lines = (text) => (typeof text === 'string' ? text : '').split(/\r?\n/);
 
@@ -51,6 +54,21 @@ export function validateBrief(text) {
     }
   }
   return errors;
+}
+
+const BRIEF_FILE = 'Brief file:';
+
+/** The trimmed value of the first line that starts with `Brief file:`, or null. */
+export function briefFileOf(prompt) {
+  const line = lines(prompt).find((l) => l.startsWith(BRIEF_FILE));
+  return line === undefined ? null : line.slice(BRIEF_FILE.length).trim();
+}
+
+/** True for a dispatch of the guilda Executor, or a dispatch whose prompt has a `Role: executor` line. */
+export function isExecutorDispatch(toolInput) {
+  if (!toolInput || typeof toolInput !== 'object') return false;
+  if (toolInput.subagent_type === 'guilda:executor') return true;
+  return typeof toolInput.prompt === 'string' && /^Role:\s*executor\s*$/im.test(toolInput.prompt);
 }
 
 /** The value of the last line that starts with `Label:` (leading space allowed), or null. */
