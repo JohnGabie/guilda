@@ -27,13 +27,22 @@ test('no config -> allow, no output', () => {
   const r = runHook(HOOK, dispatch('guilda:executor', 'no brief'), dir);
   assert.equal(r.code, 0);
   assert.equal(r.stdout, '');
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
-test('invalid config -> silent allow', () => {
-  const dir = tempProject({ config: '{ nope' });
-  const r = runHook(HOOK, dispatch('guilda:executor', 'no brief'), dir);
+test('broken project layer: incomplete brief -> deny and one ARC6 record (S12)', () => {
+  const dir = tempProject({ config: '{ not json' });
+  const prompt = BRIEF.replace('Goal: g\n', '');
+  const r = runHook(HOOK, dispatch('guilda:executor', prompt), dir);
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+  const out = JSON.parse(r.stdout).hookSpecificOutput;
+  assert.equal(out.hookEventName, 'PreToolUse');
+  assert.equal(out.permissionDecision, 'deny');
+  assert.equal(out.permissionDecisionReason, 'ARC6: brief incomplete: Goal');
+  assert.deepEqual(
+    records(dir).map(({ rule, level, source, action }) => ({ rule, level, source, action })),
+    [{ rule: 'ARC6', level: 'law', source: 'pre-agent', action: 'incomplete brief' }],
+  );
 });
 
 test('executor dispatch with incomplete brief -> deny and one ARC6 record', () => {
