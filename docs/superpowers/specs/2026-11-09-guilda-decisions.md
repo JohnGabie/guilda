@@ -21,6 +21,34 @@ of the two blocks enters `core/rules.md` only after the GO of its lab. A guilda 
 refused. The four user skills and `guilda:lab` get `groups: [architect]`. The other choices are in D2, D3, D5,
 D27, D40 and D51.
 
+(2026-11-10) The user approved the 0.2.0 spec and decided the items below. Each one is in the 0.2.0 spec.
+
+- `@decided` (2026-11-10, the user) The 0.2.0 spec is approved (R3). Its plan can start (gate G0).
+- `@decided` (2026-11-10, the user) The names of 0.2.0 (O3 of the 0.2.0 spec is closed). The extension plugin is
+  `guilda-skills`, in `plugins/guilda-skills/` (D40). The agents are `devops-advisor` (D42), `ai-lead` (D45),
+  `architect-executor` and `coherence-validator` (D43). The skills are `agent-creator` (D41), `data` (D25),
+  `ai-engineering` and `ai-evals` (D29), `code-experiments` and `ai-experiments` (D36), `devops` (D42), `ai-data`
+  (D45) and `security-zones` (D1).
+- `@decided` (2026-11-10, the user) The `groups` values of the extension skills (D43). `ai-engineering`, `ai-data`
+  and `agent-creator` have `[ai, engineering]`. `security-zones` has `[architect, security]`. The other values
+  stay: `data`, `ai-evals`, `code-experiments` and `ai-experiments` have `[shared]`, and `devops` has
+  `[engineering]`.
+- `@decided` (2026-11-10, the user) The four labels `report-improvement`, `report-bug`, `report-feature` and
+  `report-other` can be created in the guilda repository at the release of 0.2.0 (D3).
+- `@decided` (2026-11-10, the user) The always-on context keeps its limit of 150 non-blank lines, with a project
+  rules file of 20 lines. It is a design invariant. A rule whose `Check:` level is `law` is one line in that
+  context: its ID, its title and "law — enforced by a hook". Its full block stays in `core/rules.md`, and an agent
+  reads it on demand. The refusal of the hook names the rule. The limit of 142 lines is for the full files
+  `core/rules.md` + `core/writing.md` (0.2.0 spec, section 3h).
+- `@proposed` (2026-11-10, the Architect, from the coordinator's measure of 0.3.0 to 0.5.0) A rule with the level
+  `gate` or `judgment` is two lines in the always-on context: its heading with the level, and its `Rule:` line.
+  The `Why:` and `Check:` lines stay in `core/rules.md`. The context of 0.2.0 then has 103 lines, so the later
+  releases have room for about 47 lines (0.2.0 spec, section 3h, S47).
+- `@decided` (2026-11-10, the user) Each lab and each release smoke test uses the user's normal login and config,
+  and never changes it. Each run is `claude --plugin-dir <worktree> -p` in a `mktemp -d` project. No agent makes a
+  throwaway `CLAUDE_CONFIG_DIR`, and no agent copies credentials. The one check that needs a config with no
+  marketplace (S13 of the 0.2.0 spec) is a short guided manual check by the user at the release.
+
 ## Release plan `@decided`
 
 The user decided on 2026-11-09. One theme for each release. Each release works alone, and the next one builds on
