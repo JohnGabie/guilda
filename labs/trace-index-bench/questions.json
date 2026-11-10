@@ -1,0 +1,39 @@
+{
+  "questions": [
+    { "id": "Q1", "role": "Executor", "q": "Under decision D14, which file is the append-only queue journal, and who is the only writer of it?",
+      "key": "`.guilda/queue/journal.jsonl`; only the orchestrator writes it (the Architect until the orchestrator exists).",
+      "all": ["journal\\.jsonl", "orchestrator"], "none": [] },
+    { "id": "Q2", "role": "Executor", "q": "Under decision D8, at which tier can a re-review of a small fix run, and what counts as small?",
+      "key": "journeyman; at most about 50 changed lines, no risk area, no shared code.",
+      "all": ["journeyman", "50", "risk", "shared"], "none": [] },
+    { "id": "Q3", "role": "Executor", "q": "Under decision D10, what does the ARC4 fallback do if the model of a tier is not available?",
+      "key": "Use one tier higher, and tell the user. (The spec changed from 'lower' to 'higher'.)",
+      "all": ["higher", "tell|inform|notify"], "none": ["lower"] },
+    { "id": "Q4", "role": "Reviewer", "q": "Which plan task owns decision D14?",
+      "key": "T2.", "all": ["T2"], "none": ["T[13456]\\b"] },
+    { "id": "Q5", "role": "Reviewer", "q": "Which briefs cite decision D24 on their `Uses:` line?",
+      "key": "T1 and T6 (exactly these two).", "all": ["T1", "T6"], "none": ["T[2345]\\b"] },
+    { "id": "Q6", "role": "Reviewer", "q": "Does brief T5 still match decision D17 as it is now in the spec? Answer yes or no, with the reason.",
+      "key": "No. T5 says one append-only JSONL mailbox file for each code in `.guilda/bus/`; D17 now says one SQLite table in `.guilda/bus.db` for all codes.",
+      "all": ["^\\W*no\\b", "sqlite|bus\\.db"], "none": [] },
+    { "id": "Q7", "role": "Reviewer", "q": "Does brief T4 still match decision D10 as it is now in the spec? Answer yes or no, with the reason.",
+      "key": "Yes. T4 uses only the D10 rule that each dispatch states the reply language; that rule did not change (only the ARC4 fallback changed).",
+      "all": ["^\\W*yes\\b"], "none": [] },
+    { "id": "Q8", "role": "Executor", "q": "Under decision D13, after how many days does Claude Code delete a subagent transcript by default?",
+      "key": "14 days (changed from 30).", "all": ["\\b14\\b"], "none": ["\\b30\\b"] },
+    { "id": "Q9", "role": "Executor", "q": "Under decision D20, which marker and which label format does each row of an agent from outside the conversation have?",
+      "key": "Marker `◇`; label `guilda:<role>-<tool>` (for example `guilda:executor-codex`).",
+      "all": ["◇", "guilda:(<role>-<tool>|executor-codex|\\{role\\}-\\{tool\\}|role-tool)"], "none": [] },
+    { "id": "Q10", "role": "Reviewer", "q": "Does brief T6 still match decision D24 as it is now in the spec? Answer yes or no, with the reason.",
+      "key": "No. T6 says `status` is an internal script and the user sees the state only in the panel; D24 now says `status` stays a user command that the user types.",
+      "all": ["^\\W*no\\b", "status"], "none": [] }
+  ],
+  "review": {
+    "id": "R", "role": "Reviewer",
+    "q": "The spec changed after the briefs were written. Check each of the 6 briefs in docs/superpowers/briefs/ against the decisions it cites, as the spec is now. For each brief, say if a spec change affects it (the brief no longer matches a decision that it cites) and why. Also report any problem with a `Uses:` line.",
+    "end": "End your reply with one line `AFFECTED: <brief IDs, comma separated>` that lists only the briefs whose text no longer matches the spec.",
+    "key": "AFFECTED: T1, T3, T5, T6. T4 cites the changed D10 but still matches. T2 cites an unknown ID D99 (a Uses problem, not a mismatch).",
+    "affected": ["T1", "T3", "T5", "T6"]
+  },
+  "grading": "Strict. The grader reads the ANSWER line (the AFFECTED line for the review). An answer is correct only if it matches every pattern in `all` and no pattern in `none` (case-insensitive). A run with no ANSWER line, a timeout or an error is wrong. A human check confirms each automatic grade."
+}
