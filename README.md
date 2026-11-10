@@ -9,6 +9,8 @@ claude plugin marketplace add JohnGabie/guilda
 claude plugin install guilda@guilda
 ```
 
+A project-scope install loads only when Claude Code starts in that project folder.
+
 To try `guilda` for one session without a change to your settings, load it from a local copy:
 
 ```

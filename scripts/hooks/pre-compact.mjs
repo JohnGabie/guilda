@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig } from '../lib/project.mjs';
+import { projectState } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { createSkeleton, MARKER } from '../journal-skeleton.mjs';
@@ -26,8 +26,7 @@ function freshDiary(projectDir) {
 
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
-  const loaded = loadConfig(projectDir);
-  if (!loaded || !loaded.ok) return 0;
+  if (projectState(projectDir).state === 'none') return 0;
 
   // Only a known manual compaction can block. A missing or unknown trigger must not stop an automatic compaction.
   const manual = (input.trigger || input.compaction_type) === 'manual';

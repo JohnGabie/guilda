@@ -4,17 +4,34 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compareSemver } from './lib/version.mjs';
 
-const HEADING = /^## (\d+\.\d+\.\d+) — \d{4}-\d{2}-\d{2}\s*$/;
+// Keep a Changelog form: `## [0.2.0] - 2026-11-15`. The old form `## 0.1.0 — 2026-11-02` is still read.
+const HEADING = [
+  /^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}\s*$/,
+  /^## (\d+\.\d+\.\d+) — \d{4}-\d{2}-\d{2}\s*$/,
+];
+// Any other level-2 heading (for example `## [Unreleased]`) and the link references at the end close an entry.
+const OTHER_HEADING = /^## /;
+const LINK_REFERENCE = /^\[[^\]]+\]:\s*\S/;
+
+function versionOf(line) {
+  for (const re of HEADING) {
+    const m = line.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
 
 /** Return the changelog entries with from < version <= to, newest first, or "". */
 export function changesBetween(changelog, from, to) {
   const entries = [];
   let current = null;
   for (const line of String(changelog).split(/\r?\n/)) {
-    const m = line.match(HEADING);
-    if (m) {
-      current = { version: m[1], lines: [line] };
+    const version = versionOf(line);
+    if (version) {
+      current = { version, lines: [line] };
       entries.push(current);
+    } else if (OTHER_HEADING.test(line) || LINK_REFERENCE.test(line)) {
+      current = null;
     } else if (current) {
       current.lines.push(line);
     }

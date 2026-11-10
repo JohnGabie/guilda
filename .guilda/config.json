@@ -11,8 +11,10 @@
     "exceptions": []
   },
   "security": {
-    "enabled": false,
-    "riskAreas": []
+    "enabled": true,
+    "riskAreas": [
+      "secrets"
+    ]
   },
   "checks": [
     {

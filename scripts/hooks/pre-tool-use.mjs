@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { loadConfig } from '../lib/project.mjs';
+import { projectState } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
@@ -118,8 +118,9 @@ function isNewPlanFile(projectDir, filePath) {
 
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
-  const loaded = loadConfig(projectDir);
-  if (!loaded || !loaded.ok) return 0;
+  // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
+  const project = projectState(projectDir);
+  if (project.state === 'none') return 0;
 
   const toolInput = input.tool_input || {};
   const record = (rule, action) =>
@@ -136,7 +137,7 @@ await runHookMain(async (input) => {
       return 0;
     }
     for (const target of scanTargets(found, startCwd, projectDir)) {
-      const denial = checkCommit(target, loaded.config, startCwd);
+      const denial = checkCommit(target, project.config, startCwd);
       if (denial) {
         // A command that only names a commit is refused as a precaution, and it is not a violation.
         if (denial.record && found.commits.length > 0) record('R19', 'git commit refused: staged secret or absolute path');

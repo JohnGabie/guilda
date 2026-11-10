@@ -1,6 +1,6 @@
 {
   "name": "guilda",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared engineering rules, roles and checks for Claude Code projects.",
   "author": { "name": "USER" },
   "repository": "https://github.com/JohnGabie/guilda",

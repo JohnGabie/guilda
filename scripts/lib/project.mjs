@@ -72,6 +72,38 @@ export function loadConfig(projectDir) {
   return { ok: true, config };
 }
 
+/** The config a law hook uses when the project layer is broken (D40). */
+export const SAFE_DEFAULTS = Object.freeze({ scan: Object.freeze({ ignore: Object.freeze([]) }) });
+
+const MISSING_CONFIG = '.guilda/config.json is missing';
+
+/** Return true when <projectDir>/.guilda is a directory. Never throws. */
+function hasGuildaDir(projectDir) {
+  try {
+    return fs.statSync(path.join(projectDir, '.guilda')).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tell the state of the project layer (D40). Never throws.
+ * { state: 'none' } without a .guilda folder;
+ * { state: 'broken', reason, config: SAFE_DEFAULTS } when the folder exists and the config is missing or invalid;
+ * { state: 'valid', config } when loadConfig accepts the config.
+ */
+export function projectState(projectDir) {
+  try {
+    if (!hasGuildaDir(projectDir)) return { state: 'none' };
+    const loaded = loadConfig(projectDir);
+    if (loaded === null) return { state: 'broken', reason: MISSING_CONFIG, config: SAFE_DEFAULTS };
+    if (!loaded.ok) return { state: 'broken', reason: loaded.reason, config: SAFE_DEFAULTS };
+    return { state: 'valid', config: loaded.config };
+  } catch (err) {
+    return { state: 'broken', reason: `cannot read .guilda/config.json: ${err && err.message}`, config: SAFE_DEFAULTS };
+  }
+}
+
 /** Return the content of .guilda/rules.md, or "" when absent or unreadable. */
 export function readProjectRules(projectDir) {
   try {

@@ -9,6 +9,7 @@ const V = { rule: 'R1', level: 'gate', source: 'hook', action: 'blocked' };
 
 test('appendViolation writes one line without content fields', () => {
   const dir = tempProject({ git: true });
+  fs.mkdirSync(path.join(dir, '.guilda'));
   appendViolation(dir, { ...V, content: 'secret', file: 'a.txt' });
   const lines = fs.readFileSync(path.join(dir, '.guilda', 'violations.jsonl'), 'utf8').trimEnd().split('\n');
   assert.equal(lines.length, 1);
@@ -21,6 +22,7 @@ test('appendViolation writes one line without content fields', () => {
 
 test('appendViolation records unknown branch outside a repository', () => {
   const dir = tempProject();
+  fs.mkdirSync(path.join(dir, '.guilda'));
   appendViolation(dir, V);
   const rec = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'violations.jsonl'), 'utf8'));
   assert.equal(typeof rec.branch, 'string');
@@ -29,6 +31,7 @@ test('appendViolation records unknown branch outside a repository', () => {
 
 test('appendViolation creates .guilda/.gitignore', () => {
   const dir = tempProject();
+  fs.mkdirSync(path.join(dir, '.guilda'));
   appendViolation(dir, V);
   assert.deepEqual(
     fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
@@ -40,6 +43,22 @@ test('appendViolation does not throw when .guilda is a file', () => {
   const dir = tempProject();
   fs.writeFileSync(path.join(dir, '.guilda'), 'not a directory');
   assert.doesNotThrow(() => appendViolation(dir, V));
+});
+
+test('appendViolation without a .guilda folder writes nothing (S14)', () => {
+  const dir = tempProject();
+  appendViolation(dir, V);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', 'violations.jsonl')), false);
+});
+
+test('appendViolation with a .guilda folder writes one line (S14)', () => {
+  const dir = tempProject();
+  fs.mkdirSync(path.join(dir, '.guilda'));
+  appendViolation(dir, V);
+  const lines = fs.readFileSync(path.join(dir, '.guilda', 'violations.jsonl'), 'utf8').trimEnd().split('\n');
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).rule, 'R1');
 });
 
 test('countViolations skips malformed lines', () => {
