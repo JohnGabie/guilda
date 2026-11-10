@@ -20,7 +20,7 @@ Copied from the plan block L3 (fixed):
 | K1 | A PreToolUse hook with the matcher Skill runs on a Skill call. Its permissionDecision deny stops the load of that one skill, and the transcript shows the reason. | 3 of 3 |
 | K2 | The hook input names the skill. The lab records the field name and the exact value for one core skill (guilda:architect) and for one skill of a second plugin in a subfolder of the first. | record |
 | K3 | For a call from a dispatched plugin agent, the hook input names the agent type. The lab records the field name and the value. For a call from the main session, the input has no agent type. | 3 of 3 each |
-| K4 | Record only: does an installed core folder hold plugins/guilda-skills/? The lab installs nothing. It reads the cache folder of the installed guilda version, and records whether that folder holds the whole repository root (for example tests/ and docs/). No installed guilda: "not verified". | record |
+| K4 | Record only: does an installed core folder hold plugins/guilda-skills/? The lab installs nothing. It reads the cache folder of the guilda version that the user has installed, and records whether that folder holds the whole repository root (for example tests/ and docs/). No installed guilda: K4 is "not verified", and the build uses core/groups.json for the extension skills. | record |
 | K5 | Record only: does `claude plugin validate --strict` accept `group:` in an agent definition and `groups:` in a SKILL.md, and do the agent and the skill still load? | record |
 | K6 | Record only: does the hook run when the user types the skill as a slash command? | record |
 
@@ -41,6 +41,9 @@ model output. Smallest effect worth acting on: one failed run of K1 or K3. Stop 
 - K4: written after a read during setup (see Evidence): the cache folder is a copy of the repository root.
 - K5: unknown; expected that `--strict` accepts unknown frontmatter fields.
 - K6: expected "no": `claude -p "/skhlab:alpha"` expands the skill without a Skill tool call.
+
+Correction after the run (2026-11-10, after a Reviewer read): the K4 row was not word for word the plan text. It
+is now the literal plan text. The result of K4 did not change.
 
 ## Method
 
@@ -202,6 +205,10 @@ a main session started with `--agent`, Claude Code versions other than 2.1.322.
   R30 text as a substring.
 - The hook input of the main session has no `agent_id` either, so "no `agent_type` key" is a safe test for the
   main session.
+
+Raw data fix after a Reviewer read: five `stream.jsonl` files (A1, A2, A3, B1, L1) held an absolute temp path in
+the `output_file` value of the `task_notification` line. The prefix is now `<tmp>/`. The first results commit
+`afc81b5` still holds those paths in its history; the controller decides about it.
 
 Runs: 12 `claude -p` sessions (M1 to M3, G1, A1 to A3, L1, B1, S1 to S3), and 12 `claude plugin validate`
 commands. Time: under 1 hour. Commit attribution: this agent is Claude Opus 5.5, so its commits carry that
