@@ -6,8 +6,8 @@ Do these steps for every merge to `main`.
    when only one of them changed.
    - Until 0.2.0 the only plugin is the core `guilda`. Raise `version` in `.claude-plugin/plugin.json`.
    - From 0.2.0 the plugins are the core `guilda`, the extension and `ios-on-linux`. Run
-     `scripts/bump-version.sh <version>`. It writes the version in each plugin manifest. Then
-     `scripts/bump-version.sh --check` must exit 0.
+     `node scripts/bump-version.mjs <version>`. It writes the version in each plugin manifest. Then
+     `node scripts/bump-version.mjs --check` must exit 0.
 
    Use these semver rules:
    - Major: a core rule is removed or changes meaning.

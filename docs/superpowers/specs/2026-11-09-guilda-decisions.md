@@ -180,8 +180,8 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
   `report-bug`, `report-feature` and `report-other`.
 - `@proposed` (2026-11-10, the Architect, fourth cold review) Fixes of the `report-send` contract. The body has no
   title line. A repository value is `owner/name` or a GitHub URL, and the script changes the URL to `owner/name`.
-  With no `.guilda/` folder the script refuses with the set-up notice (R28). `.guilda/reports/` is git-ignored
-  (0.2.0 spec, section 4a).
+  With no `.guilda/` folder the script refuses with the set-up notice (R28) (0.2.0 spec, section 4a).
+- `@decided` (2026-11-10, the user) `.guilda/reports/` is git-ignored. guilda adds it to `.guilda/.gitignore`.
 - `@decided` (2026-11-10, the user, D51) The skill copies and adapts pieces of
   `superpowers:diagnosing-superpowers`, with the MIT notice. They are the redaction policy, the scrub prompts and
   the templates.
@@ -568,9 +568,9 @@ five times.
 - `@decided` The Architect adapts the question to the level of the user, and asks again in simpler words when an answer
   shows that the user did not understand.
 - `@decided` A setting `explain: "brief" | "full"` in `.guilda/config.json`, asked by `guilda:init`.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) The reader is the Architect skill. At `full`, a
-  question has its full context. At `brief`, a question has one sentence of context, and each option has its effect
-  in a few words. R13 holds at both values (0.2.0 spec, section 3b).
+- `@decided` (2026-11-10, the user) The reader is the Architect skill. At `full`, each question has the where, the
+  what, a concrete example and the effect of each option. At `brief`, each question has one sentence of context and
+  the options. `guilda:init` asks which one (0.2.0 spec, section 3b).
 - `@decided` New text of ARC1 and R13. Text in the 0.2.0 spec, approved 2026-11-10.
 
 ### D24 — Few commands
@@ -1089,9 +1089,15 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
   0.4.0 (D31).
 - `@decided` (2026-11-10, the user) Nobody is without a group. The hook refuses a skill call from an agent with no
   `group` (fail closed). The refusal says that the field is missing.
-- `@proposed` (2026-11-10, the Architect) A built-in agent type and an agent of another plugin have no `group`
-  field. So the refusal covers them too. `@open` The user confirms this, or limits the refusal to `guilda:*`
-  agents (0.2.0 spec, O10).
+- `@replaced` "`@proposed` The refusal also covers a built-in agent type and an agent of another plugin."
+  Replaced by: the next item (O10).
+- `@decided` (2026-11-10, the user) The refusal applies only to guilda skills. An agent with no `group` cannot load
+  a guilda skill. Such agents are the built-in agent types (`general-purpose`, `Explore`) and the agents of other
+  plugins. The skills of other plugins and the built-in skills stay free for them. guilda guards only its own
+  skills.
+- `@decided` (2026-11-10, the user accepted the Architect's choice) In 0.2.0 five roles get an agent definition
+  with a `group`. They are the Architect executor, the coherence validator, `lab-researcher`, `lab-reader` and
+  `lab-experimenter`. The open names stay in O3 of the 0.2.0 spec.
 
 ### D44 — The Architect plans each skill and calls the area leads `@decided`
 
@@ -1348,12 +1354,13 @@ package, seen on 2026-11-10.
   license text and the copyright line of `superpowers` (0.2.0 spec, S44).
 - `@decided` (2026-11-10, the user, O9) `scripts/bump-version.sh` is copied as a guilda script, with the MIT
   notice. It updates the version of each plugin of this repository.
+- `@decided` (2026-11-10, the user) The script is rewritten in Node, `scripts/bump-version.mjs`, with no `jq`.
+  `npm test` tests it. It keeps the MIT notice and the credit to `superpowers`.
 - `@decided` (2026-11-10, the user) Version policy: the three plugins share one version. They are the core
   `guilda`, the extension and `ios-on-linux`. They bump together in each release. `RELEASING.md` says this (0.2.0
   spec, section 3g, S45).
 - `@proposed` (2026-11-10, the Architect, fourth cold review) The destination path of each copy is in the 0.2.0
-  spec, section 3f. Each copy is in the core plugin. The bump script stays a shell script that needs `jq`, with
-  its own `.version-bump.json`.
+  spec, section 3f. Each copy is in the core plugin. The bump script has its own `.version-bump.json`.
 
 ## Experiments
 
