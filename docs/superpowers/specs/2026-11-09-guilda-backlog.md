@@ -27,6 +27,8 @@ Dependency notes:
 - D20 before 0.4.0 reads the queue journal (D14). The binding table of D17 comes with 0.4.0.
 - D32 needs D13, D14 and D27. Until 0.5.0 the Architect collects the facts.
 - D35 needs D13 for the counts and the data skill of D25 (0.2.0) for the analysis.
+- D51 (reuse of `superpowers`): D32 and D35 call the session analysts and `analyze-token-usage.py`. Until the mod of
+  D20, the Architect can show visual options with the visual companion of `brainstorming`.
 
 Labs that gate parts of 0.3.0:
 
@@ -58,6 +60,9 @@ Labs that gate parts of 0.4.0:
 | D49 mention routing (can a mod route a prompt to a named agent) | the mention of an agent |
 
 E2 runs before address reuse. Glossary changes: the `architect` line (D31) and the new `address` line.
+
+D51 (reuse of `superpowers`): the Codex adapter starts from the harness tool tables and the porting guide of
+`superpowers`.
 
 Risk: a link (D33) can come from injected text. A link opens only a file inside the project folder.
 

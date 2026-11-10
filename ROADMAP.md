@@ -26,6 +26,9 @@ plugin with the domain skills and the agent creator. With no `.guilda/` folder, 
 advisor, and an AI role group with its lead. Skills isolated by role group, and truth first in every role. Labs gate
 their parts before the build of each part.
 
+guilda reuses `superpowers` 7.x (D51). It copies and adapts the pieces that need a guilda format, with the MIT
+notice. It calls the other pieces from `superpowers`.
+
 ## 0.3.0 — traceability and state
 
 [Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
