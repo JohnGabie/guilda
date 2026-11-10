@@ -1045,9 +1045,14 @@ Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by t
   gets no answer for hours can guess it. Test whether this changes how agents act.
 - `@decided` (2026-11-10, the user) The Architect's memory alone is not enough: a compaction can drop it. The away
   state is held by code and enforced by a hook.
-- `@proposed` The user sets it with a mod command (for example `/away 3h`). A mod command runs as code, not through
-  the model, so it is in no agent's conversation and uses no tokens. The mod marks the user present again when the
-  user sends a prompt, so the user does not need to say "I am back".
+- `@decided` (2026-11-10, the user) No `/away` command. The user says it in plain words: the user mentions the
+  Architect in the main session (for example `@architect I will be away, take care of things`), and the message goes
+  straight to the Architect. The Architect answers and records the away state by code (an internal script), so the
+  hook still holds when a compaction drops the Architect's memory.
+- `@decided` The return is found by itself when the user interacts in the chat. The user can also say "I am back".
+- `@decided` The Architect knows, and it gets an explicit instruction: do not change your behavior because the user is
+  away; manage the situation (the same care and rigor; only the decisions that need the user wait). `@open` To study in
+  the Lab with D46 and D39 (a model can act differently when it knows it is not watched).
 - `@proposed` The state lives in a file outside the project. A hook refuses any agent's attempt to read that file.
 - `@proposed` While the user is away, a hook refuses each action that needs the user (open a council, ask a decision
   that belongs to the user, publish), with a neutral reason ("this waits; go on with the rest"), and tells the
@@ -1056,3 +1061,13 @@ Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by t
 - Limits, for the Lab: an agent can try to read the file in ways the hook does not see (for example a path built from
   variables), so the hook catches common cases, not all. Until 0.4.0 the Architect runs in the main session, with no
   agent ID; the hook knows it as the main session.
+
+### D49 — Mention an agent in the main session to talk to it directly `@proposed`
+
+Release: `@proposed` with D31 (0.4.0). Proposed on 2026-11-10 from the user's request.
+
+- `@proposed` The user mentions an agent in the main session (for example `@architect ...` or `@security-lead ...`) and
+  the message goes straight to that agent, which answers at once. A mod sees the prompt before the model and routes it.
+- Different from D32 (mention an agent to trace its work) and from the native subagent panel (select the agent and
+  press Enter, which the user confirmed works).
+- `@open` Lab: can a mod route a prompt to a named agent (prompt submit hook plus `SendMessage` or the bus of D17)?
