@@ -893,9 +893,18 @@ docs; VS Code extension manifest `engines`).
 - `@proposed` No change in place: a rule that changes meaning gets a new ID; the old ID is marked deprecated, points
   to the new one, and still works for one release. This would replace the in-place rewrites of R24, R11 and R13 in
   0.2.0, and remove the need to run `guilda:init` again for them.
-  `@open` (2026-11-10, the user) This conflicts with the in-place texts of R24, R11 and R13 approved the same day. The
-  user asked for a research of industry practice, so that a rule change never forces each project to run
-  `guilda:init` again.
+  `@replaced` by the next item.
+- `@decided` (2026-11-10, the user, after the research in `docs/research/2026-11-10-rule-changes/`) A rule that
+  changes meaning is rewritten in place, as ESLint does; a deprecation marker is only for a rule that is removed or
+  replaced. No project runs `guilda:init` again after an update:
+  - The project layer never copies rule text; the session hook reads the rules from the plugin.
+  - Tolerant reader: a missing `process` field reads as `full`, which is the 0.1.0 behavior of R24 and R11.
+  - `schemaVersion` and migrations that are safe to run again run in memory at each session start.
+  - A migration writes a committed project file only through `guilda:update` or after the user approves.
+  - The user gets a question only when a migration cannot infer a value.
+  - `RELEASING.md` and the version notice stop telling projects to run `guilda:init` again.
+- `@decided` (research) The Claude Code plugin manifest has no minimum host version field, so guilda checks that a
+  feature exists. This closes the `@open` item below.
 - `@proposed` Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe to
   run again.
 - `@proposed` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
