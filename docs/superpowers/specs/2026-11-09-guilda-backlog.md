@@ -14,7 +14,7 @@ release gets its own spec before its build, in the form of the [0.2.0 spec](2026
 | D20 | Agent panel as a terminal mod (`guilda-panel`) | `@proposed` |
 | D21 | Project status for any model (internal `status` script) | `@proposed` |
 | D22 | The measure of tokens only | `@proposed` |
-| D35 | Token use per task, per block, per build, in tokens, USD and BRL | `@decided` |
+| D35 | Token use per task, per block, per build, in tokens, USD and BRL | `@decided`; the release 0.3.0 is `@proposed` |
 | D32 | Name an agent, and the system finds the facts | `@proposed` |
 | D24 | The mod part: the mod is the interface, the `guilda:init` progress pane, the detail command | `@proposed` |
 
@@ -32,7 +32,7 @@ D12 and D13.
 | ID | Item | Status |
 |---|---|---|
 | D31 | The Architect as its own agent | `@decided` |
-| D17 | Agent addresses, binding table, file mailbox, router, reply contract | `@proposed` |
+| D17 | Agent addresses, binding table, file mailbox, router, reply contract, the internal `send` script (D24) | `@proposed` |
 | D18 | Agent life cycle: no agent left running | `@proposed`, not approved for the build |
 | D33 | Click a reference, open the right place | `@proposed` |
 | — | Codex adapter (lab `external-agent`) | conditional GO |
@@ -47,12 +47,12 @@ Risk: a link (D33) can come from injected text. A link opens only a file inside 
 
 | ID | Item | Status |
 |---|---|---|
-| D15 | Foreman | `@open`, the name `@decided` |
+| D15 | Foreman, the internal `watch` and `tick` scripts (D24) | `@open`, the name `@decided` |
 | D22 | The pace, with the `cswap` fork plan | `@proposed` with `@decided` items |
 | D16 | The Security Lead and the red team limits | `@replaced` in part, the rest `@proposed` |
-| D37 | The Security Lead is an agent that decides | `@decided` |
-| D28 | The red team skill and its blocking hook | `@decided` |
-| D38 | Resume after a usage limit, only in the same project | `@decided` |
+| D37 | The Security Lead is an agent that decides | `@decided`; the release 0.5.0 is `@proposed` |
+| D28 | The red team skill and its blocking hook, the Security Executor (D1) | `@decided` |
+| D38 | Resume after a usage limit, only in the same project | `@decided`; the release 0.5.0 is `@proposed` |
 
 Before the build: the D15 lab, the D38 lab, the open level rule of D16, and the gaps of the
 [scenario catalog](2026-11-09-orchestrator-scenarios.md).

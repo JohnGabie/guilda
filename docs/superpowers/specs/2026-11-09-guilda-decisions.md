@@ -20,10 +20,10 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 | Release | Theme | Scope |
 |---|---|---|
 | 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats |
-| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27) |
-| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35, D32, the mod part of D24 |
+| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34 `@proposed`, D36, the plan file name and its R4 hook (D27) |
+| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35 `@proposed`, D32, the mod part of D24 |
 | 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`) |
-| 0.5.0 | foreman and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 with the red team of D28, D38 |
+| 0.5.0 | foreman and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 `@proposed` with the red team of D28, D38 `@proposed` |
 
 - `@decided` While the major number is 0, a core rule that changes meaning raises the minor number. The CHANGELOG
   entry tells projects to run `guilda:init` again. `RELEASING.md` says this.
@@ -34,8 +34,9 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 - `@decided` (2026-11-09) Open source practice on GitHub: one milestone for each release with its issues, a short
   `ROADMAP.md`, the CHANGELOG in the "Keep a Changelog" form, and a GitHub release with notes for each tag. The
   register stays the source of the decisions.
-- `@proposed` (2026-11-10, the split) D34 and D36 go to 0.2.0, D35 to 0.3.0, D37 and D38 to 0.5.0. The plan of
-  the controller set these releases. The user confirms them.
+- `@proposed` (2026-11-10, the split) D34 goes to 0.2.0, D35 to 0.3.0, D37 and D38 to 0.5.0. The plan of the
+  controller set these releases. The user confirms them. A cell with `@proposed` in the table above is one of them.
+- `@decided` D36 is in 0.2.0: the user put all domain skills of D25, D28, D29 and D36 in 0.2.0 (D28).
 
 ## Builder check of 2026-11-09 `@decided`
 
@@ -83,7 +84,10 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
   a marked zone gets a Security review at each level. At `light`, that review is part of the one review at the end.
 - `@proposed` A domain skill (D28) helps the Architect find the zones.
 - `@decided` A Security Executor (the Executor with the red team or blue team skills, D28) stays an option in any
-  project.
+  project. Release: 0.5.0, with the `red-team` skill.
+- `@proposed` (2026-11-10) Security tests in 0.2.0, before the `red-team` skill. The Security role reviews each
+  security zone. The injection tests of an AI artifact use the injection test set of `ai-evals` (D29).
+- `@open` The release of the `blue-team` skill: 0.2.0 with the other domain skills, or 0.5.0 with `red-team`.
 
 ### D2 — Activation check
 
@@ -121,6 +125,8 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
   domain name or a business term. So the skill shows each field of the report alone, and the user approves each
   field before the send.
 - `@proposed` This repository gets one label and one issue template for each report type.
+- `@proposed` (2026-11-10) The scan and the send are one internal script, `scripts/report-send.mjs` (D24). It runs
+  the R19 scan on the final text, then sends with `gh`, or saves the report in `.guilda/reports/`.
 - `@proposed` The glossary adds the term `field report` (see Glossary proposals).
 
 ### D4 — QA report parser
@@ -148,6 +154,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #4, 
 
 - `@proposed` ARC7, ARC8 and ARC10 as written in #5: exact scenarios, one owner task for each `@decided` item, and
   a glossary entry for each new term. The EF-system project used them as project rules, with evidence of value.
+  Texts in the 0.2.0 spec.
 - `@proposed` A builder check before approval (#4): a fresh subagent reads the spec cold and lists its guesses. The
   Architect sorts them into three groups: answered already, minor, the user's.
 - `@proposed` A ruling that changes behavior enters the spec in the same step, before the Executor continues. The
@@ -160,7 +167,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #4, 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, #10, #11.
 
 - `@decided` ARC9 (#5): each new test has one named mutant of the product code that makes the test fail. Required at
-  `full`. The Architect's choice at `light`.
+  `full`. The Architect's choice at `light`. Text (`@proposed`) in the 0.2.0 spec.
 - `@decided` Classification (#10): the Reviewer classifies each mutant as killed, survived (weak test) or equivalent
   (with the reason). An equivalent mutant is noted and does not go to a fix round. A kill counts only if the failing
   assertion targets the mutant.
@@ -401,7 +408,8 @@ A lab, an experiment or a spike always runs in a dispatched agent, never in the 
 writes the hypothesis and the PASS criteria, dispatches the agent with the lab brief, reads the report and gives the
 verdict.
 
-- `@proposed` A core rule with this text, cited by the Architect procedure, `guilda:lab` and the experiments.
+- `@proposed` A core rule with this text, cited by the Architect procedure, `guilda:lab` and the experiments. Its
+  ID is R26, the next free core ID after R25. Text in the 0.2.0 spec.
 - `@proposed` Check: gate. The Reviewer rejects a lab report that has no agent ID of the agent that ran it (D34).
 
 ### D20 — Agent panel as a terminal mod
@@ -485,8 +493,10 @@ five times.
 Status: `@proposed` · Release: the commands part in 0.2.0, the mod part in 0.3.0 · The user, 2026-11-09: too many
 commands make noise.
 
-- `@proposed` (0.2.0) Internal scripts: `watch`, `tick`, `send`, `status`, `doctor` and the pace script. Agents run
-  them. The user does not type them.
+- `@proposed` (0.2.0) Internal scripts: `doctor` (D2) and `report-send` (D3). Agents run them. The user does not
+  type them.
+- `@proposed` (later releases) The other internal scripts come with their decisions. `status`: 0.3.0 (D21).
+  `send`: 0.4.0 (D17). `watch`, `tick` and the pace script: 0.5.0 (D15, D22).
 - `@proposed` (0.2.0) Skills only where a conversation with the user is needed: `architect`, `init`, `update`,
   `report`.
 - `@proposed` (0.2.0) `guilda:lab` is a skill that the Architect loads to write a lab brief and dispatch the lab agent
@@ -615,7 +625,9 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09.
 
 - `@decided` No fourth group. Domain skills `ai-engineering` and `ai-evals`, built on `skill-creator` and
   `plugin-dev`. AI security goes to the Security group: a knowledge file with OWASP LLM01 to LLM10, a risk area `ai`,
-  and red team tests through the `red-team` skill. promptfoo is an optional tool (D26 pattern).
+  and red team tests through the `red-team` skill (0.5.0). promptfoo is an optional tool (D26 pattern).
+- `@proposed` (2026-11-10) The `red-team` skill comes in 0.5.0. Until then, the injection tests of the gate use the
+  injection test set of `ai-evals`.
 - `@decided` Gate for an AI artifact (prompt, skill, agent) in any project. The Reviewer requires: an eval suite with
   3 or more real cases, a threshold written before, and a positive difference against a run without the artifact;
   direct and indirect prompt injection tests; tools at least privilege; a budget for cost, latency and tokens. QA
@@ -696,7 +708,7 @@ right place, in the tool that the user works with.
 
 ### D34 — Lab report format
 
-Status: `@proposed` · Release: 0.2.0 · Written by the Architect, 2026-11-10, from the lab reports of 2026-11-09 and
+Status: `@proposed` · Release: 0.2.0 `@proposed` · Written by the Architect, 2026-11-10, from the lab reports of 2026-11-09 and
 the data checklist of D25.
 
 Each lab, experiment or spike writes one report `docs/labs/<date>-<name>.md` on its lab branch, in this form:
@@ -718,7 +730,7 @@ The controller writes its own verdict in the register (D19). The report verdict 
 
 ### D35 — Measure token use at every level
 
-Status: `@decided` · Release: 0.3.0 (with the measure of D22) · The user, 2026-11-09.
+Status: `@decided` · Release: 0.3.0 `@proposed` (with the measure of D22) · The user, 2026-11-09.
 
 - `@decided` Measure the token use of each task, of each spec block (D27), and of a whole session or build.
 - `@decided` At the end of a build (for example a release), guilda writes a record with the total tokens and the cost
@@ -731,7 +743,7 @@ Status: `@decided` · Release: 0.3.0 (with the measure of D22) · The user, 2026
 
 ### D36 — Two lab skills for experiments
 
-Status: `@decided` · Release: 0.2.0 (domain skills, D28) · The user, 2026-11-09.
+Status: `@decided` · Release: 0.2.0 (domain skills; the user, D28) · The user, 2026-11-09.
 
 The Lab group (D25) gets two domain skills (D28). They can be one skill if research shows that is better.
 
@@ -743,7 +755,7 @@ The Lab group (D25) gets two domain skills (D28). They can be one skill if resea
 
 ### D37 — The Security Lead is an agent that decides
 
-Status: `@decided` · Release: 0.5.0 (with D16) · The user, 2026-11-09. It refines D16 and D28.
+Status: `@decided` · Release: 0.5.0 `@proposed` (with D16) · The user, 2026-11-09. It refines D16 and D28.
 
 - `@decided` The Security Lead makes many decisions, so it is an agent, not a skill.
 - `@decided` It decides security questions together with the Architect.
@@ -754,7 +766,7 @@ Status: `@decided` · Release: 0.5.0 (with D16) · The user, 2026-11-09. It refi
 
 ### D38 — Resume after a usage limit, only in the same project
 
-Status: `@decided` · Release: 0.5.0 (with the foreman) · The user, 2026-11-09. It adds to D15 (G5) and D22.
+Status: `@decided` · Release: 0.5.0 `@proposed` (with the foreman) · The user, 2026-11-09. It adds to D15 (G5) and D22.
 
 - `@decided` G5 stays: after a restart of the machine or the session, only the user starts the work again.
 - `@decided` When the work stops because the usage of the accounts ran out, a scheduled trigger reads the reset times
@@ -816,5 +828,7 @@ first uses each term.
 - `@open` "lead" as a forbidden word for `foreman` conflicts with the role name "Security Lead" and with the verb
   "lead". The `ste-check` script matches the word in any case. Options: forbid "lead" only as a role name in text, or rename the
   Security Lead.
+- `@proposed` (2026-11-10) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
+  `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
 - `@proposed` The `architect` line changes in 0.4.0 (D31): the Architect runs as its own agent, not in the main
   session.
