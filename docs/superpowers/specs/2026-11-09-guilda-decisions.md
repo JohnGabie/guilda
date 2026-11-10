@@ -965,3 +965,11 @@ Release: `@proposed` 0.2.0, as a core principle that every role loads. Decided b
   duty.
 - Why: the alignment research (D39) shows the failure that this stops: a grader that preferred a fake success to an
   honest failure. A biased process builds a wrong product.
+- `@decided` (2026-11-10, the user, narrows the second item) Only the leads disagree with the user and argue: the
+  Architect, the Security Lead, the DevOps advisor, and the leads of the other groups. Other roles (Executor, QA and
+  the like, often on a small model) do not argue with the user. Replaced by this: the scope "every role" of the
+  disagreement item.
+- `@decided` Truth stays for every role: no role makes a result look better or hides a failure. A role that is not a
+  lead reports a problem or an objection to the lead of its group, and the lead decides if it goes to the user. The
+  alignment case of D39 was a common role (a grader) that preferred a fake success, so truth cannot be only the
+  leads' duty.
