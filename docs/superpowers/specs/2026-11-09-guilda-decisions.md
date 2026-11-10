@@ -522,8 +522,8 @@ five times.
   recommendation first (R13).
 - `@decided` The Architect adapts the question to the level of the user, and asks again in simpler words when an answer
   shows that the user did not understand.
-- `@proposed` A setting `explain: "brief" | "full"` in `.guilda/config.json`, asked by `guilda:init`.
-- `@proposed` New text of ARC1 and R13. Text in the 0.2.0 spec, approved 2026-11-10.
+- `@decided` A setting `explain: "brief" | "full"` in `.guilda/config.json`, asked by `guilda:init`.
+- `@decided` New text of ARC1 and R13. Text in the 0.2.0 spec, approved 2026-11-10.
 
 ### D24 — Few commands
 
@@ -531,15 +531,15 @@ Status: `@proposed`; its 0.2.0 items are `@decided` (0.2.0 checklist) · Release
 mod part in 0.3.0 · The user, 2026-11-09: too many
 commands make noise.
 
-- `@proposed` (0.2.0) Internal scripts: `doctor` (D2) and `report-send` (D3). Agents run them. The user does not
+- `@decided` (0.2.0) Internal scripts: `doctor` (D2) and `report-send` (D3). Agents run them. The user does not
   type them.
 - `@proposed` (later releases) The other internal scripts come with their decisions. `status`: 0.3.0 (D21).
   `send`: 0.4.0 (D17). `watch`, `tick` and the pace script: 0.5.0 (D15, D22).
-- `@proposed` (0.2.0) Skills only where a conversation with the user is needed: `architect`, `init`, `update`,
+- `@decided` (0.2.0) Skills only where a conversation with the user is needed: `architect`, `init`, `update`,
   `report`.
-- `@proposed` (0.2.0) `guilda:lab` is a skill that the Architect loads to write a lab brief and dispatch the lab agent
+- `@decided` (0.2.0) `guilda:lab` is a skill that the Architect loads to write a lab brief and dispatch the lab agent
   (D19). It is not a user command. Not verified: a frontmatter field that hides a skill from the user menu.
-- `@proposed` (0.2.0) `guilda:consolidate <name>` is a code marker (D9), not a command.
+- `@decided` (0.2.0) `guilda:consolidate <name>` is a code marker (D9), not a command.
 - `@proposed` (0.3.0, moved: it depends on D20) The mod is the interface. In the area of the agents it shows the
   external agents, their work time, the pace, and a mark when a `doctor` check fails.
 - `@decided` (2026-11-10, audit, the user's words) The mod shows an estimate of the agent work hours.
@@ -561,9 +561,9 @@ user, 2026-11-09.
 - `@replaced` "The three lab roles give one report form". Replaced by: D34.
 - `@decided` The lab roles are internal. The Architect dispatches them (D24).
 - `@decided` (2026-11-10, the user) The names of the three lab roles: `lab-researcher`, `lab-reader`, `lab-experimenter`.
-- `@proposed` A triage step before the brief of each task. An open question goes to the Lab first. A risk area goes
+- `@decided` A triage step before the brief of each task. An open question goes to the Lab first. A risk area goes
   to Security. A clear and decided change goes to Engineering. One task can use more than one group.
-- `@proposed` The Architect records a lesson when an unused group would have stopped a problem. The lessons change
+- `@decided` The Architect records a lesson when an unused group would have stopped a problem. The lessons change
   the triage table in `.guilda/rules.md`.
 - `@decided` (the user) A data skill for the Lab group, as a domain skill (D28). It turns data into information: it
   collects the raw data, explores it, and processes it into information that a person or an agent can use.
@@ -591,8 +591,8 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issue: #1.
 - `@decided` The `ios-on-linux` skill becomes its own plugin in the guilda marketplace. It is not a required
   dependency.
 - `@decided` `guilda:init` or the Architect offers it only when the project has scenarios for a mobile app.
-- `@proposed` The same pattern serves other QA tools later.
-- `@proposed` Before an action that sends, deletes or buys on the phone, the skill asks the user.
+- `@decided` The same pattern serves other QA tools later.
+- `@decided` Before an action that sends, deletes or buys on the phone, the skill asks the user.
 
 ### D27 — Traceability with content hashes
 
@@ -652,13 +652,13 @@ Areas are knowledge, so they are skills, not agents.
   on Claude Code 2.1.321: with the official marketplace added, both load. Without it, guilda installs but does not
   load. The README install adds the official marketplace first. From 0.2.0 this is true only of the extension plugin
   (D40); the core plugin has no dependency.
-- `@proposed` (risk, 2026-11-10) An activation test covers the install without the official marketplace. D2 must
+- `@decided` (risk, 2026-11-10) An activation test covers the install without the official marketplace. D2 must
   tell the user that the extension plugin did not load, while the core plugin keeps the laws on (D40).
-- `@proposed` guilda can create a new domain skill and add it to the triage table (D25).
+- `@decided` guilda can create a new domain skill and add it to the triage table (D25).
 - `@open` (2026-11-10, audit, the user's words) The user wants more than a new domain skill. guilda gets the power to
   create a new role group. A tool lets the user change guilda to do what the user needs. Candidates: the agent
   creator (D41), `skill-creator`, the extension plugins (D40). The "new role" flow of D25 needs this too.
-- `@proposed` Starting points for the curation: `anthropics/skills`, `trailofbits/skills` (CC-BY-SA-4.0, needs care).
+- `@decided` Starting points for the curation: `anthropics/skills`, `trailofbits/skills` (CC-BY-SA-4.0, needs care).
   Each third-party skill is audited before use.
 - Research (Claude Code docs, Anthropic posts, OpenAI agent guide, Cognition, arXiv 2601.04748, 2505.18286,
   2503.13657): skills specialize one agent; skill choice gets worse with many similar skills.
@@ -686,13 +686,13 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09.
 - `@decided` Domain skills `ai-engineering` and `ai-evals`, built on `skill-creator` and
   `plugin-dev`. AI security goes to the Security group: a knowledge file with OWASP LLM01 to LLM10, a risk area `ai`,
   and red team tests through the `red-team` skill (0.5.0). promptfoo is an optional tool (D26 pattern).
-- `@proposed` (2026-11-10) The `red-team` skill comes in 0.5.0. Until then, the injection tests of the gate use the
+- `@decided` (2026-11-10) The `red-team` skill comes in 0.5.0. Until then, the injection tests of the gate use the
   injection test set of `ai-evals`.
 - `@decided` Gate for an AI artifact (prompt, skill, agent) in any project. The Reviewer requires: an eval suite with
   3 or more real cases, a threshold written before, and a positive difference against a run without the artifact;
   direct and indirect prompt injection tests; tools at least privilege; a budget for cost, latency and tokens. QA
   runs the suite and attaches the report.
-- `@proposed` (risk, 2026-11-10) The gate has a cost: 3 or more cases, a baseline run and injection tests for each
+- `@decided` (risk, 2026-11-10) The gate has a cost: 3 or more cases, a baseline run and injection tests for each
   AI artifact. The plan states this cost. At `light`, the gate runs once, at the end.
 - `@decided` (2026-11-10, the user) The gate lab runs at the start of the 0.2.0 build, before the gate is built.
 - Lab: a sample prompt with a tool, the suite at 0.8 or more in 3 runs, and planted bad versions rejected.
@@ -706,9 +706,9 @@ is lost. Measured: `skills/architect/SKILL.md` is 121 lines, about 2,000 tokens.
 
 - `@decided` A core Architect skill of about 140 lines: the role, the ARC rules one line each, D23 in full, the
   procedure with pointers, the triage table (D25), the short level table, and "Does not".
-- `@proposed` Reference files in `skills/architect/reference/`, read only when a step needs them: `spec.md`,
+- `@decided` Reference files in `skills/architect/reference/`, read only when a step needs them: `spec.md`,
   `brief.md`, `waves.md`, `lab.md`, `verdicts.md`, `qa-tools.md`. `pace.md` comes with the pace in 0.5.0.
-- `@proposed` The Architect reads a reference again at each use, because a compaction can drop it.
+- `@decided` The Architect reads a reference again at each use, because a compaction can drop it.
 - `@open` (2026-11-10) Where the lab brief method lives: the reference `lab.md` of the Architect, or the `guilda:lab`
   skill of D24. One home only.
 - `@decided` (2026-11-10, the user) The split lab runs at the start of the 0.2.0 build, before the split.
@@ -955,7 +955,7 @@ user on 2026-11-10.
   of D25).
 - `@decided` An action in production (deploy, rollback, an infrastructure change) runs only through an agent with
   restricted tools, and a hook refuses it without the user's explicit approval (R12).
-- `@decided` (2026-11-10, the user) A lab of the DevOps group decides how the hook recognizes a production command.
+- `@decided` (2026-11-10, the user) A DevOps lab decides how the hook recognizes a production command (DevOps is in Engineering).
   The lab has research and an experiment, in a dispatched agent. It comes before the build of the lock. The 0.2.0
   spec lists it as O7 in its table of labs that gate parts.
 
@@ -970,7 +970,7 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
   loads the Engineering skills and the shared group. `red-team` and `blue-team` load only in a Security Executor, a
   separate agent definition with restricted tools (0.5.0, as D28 plans). So an Engineering Executor cannot load the
   `red-team` skill.
-- `@proposed` A hook enforces it: it refuses a skill call from an agent outside the skill's group. `@open` Not
+- `@decided` A hook enforces it: it refuses a skill call from an agent outside the skill's group. `@open` Not
   verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
 - `@decided` (2026-11-10, the user) Skills that more than one group needs (the data skill, `ai-evals`, the lab skills
   of D36) go in an explicit shared group: one copy of each skill, and each skill lists the groups that can
