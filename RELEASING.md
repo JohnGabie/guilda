@@ -5,7 +5,7 @@ Do these steps for every merge to `main`.
 1. Raise the version. The plugins of this repository share one version. They bump together in each release, also
    when only one of them changed.
    - Until 0.2.0 the only plugin is the core `guilda`. Raise `version` in `.claude-plugin/plugin.json`.
-   - From 0.2.0 the plugins are the core `guilda`, the extension and `ios-on-linux`. Run
+   - From 0.2.0 the plugins are the core `guilda`, the extension `guilda-skills` and `ios-on-linux`. Run
      `node scripts/bump-version.mjs <version>`. It writes the version in each plugin manifest. Then
      `node scripts/bump-version.mjs --check` must exit 0.
 
@@ -26,7 +26,13 @@ Do these steps for every merge to `main`.
      `[<version>]` compares the earlier tag with the new tag.
    - `scripts/changelog.mjs` reads these headings for `guilda:update`. Do not change their form.
 3. Run `npm test`. It must exit 0.
-4. Run `claude plugin validate --strict .`. It must print `Validation passed`.
+4. Run `claude plugin validate --strict .`. It must print `Validation passed`. From 0.2.0, run it also for
+   `plugins/guilda-skills` and `plugins/ios-on-linux`.
+   - A smoke test of a release uses your normal login and config, and never changes it. Run
+     `claude --plugin-dir <worktree> -p "<prompt>"` in a `mktemp -d` project. Do not make a second config, and do
+     not copy credentials.
+   - One check needs a config with no marketplace: guilda without the official marketplace (0.2.0 spec, S13).
+     The user does it by hand, one time for each release, with the six steps of that scenario.
 5. Run `claude plugin tag --push`. It creates and pushes the tag `guilda--v<version>`. From 0.2.0, create one tag
    for each plugin: `<plugin name>--v<version>`.
 6. Create a GitHub release for the tag. Its notes are the CHANGELOG entry of the version:

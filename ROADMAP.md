@@ -22,10 +22,13 @@ skill. Six role groups, one Executor with domain skills, AI engineering skills, 
 also reads Bash commands.
 
 A core plugin with the laws, the hooks, the agents, `guilda:init` and the Architect, with no dependency. An extension
-plugin with the domain skills and the agent creator. With no `.guilda/` folder, guilda tells the user to run
+plugin, `guilda-skills`, with the domain skills and the agent creator. With no `.guilda/` folder, guilda tells the user to run
 `guilda:init` (R28). Rules change in place with migrations. No project runs `guilda:init` again. An agent creator, a DevOps skill and
 advisor, an AI role group with its lead, and an Architect role group. Skills isolated by role group, and truth
-first in every role. Labs gate their parts before the build of each part.
+first in every role. Labs gate their parts before the build of each part. The session context has a short form of
+each core rule, so it stays under 150 lines.
+
+Status: the user approved the spec on 2026-11-10. The plan is in the spec, in three parts.
 
 guilda reuses `superpowers` 7.x (D51). It copies and adapts the pieces that need a guilda format, with the MIT
 notice. It calls the other pieces from `superpowers`. The three plugins of the repository share one version, and
