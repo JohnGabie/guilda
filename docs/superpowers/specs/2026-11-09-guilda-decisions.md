@@ -1092,3 +1092,9 @@ in the Lab.
 - Risk (seen in the D31 lab: the light main session said "the plan has 10 tasks" from an old summary): every question
   about the state goes to the store, never to the main session's memory. `@open` A rule and a Lab test for it.
 - Signal so far: in the D31 lab the main session was about 70% smaller with the Architect outside it.
+- `@decided` (2026-11-10, the user, clarifies "code") The source of truth is a store: a database (SQL or other) that is
+  the long-term memory of the project: what was decided and changed, who did what and when, costs and measures. Hooks
+  write to it on each action, so it is the audit trail. It does not compact and it survives `/clear`. The queue
+  journal (D14), the audit log (D13), the block index (D27) and the measures (D35) become parts of this one memory.
+- Tension to resolve: D14 chose JSONL over SQLite because `node:sqlite` is experimental in Node 24. A project memory
+  may need a real database. `@open` Research runs now: existing repositories of long-term memory for agents.
