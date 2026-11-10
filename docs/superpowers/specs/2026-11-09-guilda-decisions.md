@@ -953,7 +953,9 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 - `@decided` (2026-11-10, the user) AI security (prompt injection, OWASP LLM Top 10, an agent that acts outside the
   request) stays in the Security group, with the Security Lead as the one owner of risk. The AI group builds with the
   defenses and asks the Security Lead, through the Architect, to check them.
-- `@open` The AI group gets a lead agent, like the Security Lead.
+- `@decided` (2026-11-10, the user) The AI group gets a lead agent, like the Security Lead: it decides on AI with the
+  Architect (harness design, model and cost, an agent or a simple prompt, when to call the Lab) and, as a lead, it can
+  disagree with the user (D46) and speak in a council (D47).
 
 ### D46 — Truth first, and disagree when needed, in every role `@decided`
 
@@ -999,3 +1001,12 @@ user on 2026-11-10.
   Code agent teams (experimental; teammates send messages to each other).
 - `@open` The English name of the feature in the plugin (for example `council`), and how the user and the Architect
   open it.
+- `@decided` (2026-11-10, the user) A council has order, like a court. Nobody speaks without the floor. A separate
+  Judge agent runs it: it opens the session, gives the floor in turn ("now the DevOps advisor", "now the Security Lead",
+  "now the user"), and closes it. The Judge has no view on the merit; the user decides the outcome (R12). It runs on a
+  small model and belongs to the Engineering group.
+- `@decided` Two formats: adversarial (one lead attacks an idea, another defends it, in turns) or a debate (the Judge
+  orders the turns).
+- `@decided` A speaker can call another lead to answer by marking it in the chat. The Judge grants that voice or not.
+- Why a separate Judge and not the Architect: in a council the Architect is also a party (it has a view, and it is
+  sometimes the side under attack).
