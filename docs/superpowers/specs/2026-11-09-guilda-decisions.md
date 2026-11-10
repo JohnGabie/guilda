@@ -875,3 +875,19 @@ docs; VS Code extension manifest `engines`).
   from each published version. A test runs the laws in a project with no `.guilda/` folder.
 - `@open` Not verified: whether the Claude Code plugin manifest has a minimum host version field. If not, guilda checks
   that a feature exists instead of a version number.
+
+### D41 — An agent creator at the level of skill-creator `@decided`
+
+Release: `@proposed` 0.2.0, with the AI engineering skills (D29). Decided by the user on 2026-11-10.
+
+- `@decided` guilda needs an agent creator with the same quality as `skill-creator`: it creates or changes an agent
+  (a subagent definition: role text, tools, model, limits), and it measures the agent with evals before the agent
+  is used.
+- `@proposed` The same loop as `skill-creator`: test cases written first, runs with and without the new agent, graded
+  assertions, a viewer of the results, tokens and time of each run, and iterations until the threshold passes.
+- `@proposed` It also checks what only an agent has: the tool list at least privilege (OWASP LLM06, D29), the model
+  and its cost, the limits that must be laws (hooks in the plugin `hooks/hooks.json`, because a plugin agent ignores
+  `hooks` in its frontmatter, D28), and that the output format passes the guilda format checks.
+- `@open` Start point: the `agent-creator` agent of the official `plugin-dev` plugin (D29 research) is a generator
+  with no eval loop. Build on it, or write a new skill. Research and a curation of sources (20 or more, approved by
+  the user) come first, as for each research skill.
