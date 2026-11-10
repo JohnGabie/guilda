@@ -1,14 +1,25 @@
 # Orchestrator scenarios — catalog
 
 Status: draft, input for D15. Not approved (R3).
-Source: `2026-11-09-guilda-0.2-design.md`, mainly D12 to D18, D20 to D22 and D24, and `core/rules.md`.
+Source: the earlier single file `2026-11-09-guilda-0.2-design.md`, now the [decision register](2026-11-09-guilda-decisions.md),
+mainly D12 to D18, D20 to D22 and D24, and `core/rules.md`.
+
+Note (2026-11-10): this catalog was written before the final queue design of D14 and before G18 of D15. Changes since:
+
+- The role name is `foreman` (D15). The catalog keeps the working name `orchestrator` in code form.
+- The queue is `.guilda/queue/journal.jsonl` with a derived `state.json`, signal files and a lock (D14), not
+  `.guilda/queue.json`. Hooks do not set states; a state changes only on a signal from the agent.
+- G18 replaces the rule "never stop a running agent to meet a number". The foreman can stop an agent to keep the
+  pace. A stop without a safe save first is an extreme step, and the foreman talks to the Architect first.
+- The agent list `.guilda/agents.jsonl` of D12 is replaced by the queue journal, the one owner of agent identity.
+- `guilda:doctor` is an internal `doctor` script (D24). D38 adds a resume after a usage-limit stop.
 
 ## 1. Purpose and limits
 
 This file lists the situations that the `orchestrator` can meet. Each row gives the signal, the action and the cost.
 It does not change the spec. It shows where the spec has no mechanism yet. A row with the mark **GAP** needs a spec change.
 
-The word `orchestrator` is a working name. The role name is open (D15). The glossary forbids the plain word, so this file writes it as code.
+The word `orchestrator` is the working name. The role name is `foreman` (D15, decided 2026-11-09).
 
 The role, as the user decided it:
 
@@ -19,7 +30,7 @@ The role, as the user decided it:
 - It never decides the pace or a product question. Before it asks the Architect, it assesses the risk.
 - Each question to the Architect has the facts, 2 or 3 options and one recommendation.
 - It never switches accounts. It only reads the usage from the `cswap` fork.
-- It never stops a running agent to meet a number.
+- It can stop an agent to keep the pace (G18). A stop without a safe save first needs the Architect first.
 
 ## 2. Signals and terms
 
@@ -27,7 +38,7 @@ The rows refer to these signals:
 
 | Name | Source | Fields that the rows use |
 |---|---|---|
-| queue | `.guilda/queue.json` (D14) | task ID, dependencies, owner role, agent ID, state |
+| queue | `.guilda/queue/journal.jsonl` and `state.json` (D14) | task ID, dependencies, owner role, agent ID, state |
 | agent list | `.guilda/agents.jsonl` (D12) | task ID, agent ID |
 | audit log | `.guilda/audit.jsonl` (D13) | time, agent ID, task ID, tool, file path or first word of the command |
 | binding table | `.guilda/` (D17), file name not set | address, tool, session or agent ID, process, timeout |
@@ -36,7 +47,7 @@ The rows refer to these signals:
 | end notice | background command of the session (D15, D18) | the watch or an external run ended |
 | git | the task branch | commits after `Base commit:`, changed files, merge result |
 | config | `.guilda/config.json` | `usage.source`, adapters on or off, pace setting |
-| doctor | `guilda:doctor` checks (D2) | plugin loaded, hooks live, agents present |
+| doctor | the internal `doctor` script (D2, D24) | plugin loaded, hooks live, agents present |
 
 Token cost of a row:
 
@@ -195,7 +206,7 @@ Each item gives the smallest mechanism that closes the gap. Each mechanism keeps
 - One writer for the queue: the `orchestrator` (D14). Each signal file has one writer: its worker.
 - A task state changes only on a signal of the worker, or on a decision event in the journal.
 - A healthy flow costs no tokens. The model wakes only for an action.
-- guilda never switches accounts and never stops a running agent to meet a number (D22).
+- guilda never switches accounts (D22). A stop of an agent follows G18 of D15.
 
 Format of each item: gap, mechanism, who acts, tokens, lab.
 
