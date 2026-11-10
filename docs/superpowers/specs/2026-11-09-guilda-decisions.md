@@ -1043,3 +1043,16 @@ Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by t
   tool (D23).
 - `@open` For the Lab, with the study of D46: hiding the absence is easy (it is not in the briefs), but an agent that
   gets no answer for hours can guess it. Test whether this changes how agents act.
+- `@decided` (2026-11-10, the user) The Architect's memory alone is not enough: a compaction can drop it. The away
+  state is held by code and enforced by a hook.
+- `@proposed` The user sets it with a mod command (for example `/away 3h`). A mod command runs as code, not through
+  the model, so it is in no agent's conversation and uses no tokens. The mod marks the user present again when the
+  user sends a prompt, so the user does not need to say "I am back".
+- `@proposed` The state lives in a file outside the project. A hook refuses any agent's attempt to read that file.
+- `@proposed` While the user is away, a hook refuses each action that needs the user (open a council, ask a decision
+  that belongs to the user, publish), with a neutral reason ("this waits; go on with the rest"), and tells the
+  Architect. The Architect knows the real reason and guides the supervisor without saying it ("this does not happen
+  now; put it in `held` and go on").
+- Limits, for the Lab: an agent can try to read the file in ways the hook does not see (for example a path built from
+  variables), so the hook catches common cases, not all. Until 0.4.0 the Architect runs in the main session, with no
+  agent ID; the hook knows it as the main session.
