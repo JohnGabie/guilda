@@ -11,7 +11,7 @@ milestone with its issues. The decisions are in the
 [Milestone 0.1.1](https://github.com/JohnGabie/guilda/milestone/1)
 
 Fix the QA report parser and `lint-rules` with formatters. The README says when a project-scope install loads. The
-laws run when `.guilda/config.json` is missing or invalid.
+laws run when the `.guilda/` folder has a missing or invalid `config.json`.
 
 ## 0.2.0 — process
 
@@ -20,8 +20,9 @@ laws run when `.guilda/config.json` is missing or invalid.
 Process levels `light` and `full`, an activation check, decisions through the question tool, and the field report
 skill. Role groups, one Executor with domain skills, AI engineering skills, and a lean Architect.
 
-A core plugin that always loads and works without `guilda:init`, and an extension plugin with the full process. Rules
-change in place with migrations. No project runs `guilda:init` again. An agent creator, a DevOps skill and
+A core plugin with the laws, the hooks, the agents, `guilda:init` and the Architect, with no dependency. An extension
+plugin with the domain skills and the agent creator. With no `.guilda/` folder, guilda tells the user to run
+`guilda:init` (R28). Rules change in place with migrations. No project runs `guilda:init` again. An agent creator, a DevOps skill and
 advisor, and an AI role group with its lead. Skills isolated by role group, and truth first in every role. Labs gate
 their parts before the build of each part.
 

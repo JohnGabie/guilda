@@ -22,8 +22,8 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 
 | Release | Theme | Scope |
 |---|---|---|
-| 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats, the fail-closed laws fix (D40) |
-| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27), D40 to D46 as each one states |
+| 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats, the fail-closed laws fix and the no-folder record fix (D40) |
+| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27), D40 to D46 as each one states, with R28 (D40) |
 | 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35, D32, the mod part of D24 |
 | 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`), D49 `@proposed` |
 | 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 with the red team and blue team skills of D28, D38, D47 and D48 `@proposed` |
@@ -95,10 +95,10 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
 - `@decided` (the user, after the cold review) The Architect marks the security zones in the spec. A zone is each
   block that touches a risk area: login, secrets, user data, and the areas of `config.security.riskAreas`. A task in
   a marked zone gets a Security review at each level. At `light`, that review is part of the one review at the end.
-- `@proposed` A domain skill (D28) helps the Architect find the zones.
+- `@decided` A domain skill (D28) helps the Architect find the zones.
 - `@decided` A Security Executor (the Executor with the red team or blue team skills, D28) stays an option in any
   project. Release: 0.5.0, with the `red-team` skill.
-- `@proposed` (2026-11-10) Security tests in 0.2.0, before the `red-team` skill. The Security role reviews each
+- `@decided` Security tests in 0.2.0, before the `red-team` skill. The Security role reviews each
   security zone. The injection tests of an AI artifact use the injection test set of `ai-evals` (D29).
 - `@replaced` "`@open` The release of the `blue-team` skill." Replaced by: U5 in D28 (0.5.0, with `red-team`).
 
@@ -108,19 +108,22 @@ Status: `@decided` · Release: README note in 0.1.1, the rest in 0.2.0 · The us
 
 A hook cannot warn when the plugin did not load, so the warning comes from a file that loads without the plugin.
 
-- `@proposed` `guilda:init` adds a short block to the project `CLAUDE.md`: "This project uses guilda. If no
+- `@decided` `guilda:init` adds a short block to the project `CLAUDE.md`: "This project uses guilda. If no
   `guilda:*` agent exists in this session, stop and tell the user that guilda is off."
-- `@proposed` (reclassified 2026-11-10, D24) `doctor` is an internal script, not a skill. It reports: plugin loaded,
+- `@decided` (reclassified 2026-11-10, D24) `doctor` is an internal script, not a skill. It reports: plugin loaded,
   hooks live, `guilda:*` agents present, project files present, version. Each item is PASS, FAIL or UNKNOWN with its
   evidence. The activation check shows its result. From 0.3.0 the mod (D20) also shows it.
-- `@proposed` The README says that a project-scope install loads only when Claude Code starts in that project folder.
-- `@proposed` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
+  (2026-11-10, D40) It also reports whether the extension plugin loaded. The agents are in the core plugin.
+- `@decided` The README says that a project-scope install loads only when Claude Code starts in that project folder.
+- `@decided` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
 - Risk (2026-11-10): the dependencies of D28 can stop the load of the extension plugin (D40). The activation check
   must detect that case.
 - `@replaced` (U3) "The 0.2.0 `guilda:init` and the activation check detect a project layer of 0.1.x and tell the user
   to run `guilda:init` again." Replaced by: the next item (D40).
 - `@decided` (2026-11-10, the user, U3 with D40) The 0.2.0 session start detects a project layer of 0.1.x. It migrates
   that layer (D40). It asks the user only when a value cannot be inferred. This works from any earlier version.
+  (2026-11-10, the migration contract of D40) The hook asks nothing. A value that cannot be inferred becomes a
+  notice. The notice sends the user to `guilda:update`, and `guilda:update` asks.
 - `@decided` (2026-11-10, the user) The core plugin tells the user when the extension plugin did not load (D40).
 
 ### D3 — Field report skill `guilda:report`
@@ -140,13 +143,13 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
   - No whole files, transcripts, logs or diffs in a report.
   - Show each issue and each comment in full. Send only after the user says yes (R12).
   - Without `gh`, without a login, or on an error: save the report in `.guilda/reports/` and send nothing.
-- `@proposed` (risk, 2026-11-10) The anonymization by a model is not reliable, and the R19 scan does not find a
+- `@decided` (risk) The anonymization by a model is not reliable, and the R19 scan does not find a
   domain name or a business term. So the skill shows each field of the report alone, and the user approves each
   field before the send.
-- `@proposed` This repository gets one label and one issue template for each report type.
-- `@proposed` (2026-11-10) The scan and the send are one internal script, `scripts/report-send.mjs` (D24). It runs
+- `@decided` This repository gets one label and one issue template for each report type.
+- `@decided` The scan and the send are one internal script, `scripts/report-send.mjs` (D24). It runs
   the R19 scan on the final text, then sends with `gh`, or saves the report in `.guilda/reports/`.
-- `@proposed` The glossary adds the term `field report` (see Glossary proposals).
+- `@decided` The glossary adds the term `field report` (see Glossary proposals).
 
 ### D4 — QA report parser
 
@@ -160,10 +163,11 @@ An unindented continuation line stays in its scenario.
 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, #13.
 
-- `@proposed` The ARC6 hook also validates a brief file. For a prompt with a `Brief file: <path>` line, the hook
-  checks the text of that file.
-- `@proposed` The hook also checks a dispatch of another agent type when the prompt has a `Role: executor` line.
-- `@proposed` New optional brief fields: `Decisions:`, `Mutants:` and `Conflict cases:` (#5).
+- `@decided` The ARC6 hook also validates a brief file. For a prompt with a `Brief file: <path>` line, the hook
+  checks the text of that file. (2026-11-10, the Architect's choice) A relative path resolves from the project root.
+  A path to a file that does not exist is refused (fail closed).
+- `@decided` The hook also checks a dispatch of another agent type when the prompt has a `Role: executor` line.
+- `@decided` New optional brief fields: `Decisions:`, `Mutants:` and `Conflict cases:` (#5).
 - `@decided` (2026-11-10, the user, U6) `Base commit:` (#13) is a required field of a new brief in 0.2.0. The ARC6 hook
   refuses a new brief without it. This changes the brief format (CHANGELOG "Changed").
 - `@decided` (2026-11-10, the user) The tolerant reader of D40 applies to stored files (config, CHANGELOG, queue,
@@ -173,15 +177,15 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #4, #5.
 
-- `@proposed` ARC7, ARC8 and ARC10 as written in #5: exact scenarios, one owner task for each `@decided` item, and
+- `@decided` ARC7, ARC8 and ARC10 as written in #5: exact scenarios, one owner task for each `@decided` item, and
   a glossary entry for each new term. The EF-system project used them as project rules, with evidence of value.
   Texts in the 0.2.0 spec, approved 2026-11-10.
-- `@proposed` A builder check before approval (#4): a fresh subagent reads the spec cold and lists its guesses. The
+- `@decided` A builder check before approval (#4): a fresh subagent reads the spec cold and lists its guesses. The
   Architect sorts them into three groups: answered already, minor, the user's.
-- `@proposed` A ruling that changes behavior enters the spec in the same step, before the Executor continues. The
+- `@decided` A ruling that changes behavior enters the spec in the same step, before the Executor continues. The
   ledger only points to it (#2 finding 4).
-- `@proposed` Rule IDs and decision IDs are unique in a project.
-- `@proposed` `guilda:init` writes a skeleton `GLOSSARY.md`.
+- `@decided` Rule IDs and decision IDs are unique in a project.
+- `@decided` `guilda:init` writes a skeleton `GLOSSARY.md`.
 
 ### D7 — Mutants
 
@@ -197,15 +201,16 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #10, #13.
 
-- `@proposed` Checklist additions from #10: no secret in a client cache, the URL, storage or logs; anchored
+- `@decided` Checklist additions from #10: no secret in a client cache, the URL, storage or logs; anchored
   assertions; fixtures with a record that each filter must reject; no generated artifacts in the diff; the exit code
   in the Executor report.
-- `@proposed` A spec review mode (#13), with its own checklist: testable scenarios, tags, contracts, owners. Its
+- `@decided` A spec review mode (#13), with its own checklist: testable scenarios, tags, contracts, owners. Its
   verdict has the line `Stage: spec`. It does not count toward the R11 rejection limit.
-- `@proposed` The Reviewer can ask the Architect a question about the spec. The Architect answers with facts and never
+- `@decided` The Reviewer can ask the Architect a question about the spec. The Architect answers with facts and never
   argues for a verdict. The verdict stays with the Reviewer (R7). The ledger records each question and each answer.
 - `@decided` (#2 finding 12) A re-review of a small fix can run at the journeyman tier. Small means: about 50 changed
   lines or fewer, no risk area, no shared code. The first review and the final review stay at the master tier.
+  (2026-11-10, the Architect's choice) The limit is 50 changed lines.
 
 ### D9 — Parallel waves
 
@@ -213,36 +218,36 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #7, #8, 
 
 Text rules in the Architect procedure, with no new script in 0.2.0:
 
-- `@proposed` The plan has a producer/consumer table. Each interaction between tasks is one row. Each row names the
+- `@decided` The plan has a producer/consumer table. Each interaction between tasks is one row. Each row names the
   task that writes the join test (#8).
-- `@proposed` A foundation-fix path (#8). A task that finds a bug in a shared part that it does not own makes no
+- `@decided` A foundation-fix path (#8). A task that finds a bug in a shared part that it does not own makes no
   local workaround. The Architect decides where the fix goes and the merge order.
-- `@proposed` A shared-helper forecast before a wave (#9). A temporary copy carries the marker
+- `@decided` A shared-helper forecast before a wave (#9). A temporary copy carries the marker
   `guilda:consolidate <name>` in a code comment. The marker is text that a later task finds with grep, not a command
   (D24).
-- `@proposed` The foundation task adds the ignore entries of each tool that it adds (#8).
-- `@proposed` Each brief asks for a `timeout` on long commands and a commit for each green item (#7).
+- `@decided` The foundation task adds the ignore entries of each tool that it adds (#8).
+- `@decided` Each brief asks for a `timeout` on long commands and a commit for each green item (#7).
 
 ### D10 — Role fixes
 
 Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #13.
 
-- `@proposed` Merges and conflicts go to `version-control`, after the user approves the merge (#2 finding 6).
-- `@proposed` `QA: covered by review` when each Acceptance scenario names a check that the Reviewer already ran (#2
+- `@decided` Merges and conflicts go to `version-control`, after the user approves the merge (#2 finding 6).
+- `@decided` `QA: covered by review` when each Acceptance scenario names a check that the Reviewer already ran (#2
   finding 7).
-- `@proposed` The Executor, QA and the Reviewer never publish or share anything outside the worktree (#2 finding 9).
-- `@proposed` EXE2 becomes "show the new test failing against the old code" (#13 finding 5). Text in the 0.2.0 spec, approved 2026-11-10.
-- `@proposed` Each dispatch states the reply language of `config.languages` (#13 finding 6).
-- `@proposed` ARC4 fallback (#13 finding 4). If the model of a tier is not available, use one tier lower. Tell the
+- `@decided` The Executor, QA and the Reviewer never publish or share anything outside the worktree (#2 finding 9).
+- `@decided` EXE2 becomes "show the new test failing against the old code" (#13 finding 5). Text in the 0.2.0 spec, approved 2026-11-10.
+- `@decided` Each dispatch states the reply language of `config.languages` (#13 finding 6).
+- `@decided` ARC4 fallback (#13 finding 4). If the model of a tier is not available, use one tier lower. Tell the
   user.
 
 ### D11 — `lint-rules` and formatters
 
 Status: `@decided` · Release: first item 0.1.1, second item 0.2.0 · The user, 2026-11-09 · Issue: #13.
 
-- `@proposed` `lint-rules` accepts a blank line after a rule title and between the `Rule:`, `Why:` and `Check:`
+- `@decided` `lint-rules` accepts a blank line after a rule title and between the `Rule:`, `Why:` and `Check:`
   lines.
-- `@proposed` `guilda:init` detects a formatter in the project and proposes an ignore entry for `.guilda/`.
+- `@decided` `guilda:init` detects a formatter in the project and proposes an ignore entry for `.guilda/`.
 
 ### D12 — Agent identity and questions after the work
 
@@ -663,7 +668,8 @@ Areas are knowledge, so they are skills, not agents.
   `superpowers` as a required dependency is new: the 0.1.0 design (6.6) only named it as a related plugin.
 - `@decided` (2026-11-10, the user, U2 with D40) The core plugin always loads, with no dependency. The laws are
   always on. "guilda does not load without `skill-creator` and `superpowers`" applies only to the extension plugin.
-  The core tells the user when the extension did not load (D2).
+  The core tells the user when the extension did not load (D2). (2026-11-10, the user, D40) With no `.guilda/`
+  folder, the laws do not run. R28 tells the user to run `guilda:init`.
 - `@decided` (2026-11-10, the user, U1) 0.2.0 ships the levels `light` and `full`; E1 sets their gates later. This
   replaces the D1 item "the levels enter a release only after E1 runs" (D1 records it too).
 - `@decided` (2026-11-10, the user, U5) The `blue-team` skill comes in 0.5.0, with the `red-team` skill and the
@@ -867,16 +873,30 @@ web research (Fowler "Tolerant Reader"; Kubernetes deprecation policy; Claude Co
 docs; VS Code extension manifest `engines`).
 
 - `@decided` Two plugins in the guilda marketplace. `guilda` is the core: the laws, the hooks and the activation
-  check. It has no dependency and works without `guilda:init`. An extension plugin holds the full process (skills,
-  agents) and requires `skill-creator` and `superpowers` (U2) with version ranges. So the laws never turn off when a
-  dependency is missing or broken.
+  check. It has no dependency. An extension plugin requires `skill-creator` and `superpowers` (U2) with version
+  ranges. So the laws never turn off when a dependency is missing or broken.
+- `@decided` (2026-11-10, the user) The agents stay in the core plugin `guilda`. So their names do not change
+  (`guilda:executor`, `guilda:reviewer` and the others), and the hook matchers do not change. The core holds the laws, the hooks, the
+  agents, `guilda:init` and the Architect. The extension holds only what needs `skill-creator` and `superpowers`:
+  the domain skills and the agent creator. One repository and one marketplace; the file map and the folder layout
+  are in the 0.2.0 spec, section 3c. This replaces "an extension plugin holds the full process (skills, agents)".
 - `@decided` (2026-11-10, the user) The core plugin always loads and the laws are always on. The core tells the user
   when the extension plugin did not load (D2, U2 in D28).
-- `@decided` The core works with no `.guilda/config.json` or with an invalid one: safe defaults, all laws on, and one
-  clear notice ("guilda without init: laws on, default process"). Found in 0.1.0: `scripts/hooks/pre-tool-use.mjs`
-  returns early when the config is missing or invalid, so the R19 scan is off exactly when init failed. A law must
-  fail closed. `@decided` fix in 0.1.1 (the user approved the 0.1.1 scope on 2026-11-10).
-- `@proposed` Tolerant reader: each reader of a stored guilda file (config, verdicts, CHANGELOG, queue, state)
+- `@replaced` "The core works with no `.guilda/config.json` or with an invalid one." The item also gave safe
+  defaults, all laws on and the notice "guilda without init: laws on, default process". Replaced by: the next three
+  items.
+- `@decided` (2026-11-10, the user) A project with no `.guilda/` folder gets a new core law, R28. R28 tells the user
+  at session start, and when a guilda skill or a `guilda:*` agent is used. The text: "guilda is installed but not
+  set up in this project. If you just installed it, reload; then run guilda:init. Without it guilda does not work."
+  In such a project the other laws do not run, as in 0.1.0. R28 ships in 0.2.0, because a new rule raises the minor
+  number (`RELEASING.md`, 0.1.1 spec Q1).
+- `@decided` (2026-11-10, the user) A `.guilda/` folder can have a missing or invalid config. Then the four laws
+  (R4, R18, R19, ARC6) run with safe defaults (fail closed). Found in 0.1.0: three hooks return early when the
+  config is missing or invalid. They are `scripts/hooks/pre-tool-use.mjs`, `scripts/hooks/pre-compact.mjs` and
+  `scripts/hooks/pre-agent.mjs`. So these laws are off exactly when init failed. Fix in 0.1.1, with tests and a scenario for each hook.
+- `@decided` (2026-11-10, the user) In a project with no `.guilda/` folder, a refusal records nothing and creates no
+  folder. `appendViolation` in `scripts/lib/violations.mjs` does not create `.guilda/`. Fix in 0.1.1.
+- `@decided` Tolerant reader: each reader of a stored guilda file (config, verdicts, CHANGELOG, queue, state)
   accepts the current and the earlier format, ignores unknown fields, and uses a default for a missing field.
   (2026-11-10, the user) A brief written at dispatch is not a stored file. The ARC6 hook refuses a new brief without
   `Base commit:` (D5, U6).
@@ -891,15 +911,18 @@ docs; VS Code extension manifest `engines`).
   - Tolerant reader: a missing `process` field reads as `full`, which is the 0.1.0 behavior of R24 and R11.
   - `schemaVersion` and migrations that are safe to run again run in memory at each session start.
   - A migration writes a committed project file only through `guilda:update` or after the user approves.
-  - The user gets a question only when a migration cannot infer a value.
+  - The user gets a question only when a migration cannot infer a value. A hook never asks it. The value becomes
+    a notice that sends the user to `guilda:update` (0.2.0 spec, section 3d).
   - `RELEASING.md` and the version notice stop telling projects to run `guilda:init` again.
 - `@decided` (research) The Claude Code plugin manifest has no minimum host version field, so guilda checks that a
   feature exists. This closes the `@open` item below.
-- `@proposed` Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe to
-  run again.
-- `@proposed` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
-- `@proposed` Compatibility tests: fixtures of each published version (config, briefs, CHANGELOG) and an update test
-  from each published version. A test runs the laws in a project with no `.guilda/` folder.
+- `@replaced` "Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe
+  to run again." Replaced by: the migration contract of the 0.2.0 spec, section 3d. `schemaVersion` lives in
+  `.guilda/config.json`, and the migrations run in memory at session start.
+- `@decided` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
+- `@decided` Compatibility tests: fixtures of each published version (config, briefs, CHANGELOG) and an update test
+  from each published version. With no `.guilda/` folder, a test checks that the laws do not run and that R28
+  speaks. A test checks that the laws run in a broken project layer.
 - `@replaced` "`@open` Not verified: whether the Claude Code plugin manifest has a minimum host version field."
   Replaced by: the research item above (no such field; guilda checks that a feature exists).
 
@@ -932,6 +955,9 @@ user on 2026-11-10.
   of D25).
 - `@decided` An action in production (deploy, rollback, an infrastructure change) runs only through an agent with
   restricted tools, and a hook refuses it without the user's explicit approval (R12).
+- `@decided` (2026-11-10, the user) A lab of the DevOps group decides how the hook recognizes a production command.
+  The lab has research and an experiment, in a dispatched agent. It comes before the build of the lock. The 0.2.0
+  spec lists it as O7 in its table of labs that gate parts.
 
 ### D43 — Skills isolated by role group `@decided`
 

@@ -9,7 +9,8 @@ Do these steps for every merge to `main`.
    - The 0.x rule: while the major number is 0, a core rule that is removed or changes meaning raises the minor
      number, not the major one.
    - A rule that changes meaning is rewritten in place. The project layer copies no rule text. The migrations run
-     at session start, so no project runs `guilda:init` again after an update.
+     in memory at session start, so no project runs `guilda:init` again after an update. A migration writes
+     `.guilda/config.json` only through `guilda:update` or after the user approves.
 2. Update `CHANGELOG.md` in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) form:
    - Rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>`, and add a new empty `## [Unreleased]` above it.
    - Group the lines under `### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed` or
