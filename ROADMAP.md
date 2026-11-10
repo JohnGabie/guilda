@@ -18,16 +18,18 @@ laws run when the `.guilda/` folder has a missing or invalid `config.json`.
 [Milestone 0.2.0](https://github.com/JohnGabie/guilda/milestone/2)
 
 Process levels `light` and `full`, an activation check, decisions through the question tool, and the field report
-skill. Role groups, one Executor with domain skills, AI engineering skills, and a lean Architect.
+skill. Six role groups, one Executor with domain skills, AI engineering skills, and a lean Architect. The R4 hook
+also reads Bash commands.
 
 A core plugin with the laws, the hooks, the agents, `guilda:init` and the Architect, with no dependency. An extension
 plugin with the domain skills and the agent creator. With no `.guilda/` folder, guilda tells the user to run
 `guilda:init` (R28). Rules change in place with migrations. No project runs `guilda:init` again. An agent creator, a DevOps skill and
-advisor, and an AI role group with its lead. Skills isolated by role group, and truth first in every role. Labs gate
-their parts before the build of each part.
+advisor, an AI role group with its lead, and an Architect role group. Skills isolated by role group, and truth
+first in every role. Labs gate their parts before the build of each part.
 
 guilda reuses `superpowers` 7.x (D51). It copies and adapts the pieces that need a guilda format, with the MIT
-notice. It calls the other pieces from `superpowers`.
+notice. It calls the other pieces from `superpowers`. The three plugins of the repository share one version, and
+a bump script updates them together.
 
 ## 0.3.0 — traceability and state
 

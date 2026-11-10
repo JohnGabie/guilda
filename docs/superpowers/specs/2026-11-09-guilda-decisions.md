@@ -39,6 +39,8 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
   read the changes. 0.1.1 ships the parser that reads both formats and keeps the old format in its CHANGELOG. The
   "Keep a Changelog" format reaches `main` only with 0.2.0. A 0.1.0 install updates to 0.1.1 first.
 - `@decided` E1 and E2 run between releases. Each lab with a conditional GO gets its larger run before 1.0.
+- `@decided` (2026-11-10, the user) The plugins of this repository share one version and bump together in each
+  release (D51, `RELEASING.md`).
 - `@decided` (2026-11-09) Open source practice on GitHub: one milestone for each release with its issues, a short
   `ROADMAP.md`, the CHANGELOG in the "Keep a Changelog" form, and a GitHub release with notes for each tag. The
   register stays the source of the decisions.
@@ -86,10 +88,14 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
 - `@decided` (2026-11-10, the user) The R24 `Check:` line has its 0.1.0 sentence again. At `full`, each task
   closes only on a written approval of the Reviewer. Pass 2 of `agents/reviewer.md` cites R24 for it. The rest of
   the approved R24 text stays.
-- `@proposed` (2026-11-10, the Architect, third cold review) The session and each subagent see the level in a
+- `@decided` (2026-11-10, the Architect; the user approved) The session and each subagent see the level in a
   context line. Its form is `Process: <light or full>.` The session-start hook and the subagent-start hook print it
-  (0.2.0 spec, section 3d). `checkSchema` validates the value. `scripts/config-write.mjs` and
-  `scripts/config-check.mjs` refuse an invalid value.
+  (0.2.0 spec, section 3d). `scripts/config-write.mjs` and `scripts/config-check.mjs` refuse an invalid value.
+- `@replaced` "`checkSchema` validates the value." Replaced by: the next item. `loadConfig` calls `checkSchema` in
+  each hook, so that check would turn an invalid `process` into a broken project layer.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) Two functions. `checkSchema` stays tolerant, for the
+  hooks. `checkStrict` is new, for `scripts/config-write.mjs` and `scripts/config-check.mjs`. `projectState` changes
+  an invalid `process` or `explain` to `full` and returns the notice (0.2.0 spec, section 3d).
 - Correction (2026-11-10): the earlier text cited R22 for "QA for each task". R22 is QA in two phases. The level
   does not change R22: QA at `light` still runs both phases, one time at the end.
 - `@decided` Until E1 runs, guilda has two levels: `light` and `full`. E1 runs on the Glasshaus project after the
@@ -102,7 +108,7 @@ A level changes the gates and the review cycle, never a law. `guilda:init` alway
 - `@decided` (the user, after the cold review) The Architect marks the security zones in the spec. A zone is each
   block that touches a risk area: login, secrets, user data, and the areas of `config.security.riskAreas`. A task in
   a marked zone gets a Security review at each level. At `light`, that review is part of the one review at the end.
-- `@proposed` (2026-11-10, the Architect, third cold review) The mark is the line `Security zone: <risk area>`.
+- `@decided` (2026-11-10, the Architect; the user approved) The mark is the line `Security zone: <risk area>`.
   The line is directly under the heading of the spec block. A task that builds such a block gets a brief whose `Risk area:` is
   not `none` (0.2.0 spec, section 3b).
 - `@decided` A domain skill (D28) helps the Architect find the zones.
@@ -124,10 +130,14 @@ A hook cannot warn when the plugin did not load, so the warning comes from a fil
   hooks live, `guilda:*` agents present, project files present, version. Each item is PASS, FAIL or UNKNOWN with its
   evidence. The activation check shows its result. From 0.3.0 the mod (D20) also shows it.
   (2026-11-10, D40) It also reports whether the extension plugin loaded. The agents are in the core plugin.
-- `@proposed` (2026-11-10, the Architect, third cold review) The `doctor` contract is in the 0.2.0 spec, section 4a.
+- `@decided` (2026-11-10, the Architect; the user approved) The `doctor` contract is in the 0.2.0 spec, section 4a.
   It gives the evidence source of each check. "Hooks live" reads a marker file `.guilda/.hooks-live.json` that the
   session-start hook writes. The caller gives the session ID and the agent list. The Architect runs `doctor` before
   the first dispatch of a session, and `guilda:init` runs it at its end.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) Fixes of the `doctor` contract. The session start
+  calls `ensureIgnored`, so a 0.1.x project does not commit the marker. `--agents` takes names in the form
+  `guilda:executor`. The O1 lab runs before the `doctor` task. The notice of a missing extension names both
+  dependencies, and not the missing one (0.2.0 spec, section 4a, S13, S21).
 - `@decided` The README says that a project-scope install loads only when Claude Code starts in that project folder.
 - `@decided` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
 - Risk (2026-11-10): the dependencies of D28 can stop the load of the extension plugin (D40). The activation check
@@ -164,10 +174,14 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
 - `@decided` The scan and the send are one internal script, `scripts/report-send.mjs` (D24). It runs
   the R19 scan on the final text, then sends with `gh`, or saves the report in `.guilda/reports/`.
 - `@decided` The glossary adds the term `field report` (see Glossary proposals).
-- `@proposed` (2026-11-10, the Architect, third cold review) The `report-send` contract is in the 0.2.0 spec,
+- `@decided` (2026-11-10, the Architect; the user approved) The `report-send` contract is in the 0.2.0 spec,
   section 4a. The input is a Markdown report file and a required `--type`. The target comes from `--repo` or from
   the config field `report.repo`, and the default is this repository. The labels are `report-improvement`,
   `report-bug`, `report-feature` and `report-other`.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) Fixes of the `report-send` contract. The body has no
+  title line. A repository value is `owner/name` or a GitHub URL, and the script changes the URL to `owner/name`.
+  With no `.guilda/` folder the script refuses with the set-up notice (R28). `.guilda/reports/` is git-ignored
+  (0.2.0 spec, section 4a).
 - `@decided` (2026-11-10, the user, D51) The skill copies and adapts pieces of
   `superpowers:diagnosing-superpowers`, with the MIT notice. They are the redaction policy, the scrub prompts and
   the templates.
@@ -196,6 +210,9 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
 - `@decided` (2026-11-10, the user, D51) Four scripts of `superpowers` are copied and adapted. `task-brief` and
   `review-package` serve the `Brief file:` line and the diff file for Security. `task-start` and `task-done` serve
   `Base commit:`.
+- `@decided` (2026-11-10, from U6) An inline brief, with no `Brief file:` line, needs `Base commit:` too.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) A `Brief file:` path can resolve outside the project
+  root. The hook refuses it (0.2.0 spec, S22).
 
 ### D6 — Concrete specs
 
@@ -235,6 +252,10 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #10, #13
 - `@decided` (#2 finding 12) A re-review of a small fix can run at the journeyman tier. Small means: about 50 changed
   lines or fewer, no risk area, no shared code. The first review and the final review stay at the master tier.
   (2026-11-10, the Architect's choice) The limit is 50 changed lines.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) The definitions. The changed lines are the added
+  plus the deleted lines of `git diff --numstat`. Shared code is a file that another task of the plan may also
+  touch. A file of the producer/consumer table (D9) is shared code too. The owner file is `skills/architect/SKILL.md` (0.2.0 spec,
+  S8).
 
 ### D9 — Parallel waves
 
@@ -547,6 +568,9 @@ five times.
 - `@decided` The Architect adapts the question to the level of the user, and asks again in simpler words when an answer
   shows that the user did not understand.
 - `@decided` A setting `explain: "brief" | "full"` in `.guilda/config.json`, asked by `guilda:init`.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) The reader is the Architect skill. At `full`, a
+  question has its full context. At `brief`, a question has one sentence of context, and each option has its effect
+  in a few words. R13 holds at both values (0.2.0 spec, section 3b).
 - `@decided` New text of ARC1 and R13. Text in the 0.2.0 spec, approved 2026-11-10.
 
 ### D24 — Few commands
@@ -583,6 +607,8 @@ user, 2026-11-09.
     `lab-experimenter` (tests a hypothesis against PASS criteria written before the run, D19).
   - Security: the Security Lead (D16, D37). The red team and blue team are skills of D28, not roles.
 - `@replaced` "The Architect in the main session". Replaced by: D31 from 0.4.0. Until 0.3.x it stays true.
+- `@replaced` "Engineering: the Architect". Replaced by: the Architect group of D43 (2026-11-10, the user). The
+  Architect is in its own group. The Reviewer is in Engineering and in the Architect group.
 - `@replaced` "The three lab roles give one report form". Replaced by: D34.
 - `@decided` The lab roles are internal. The Architect dispatches them (D24).
 - `@decided` (2026-11-10, the user) The names of the three lab roles: `lab-researcher`, `lab-reader`, `lab-experimenter`.
@@ -615,7 +641,7 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issue: #1.
 
 - `@decided` The `ios-on-linux` skill becomes its own plugin in the guilda marketplace. It is not a required
   dependency.
-- `@proposed` (2026-11-10, the Architect, third cold review) The plugin lives in `plugins/ios-on-linux/` of this
+- `@decided` (2026-11-10, the Architect; the user approved) The plugin lives in `plugins/ios-on-linux/` of this
   repository. Its marketplace source is `./plugins/ios-on-linux`. So the marketplace lists three plugins (0.2.0
   spec, section 3c). The skill is not in this repository today; its task copies it with no machine path and no
   personal data.
@@ -657,6 +683,14 @@ Coherent links between specs, plans and agents, so that a change in a spec reach
 - Lab `lab/trace-index` (`docs/labs/2026-11-09-trace-index.md`): conditional GO. Change alarm: exactly the 5
   affected briefs, no false hit, under 0.15 s. 44 Haiku agents: 19 of 20 correct answers against 18 of 20, mean input
   tokens 18% lower (median 38%). One model, one spec. A larger lab runs before 1.0.
+- `@decided` (2026-11-10, the user) A gap of the R4 hook, found in the live smoke test of 0.1.1. A plan file made
+  through `Bash` passes, because the hook checks only `Write` and `Edit`. Examples: `cat > docs/superpowers/plans/x.md`,
+  `tee`, a redirection. 0.2.0 fixes it in the same change of the R4 hook. The `Bash` path of PreToolUse also refuses
+  a command that creates a plan file in `docs/superpowers/plans/`, or an orphan `*.plan.md`.
+- `@decided` (2026-11-10, the user) The spec states the limit. A hook catches the common shell forms, not each
+  form (0.2.0 spec, section 3, R4, and S46).
+- `@proposed` (2026-11-10, the Architect) The forms that the hook reads: a redirection (`>`, `>>`), `tee`, `cp`,
+  `mv` and `touch`.
 
 ### D28 — A generic Executor with domain skills
 
@@ -748,6 +782,10 @@ is lost. Measured: `skills/architect/SKILL.md` is 121 lines, about 2,000 tokens.
 - `@decided` (2026-11-10, the user) The split lab runs at the start of the 0.2.0 build, before the split.
 - Lab: 5 fixed situations, one file against the split, 3 runs each. PASS: at least as correct, 25% fewer
   tokens or more, the correct reference in 14 of 15 cases.
+- `@proposed` (2026-11-10, the Architect, fourth cold review) The NO-GO path. The 140-line check holds only on a
+  GO. In one file, the ARC7 to ARC10 blocks alone pass 140 lines. On a NO-GO, the file has no line limit
+  until the user answers. The tasks that change a rule block or a procedure step run. The tasks whose text goes to
+  a reference file wait (0.2.0 spec, S15).
 
 ### D31 — The Architect as its own agent
 
@@ -954,11 +992,11 @@ docs; VS Code extension manifest `engines`).
   - The user gets a question only when a migration cannot infer a value. A hook never asks it. The value becomes
     a notice that sends the user to `guilda:update` (0.2.0 spec, section 3d).
   - `RELEASING.md` and the version notice stop telling projects to run `guilda:init` again.
-  - `@proposed` (2026-11-10, the Architect, third cold review) The new version notice, for each kind of update:
+  - `@decided` (2026-11-10, the Architect; the user approved) The new version notice, for each kind of update:
     "guilda updated <configured> → <installed>. The project layer works as it is. Run guilda:update to see the
     changes and to save the new version." Today `scripts/hooks/session-start.mjs` has two texts that say to run
     `guilda:init`. `skills/update/SKILL.md` changes with it (0.2.0 spec, section 3d, S42 and S43).
-  - `@proposed` (2026-11-10, the Architect) `scripts/config-write.mjs` writes `schemaVersion: 2` in each new config.
+  - `@decided` (2026-11-10, the Architect; the user approved) `scripts/config-write.mjs` writes `schemaVersion: 2` in each new config.
     Its `--migrate` mode writes a migrated config, and `guilda:update` runs it after the user approves.
 - `@decided` (research) The Claude Code plugin manifest has no minimum host version field, so guilda checks that a
   feature exists. This closes the `@open` item below.
@@ -966,11 +1004,12 @@ docs; VS Code extension manifest `engines`).
   to run again." Replaced by: the migration contract of the 0.2.0 spec, section 3d. `schemaVersion` lives in
   `.guilda/config.json`, and the migrations run in memory at session start.
 - `@decided` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
-  (2026-11-10, the Architect, third cold review) Not verified: the form of a dependency entry with a range. 0.1.0
-  uses a string with no version. A check in the build tries the form of the 0.2.0 spec, section 3c. The fallback is
+  (2026-11-10, the Architect, third cold review) Not verified: the form of a dependency entry with a range. No
+  released version has a dependency (2026-11-10, fourth cold review: 0.1.0 and 0.1.1 have no `dependencies` field).
+  The development branch of 0.2.0 has one entry for the core, a string with no version. A check in the build tries the form of the 0.2.0 spec, section 3c. The fallback is
   the string form, with a version check in `guilda:init`. `allowCrossMarketplaceDependenciesOn` lists the
   marketplace of each dependency.
-- `@proposed` (2026-11-10, the Architect, third cold review) "The extension has no hook" has one exception. The
+- `@decided` (2026-11-10, the Architect; the user approved) "The extension has no hook" has one exception. The
   lab of O1 can pick the marker file. Then the extension has one SessionStart hook, and it only writes the marker.
 - `@decided` Compatibility tests: fixtures of each published version (config, briefs, CHANGELOG) and an update test
   from each published version. With no `.guilda/` folder, a test checks that the laws do not run and that R28
@@ -1010,6 +1049,10 @@ user on 2026-11-10.
 - `@decided` (2026-11-10, the user) A DevOps lab decides how the hook recognizes a production command (DevOps is in Engineering).
   The lab has research and an experiment, in a dispatched agent. It comes before the build of the lock. The 0.2.0
   spec lists it as O7 in its table of labs that gate parts.
+- `@decided` (2026-11-10, the user) The same DevOps lab also studies O4: how the hook sees the user's approval.
+- `@decided` (2026-11-10, the user) The fallback on a NO-GO for O4: no agent ever runs a production command. The
+  agent prepares the command, and the user runs it, for example with `!` in the prompt. The hook refuses each
+  production command that it recognizes, from each agent (0.2.0 spec, section 2, Labs, and S34).
 
 ### D43 — Skills isolated by role group `@decided`
 
@@ -1018,6 +1061,7 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
 
 - `@decided` Each skill belongs to one role group or to the shared group. The groups: Engineering, Lab, Security, AI
   (D45) and Council (D47). An agent loads only the skills of its own group and of the shared group.
+  (2026-11-10) The list has a sixth group, Architect; see the items below.
 - `@decided` (2026-11-10, the user) The group of an agent comes from its agent definition. The Engineering Executor
   loads the Engineering skills and the shared group. `red-team` and `blue-team` load only in a Security Executor, a
   separate agent definition with restricted tools (0.5.0, as D28 plans). So an Engineering Executor cannot load the
@@ -1029,10 +1073,25 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
   load it.
 - `@decided` (2026-11-10, the user) The isolation is about which skills an agent loads. Groups still work together
   through the Architect: for example, the AI group asks the Lab to run an experiment.
-- `@proposed` (2026-11-10, the Architect, third cold review) The field format. An agent definition has `group: <one
+- `@decided` (2026-11-10, the Architect; the user approved) The field format. An agent definition has `group: <one
   group>`. A skill has `groups: [<group>, ...]`. The shared group is `groups: [shared]`. A skill with no `groups`
   field is not refused. The D43 lab confirms the field names. The fallback is one file `core/groups.json` (0.2.0
   spec, section 3e).
+- `@decided` (2026-11-10, the user) A sixth role group: the Architect group, the Architect's own group. So the
+  groups are Engineering, Lab, Security, AI, Council and Architect, and the shared group.
+- `@decided` (2026-11-10, the user) Its members are the Architect, the Architect executors, the coherence validator
+  and the cold reviewers. An Architect executor writes the MD files (specs, plans, briefs) and does other Architect
+  tasks. The coherence validator checks specs and plans. Each earlier decision about the Architect stays.
+- `@decided` (2026-11-10, the user) The cold reviewers are shared with Engineering. The user left the form to the
+  Architect. The form: the agent definition lists both groups, `group: [engineering, architect]`. The value
+  `shared` stays a value of skills only (0.2.0 spec, section 3e).
+- `@decided` (2026-11-10, the user) The main session is in the Architect group. The Architect runs there until
+  0.4.0 (D31).
+- `@decided` (2026-11-10, the user) Nobody is without a group. The hook refuses a skill call from an agent with no
+  `group` (fail closed). The refusal says that the field is missing.
+- `@proposed` (2026-11-10, the Architect) A built-in agent type and an agent of another plugin have no `group`
+  field. So the refusal covers them too. `@open` The user confirms this, or limits the refusal to `guilda:*`
+  agents (0.2.0 spec, O10).
 
 ### D44 — The Architect plans each skill and calls the area leads `@decided`
 
@@ -1268,9 +1327,8 @@ package, seen on 2026-11-10.
   - The skill-trigger tests (D28, D43). Found: `tests/explicit-skill-requests/` and
     `tests/claude-code/run-skill-tests.sh`. Not found: a folder with "skill-trigger" in its name.
   - The SessionStart matcher `startup|clear|compact` of `hooks/hooks.json` (R28, D40).
-  - `scripts/bump-version.sh` (`RELEASING.md`). Found in the build of this entry: the script reads the
-    `.version-bump.json` of its own repository. So guilda cannot call it for the guilda manifests. `@open` Copy and
-    adapt it, or keep the manual step of `RELEASING.md` (0.2.0 spec, O9).
+  - `@replaced` "`scripts/bump-version.sh` is called." The script reads the `.version-bump.json` of its own
+    repository, so guilda cannot call it for the guilda manifests. Replaced by: the copy of the item below (O9).
   - The harness tool tables (`skills/using-superpowers/references/*-tools.md`) and the porting guide
     (`docs/porting-to-a-new-harness.md`), for the Codex adapter of 0.4.0.
   - The visual companion of `brainstorming` (`skills/brainstorming/visual-companion.md`): visual options of the
@@ -1282,12 +1340,20 @@ package, seen on 2026-11-10.
   no `evals/` folder, and it has a `tests/` folder. The source repository was not read.
 - Not verified: that each `tests/` and `docs/` path above ships in each later 7.x package. A build task that calls
   one checks that the file exists. It fails with a clear text when the file does not exist.
-- `@open` (2026-11-10, the Architect) The core plugin has no dependency (D40). This entry calls `superpowers`
+- `@decided` (2026-11-10, the Architect; the user approved, O8) The core plugin has no dependency (D40). This entry calls `superpowers`
   skills for core rules (EXE2, R27, R6). The Architect's reading: a core file names such a skill only as an option.
   `skills/init/SKILL.md` does this today for `superpowers:brainstorming`. The core text stays complete without it
   (0.2.0 spec, O8).
 - `@proposed` (2026-11-10, the Architect) One file lists the copies: `THIRD-PARTY-NOTICES.md`. It has the MIT
   license text and the copyright line of `superpowers` (0.2.0 spec, S44).
+- `@decided` (2026-11-10, the user, O9) `scripts/bump-version.sh` is copied as a guilda script, with the MIT
+  notice. It updates the version of each plugin of this repository.
+- `@decided` (2026-11-10, the user) Version policy: the three plugins share one version. They are the core
+  `guilda`, the extension and `ios-on-linux`. They bump together in each release. `RELEASING.md` says this (0.2.0
+  spec, section 3g, S45).
+- `@proposed` (2026-11-10, the Architect, fourth cold review) The destination path of each copy is in the 0.2.0
+  spec, section 3f. Each copy is in the core plugin. The bump script stays a shell script that needs `jq`, with
+  its own `.version-bump.json`.
 
 ## Experiments
 
@@ -1314,7 +1380,7 @@ first uses each term.
 | supervisor | 0.5.0 (the text approved in the 0.2.0 checklist; name decided by the user, D15 U4) | `- **supervisor**: the background role that runs the work that the Architect designed, keeps the pace and the health of the flow, and does not own the project. Forbidden: orchestrator, leader, foreman.` |
 | field report | 0.2.0 | `- **field report**: the output of guilda:report, a report from a project to the guilda repository, apart from the reports of the Executor and of QA. Forbidden: feedback, bug report.` |
 | lab report | 0.2.0 | `- **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.` |
-| Lab group | 0.2.0 (`@proposed`, 2026-11-10) | `- **Lab group**: the role group that researches, runs experiments and studies data for the other groups (D25, D45); one run of it is a lab. Forbidden: research team, lab team.` |
+| Lab group | 0.2.0 (`@decided`, approved 2026-11-10) | `- **Lab group**: the role group that researches, runs experiments and studies data for the other groups (D25, D45); one run of it is a lab. Forbidden: research team, lab team.` |
 | block | 0.3.0 | `- **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.` |
 | agent ID | 0.3.0 | `- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.` |
 | address | 0.4.0 | `- **address**: the code of one dispatch (task, role, short random part) that stays the same when the agent behind it changes. Forbidden: mailbox name, agent ID.` |
@@ -1324,7 +1390,7 @@ first uses each term.
   Security Lead. Replaced by: D15 U4.
 - `@decided` (2026-11-10, audit, the user's words) The `supervisor` line replaces the `foreman` line. "lead" is not a
   forbidden word, and the Security Lead keeps its name. `foreman` and `orchestrator` were working names of this role.
-- `@proposed` (2026-11-10) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
+- `@decided` (approved 2026-11-10, 0.2.0 checklist) The 0.2.0 spec, section 3b, has six more lines for 0.2.0. The terms: `process level`,
   `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
 - `@proposed` (2026-11-10) The word `lab` has two uses: one run (the `lab` line of `core/glossary.md`) and the role
   group (D45). The `Lab group` line above names the group, and the `lab` line keeps the run.

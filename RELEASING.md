@@ -2,7 +2,14 @@
 
 Do these steps for every merge to `main`.
 
-1. Raise `version` in `.claude-plugin/plugin.json`. Use these semver rules:
+1. Raise the version. The plugins of this repository share one version. They bump together in each release, also
+   when only one of them changed.
+   - Until 0.2.0 the only plugin is the core `guilda`. Raise `version` in `.claude-plugin/plugin.json`.
+   - From 0.2.0 the plugins are the core `guilda`, the extension and `ios-on-linux`. Run
+     `scripts/bump-version.sh <version>`. It writes the version in each plugin manifest. Then
+     `scripts/bump-version.sh --check` must exit 0.
+
+   Use these semver rules:
    - Major: a core rule is removed or changes meaning.
    - Minor: a new rule, role or skill.
    - Patch: a fix that does not change behavior.
@@ -20,7 +27,8 @@ Do these steps for every merge to `main`.
    - `scripts/changelog.mjs` reads these headings for `guilda:update`. Do not change their form.
 3. Run `npm test`. It must exit 0.
 4. Run `claude plugin validate --strict .`. It must print `Validation passed`.
-5. Run `claude plugin tag --push`. It creates and pushes the tag `guilda--v<version>`.
+5. Run `claude plugin tag --push`. It creates and pushes the tag `guilda--v<version>`. From 0.2.0, create one tag
+   for each plugin: `<plugin name>--v<version>`.
 6. Create a GitHub release for the tag. Its notes are the CHANGELOG entry of the version:
    `gh release create guilda--v<version> --title "guilda <version>" --notes-file <file with the entry>`.
    Close the milestone of the version on GitHub.
