@@ -848,3 +848,30 @@ first uses each term.
   `security zone`, `review unit`, `domain skill`, `triage`, `mutant`.
 - `@proposed` The `architect` line changes in 0.4.0 (D31): the Architect runs as its own agent, not in the main
   session.
+
+### D40 — Compatibility: a core plugin and extension plugins `@decided`
+
+Release: 0.2.0 (the split and the core); the other practices as listed. Decided by the user on 2026-11-10, after a
+web research (Fowler "Tolerant Reader"; Kubernetes deprecation policy; Claude Code plugin dependencies and manifest
+docs; VS Code extension manifest `engines`).
+
+- `@decided` Two plugins in the guilda marketplace. `guilda` is the core: the laws, the hooks and the activation
+  check. It has no dependency and works without `guilda:init`. An extension plugin holds the full process (skills,
+  agents) and requires `skill-creator` and `superpowers` (U2) with version ranges. So the laws never turn off when a
+  dependency is missing or broken.
+- `@decided` The core works with no `.guilda/config.json` or with an invalid one: safe defaults, all laws on, and one
+  clear notice ("guilda without init: laws on, default process"). Found in 0.1.0: `scripts/hooks/pre-tool-use.mjs`
+  returns early when the config is missing or invalid, so the R19 scan is off exactly when init failed. A law must
+  fail closed. `@proposed` fix in 0.1.1.
+- `@proposed` Tolerant reader: each reader of a guilda file (config, briefs, verdicts, CHANGELOG, queue) accepts the
+  current and the earlier format, ignores unknown fields, and uses a default for a missing field.
+- `@proposed` No change in place: a rule that changes meaning gets a new ID; the old ID is marked deprecated, points
+  to the new one, and still works for one release. This would replace the in-place rewrites of R24, R11 and R13 in
+  0.2.0, and remove the need to run `guilda:init` again for them.
+- `@proposed` Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe to
+  run again.
+- `@proposed` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
+- `@proposed` Compatibility tests: fixtures of each published version (config, briefs, CHANGELOG) and an update test
+  from each published version. A test runs the laws in a project with no `.guilda/` folder.
+- `@open` Not verified: whether the Claude Code plugin manifest has a minimum host version field. If not, guilda checks
+  that a feature exists instead of a version number.
