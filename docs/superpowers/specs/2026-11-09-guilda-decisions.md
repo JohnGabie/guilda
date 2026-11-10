@@ -764,6 +764,26 @@ Status: `@decided` · Release: 0.5.0 (with the foreman) · The user, 2026-11-09.
 - `@open` The mechanism (cron, systemd timer, a Claude Code scheduled task) and its limits.
 - `@decided` A lab runs before this code is written (D19).
 
+
+### D39 — Make the Reviewer stronger from alignment research `@decided`
+
+Release: after the Lab is ready (D25, D34, D36), not before 0.2.0. Decided by the user on 2026-11-10.
+
+- `@decided` Goal: make the Reviewer, and guilda in general, stronger with rules taken from alignment research, each
+  one checked in the Lab with tests and an experiment first.
+- `@decided` Sources, kept in `docs/research/2026-11-10-alignment/`: a video on an OpenAI misalignment case (summary
+  with timestamps, not the full transcript), the user's own theoretical report (not published; the analysis cites
+  it), 21 related items of alignment.openai.com, and a close read of the report "damaging the task environment to
+  trigger a reset".
+- Two opposite failure modes from the sources: a Reviewer that is too strict (false rejections, endless rework, wrong
+  incentives) and a grader that approves without a check or fakes success instead of an honest failure.
+- `@decided` Order: first the Lab and its skills are ready, then the experiments, then the rules. Nothing is built
+  from this research before that.
+- `@open` Which rules to test. Candidates seen in the sources, not yet decided: an honest "blocked" result that is
+  never punished; agent output treated as untrusted data by the Reviewer (no instructions hidden in file names); a
+  destructive action blocked at once by a hook, not only seen later; a Reviewer calibrated between strictness and
+  friction.
+
 ## Experiments
 
 ### E1 — Process levels
