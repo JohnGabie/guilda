@@ -960,12 +960,12 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 - `@decided` (corrected again 2026-11-10 by the user) The Lab is the place to test and study anything: a large research
   on an idea, articles, experiments on platforms, and the processing of a large volume of data to reach a conclusion.
   It is a full role group with its own skills and space. Its data skill (D25) serves all of this, not only small
-  measures. Earlier texts limited the Lab; this replaces them. There is no separate data engineer
-  in the AI group; an earlier text of this decision said so by mistake.
+  measures. Earlier texts limited the Lab; this replaces them. (See the 2026-11-10 audit item below on the AI data engineer.)
 - `@decided` Groups work together in one process that the Architect leads. The AI group uses the Lab to test an idea,
   and the Lab data skill processes that data. D43 isolates which skills an agent loads; it does not stop groups from
   working together.
-- `@open` Where the estimate of consumption before a build lives (the AI group, or the Lab as an experiment).
+- `@decided` (2026-11-10, audit, the user) The estimate of consumption before a build lives in the AI group, done by
+  the AI data engineer.
 - `@proposed` The estimate method: run a small real sample (3 to 5 runs), measure the real tokens, multiply by the
   expected volume with a range, convert with the official price of the day, and compare models.
 - `@decided` (2026-11-10, the user) AI security (prompt injection, OWASP LLM Top 10, an agent that acts outside the
@@ -974,6 +974,10 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 - `@decided` (2026-11-10, the user) The AI group gets a lead agent, like the Security Lead: it decides on AI with the
   Architect (harness design, model and cost, an agent or a simple prompt, when to call the Lab) and, as a lead, it can
   disagree with the user (D46) and speak in a council (D47).
+- `@decided` (2026-11-10, audit, the user's words) The AI group has its own data engineer skill, more specific: cost,
+  consumption and model evals ("another data engineer only for the AI scenario, because it is much more specific").
+  An earlier text called this a mistake of the assistant; it was the user's idea, removed by the assistant in error.
+  The Lab data skill stays broad, for any study; the two work together through the Architect.
 
 ### D46 — Truth first, and disagree when needed, in every role `@decided`
 
