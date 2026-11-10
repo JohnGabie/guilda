@@ -1,6 +1,16 @@
 {
   "name": "guilda",
   "description": "Marketplace for the guilda plugin.",
-  "owner": { "name": "USER" },
-  "plugins": [{ "name": "guilda", "source": "./" }]
+  "owner": {
+    "name": "USER"
+  },
+  "allowCrossMarketplaceDependenciesOn": [
+    "claude-plugins-official"
+  ],
+  "plugins": [
+    {
+      "name": "guilda",
+      "source": "./"
+    }
+  ]
 }

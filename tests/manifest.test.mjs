@@ -27,3 +27,15 @@ test('CHANGELOG top entry equals plugin version', () => {
   assert.ok(m, 'CHANGELOG has an entry heading');
   assert.equal(m[1], plugin.version);
 });
+
+test('plugin requires skill-creator from the official marketplace', () => {
+  const plugin = readJson('.claude-plugin/plugin.json');
+  assert.ok(Array.isArray(plugin.dependencies), 'plugin.json has a dependencies list');
+  assert.ok(plugin.dependencies.includes('skill-creator@claude-plugins-official'));
+});
+
+test('marketplace allows dependencies from the official marketplace', () => {
+  const market = readJson('.claude-plugin/marketplace.json');
+  assert.ok(Array.isArray(market.allowCrossMarketplaceDependenciesOn));
+  assert.ok(market.allowCrossMarketplaceDependenciesOn.includes('claude-plugins-official'));
+});

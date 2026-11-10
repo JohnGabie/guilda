@@ -5,9 +5,14 @@
 ## Install
 
 ```
+claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin marketplace add JohnGabie/guilda
 claude plugin install guilda@guilda
 ```
+
+`guilda` needs the `skill-creator` plugin of the official Anthropic marketplace. The install adds it as a
+dependency. If the official marketplace is not added, `guilda` installs but does not load. The first line adds it;
+skip that line if `claude plugin marketplace list` already shows the official marketplace.
 
 To try `guilda` for one session without a change to your settings, load it from a local copy:
 
