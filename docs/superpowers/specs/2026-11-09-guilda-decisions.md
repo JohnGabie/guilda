@@ -1027,11 +1027,18 @@ user on 2026-11-10.
 Release: `@proposed` with the queue (D14) and the supervisor (D15). Decided by the user on 2026-11-10.
 
 - `@decided` The user can say "I am away now" or "I am away for N hours". The work goes on.
-- `@decided` Only high-level roles know that the user is away: the Architect and the supervisor. Other agents are not
+- `@decided` (corrected 2026-11-10 by the user) Only the Architect knows that the user is away. Other agents are not
   told, so that they do not act differently (the alignment research of D39 shows that a model can act differently
-  when it knows it is watched or not).
-- `@decided` While the user is away, each decision that belongs to the user (R12) waits. The queue (D14) gets a state
-  for it ("waiting for the user"); the other tasks go on. A council (D47) waits too.
+  when it knows it is watched or not). `@proposed` The supervisor does not need to know: it sees held tasks and keeps
+  the rest of the flow going.
+- `@decided` (corrected 2026-11-10) The absence is never written in the queue or in any project file, because agents
+  read those files and it would leak. It stays only in the Architect's conversation.
+- `@decided` While the user is away, each decision that belongs to the user (R12) waits. Its task goes to a generic
+  `held` state of the queue (D14). `held` is also used for other reasons (a dependency not ready, a missing resource,
+  a pending decision while the user is present), so it does not show why a task waits; only the Architect knows the
+  reason. The other tasks go on. A council (D47) waits too.
+- Limit: when the Architect is its own agent (D31, 0.4.0), Claude Code keeps its transcript on disk. An agent could
+  read it, but it would have to look outside the project. The Lab study below covers this.
 - `@decided` When the user comes back, the Architect gives the waiting decisions one at a time, through the question
   tool (D23).
 - `@open` For the Lab, with the study of D46: hiding the absence is easy (it is not in the briefs), but an agent that
