@@ -914,6 +914,8 @@ Release: `@proposed` 0.2.0. Decided by the user on 2026-11-10.
   verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
 - `@open` Skills that more than one group needs (the data skill, `ai-evals`, `lab-experiment`): one copy in each group,
   or an explicit shared group. To decide with the 0.2.0 checklist.
+- `@decided` (2026-11-10, the user) The isolation is about which skills an agent loads. Groups still work together
+  through the Architect: for example, the AI group asks the Lab to run an experiment.
 
 ### D44 — The Architect plans each skill and calls the area leads `@decided`
 
@@ -930,10 +932,18 @@ Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 
 
 - `@decided` AI is a role group of its own, next to Engineering, Lab and Security, because this area will grow. Replaced
   by this: the D29 item "No fourth group" and the D25 statement "three groups, for now".
-- `@decided` In the AI group: AI engineering (prompts, agents, skills, harness), AI evals, the `agent-creator` (D41),
-  the use of `skill-creator`, and the estimate of consumption before a build (tokens, USD, BRL, per model).
-- `@decided` Each group has its own data engineer skill (D43). The Lab data skill (D25) is only for lab experiments.
-  The AI group has its own, more specific data engineer: consumption, cost and model evals.
+- `@decided` (corrected 2026-11-10 by the user) The AI group builds AI features: harnesses, prompt engineering,
+  agents and skills (with `agent-creator`, D41, and `skill-creator`), and checks against prompt injection and the
+  other failures seen in the alignment research (D39).
+- `@proposed` (an idea, registered for later) The AI group keeps reading alignment sources, such as the OpenAI
+  alignment reports, and brings new lessons to the Architect.
+- `@decided` (corrected 2026-11-10) The Lab is the place to check ideas and to experiment. Its data skill (D25) is
+  necessary and serves that context: it processes the data of the experiments. There is no separate data engineer
+  in the AI group; an earlier text of this decision said so by mistake.
+- `@decided` Groups work together in one process that the Architect leads. The AI group uses the Lab to test an idea,
+  and the Lab data skill processes that data. D43 isolates which skills an agent loads; it does not stop groups from
+  working together.
+- `@open` Where the estimate of consumption before a build lives (the AI group, or the Lab as an experiment).
 - `@proposed` The estimate method: run a small real sample (3 to 5 runs), measure the real tokens, multiply by the
   expected volume with a range, convert with the official price of the day, and compare models.
 - `@open` AI security (prompt injection, OWASP LLM Top 10) stays in the Security group, or moves to the AI group.
