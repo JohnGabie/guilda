@@ -1,0 +1,58 @@
+$ ls -a $HOME/.claude/plugins/cache/guilda/guilda
+.
+..
+0.1.0
+$ ls -a $HOME/.claude/plugins/cache/guilda/guilda/0.1.0
+.
+..
+agents
+CHANGELOG.md
+.claude-plugin
+core
+docs
+evals
+.gitignore
+.guilda
+hooks
+.in_use
+package.json
+README.md
+RELEASING.md
+scripts
+skills
+tests
+$ ls $HOME/.claude/plugins/cache/guilda/guilda/0.1.0/plugins
+ls: cannot access '$HOME/.claude/plugins/cache/guilda/guilda/0.1.0/plugins': No such file or directory
+$ cat $HOME/.claude/plugins/cache/guilda/guilda/0.1.0/.claude-plugin/marketplace.json
+{
+  "name": "guilda",
+  "description": "Marketplace for the guilda plugin.",
+  "owner": { "name": "USER" },
+  "plugins": [{ "name": "guilda", "source": "./" }]
+}
+$ git -C $HOME/.claude/plugins/marketplaces/guilda log --oneline -1
+7a68174 Merge branch 'feat/part-1': guilda 0.1.0
+$ ls -a $HOME/.claude/plugins/marketplaces/guilda
+.
+..
+agents
+CHANGELOG.md
+.claude-plugin
+core
+docs
+evals
+.git
+.gitignore
+.guilda
+hooks
+package.json
+README.md
+RELEASING.md
+scripts
+skills
+tests
+$ (installed_plugins.json, user scope entry of guilda@guilda) version
+[('project', '0.1.0'), ('project', '0.1.0'), ('project', '0.1.0'), ('user', '0.1.0')]
+
+$ git ls-tree -r --name-only 7a68174 | sort > git-files.txt; (cd <cache>/0.1.0 && find . -type f ! -path "./.in_use/*" | sed "s#^\./##" | sort) > cache-files.txt; diff git-files.txt cache-files.txt
+exit=0 (no difference; 89 files each)
