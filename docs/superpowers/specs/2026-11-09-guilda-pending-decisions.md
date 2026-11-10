@@ -40,3 +40,17 @@ The user decided on 2026-11-09. It refines D16 and D28.
   red team and blue team skills of D28, with the limits of D28 as law).
 - `@decided` The plan gets its own part for the Security Lead: its tools and its knowledge, chosen with research,
   because the user does not know security in depth.
+
+### D38 — Resume after a usage limit, only in the same project `@decided`
+
+The user decided on 2026-11-09. It adds to D15 (G5) and D22.
+
+- `@decided` G5 stays: after a restart of the machine or the session, only the user starts the work again.
+- `@decided` A different case: the work stops because the usage limit of the accounts ran out, and nobody is there to
+  start it again. Then a scheduled trigger (for example a cron job or a scheduled task) reads the reset times from
+  the `cswap` fork (D22), waits for the next account with usage left, and resumes the stopped work.
+- `@decided` The trigger resumes only the project that asked for the work, in that project folder, with the state of
+  its own queue (D14). It never starts or resumes another project. Each trigger records the project path and the
+  work ID, and refuses to run if they do not match.
+- `@open` The mechanism (cron, systemd timer, a Claude Code scheduled task) and its limits.
+- `@decided` A lab runs before this code is written (D19).
