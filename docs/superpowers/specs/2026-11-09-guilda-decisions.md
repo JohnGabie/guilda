@@ -914,3 +914,27 @@ Release: `@proposed` 0.2.0. Decided by the user on 2026-11-10.
   verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
 - `@open` Skills that more than one group needs (the data skill, `ai-evals`, `lab-experiment`): one copy in each group,
   or an explicit shared group. To decide with the 0.2.0 checklist.
+
+### D44 — The Architect plans each skill and calls the area leads `@decided`
+
+Release: `@proposed` 0.2.0 (Architect procedure). Decided by the user on 2026-11-10.
+
+- `@decided` For each use of a skill or a role, the spec and the plan say: when it is used, who calls it, where (the
+  step or the task), and what it must deliver. A skill with no such line is not used.
+- `@decided` In the process, the Architect calls the lead of each area to decide with it: the Security Lead (D37), the
+  DevOps advisor (D42), and the leads of other groups.
+
+### D45 — AI is a fourth role group `@decided`
+
+Release: `@proposed` 0.2.0 for the group and its skills. Decided by the user on 2026-11-10.
+
+- `@decided` AI is a role group of its own, next to Engineering, Lab and Security, because this area will grow. Replaced
+  by this: the D29 item "No fourth group" and the D25 statement "three groups, for now".
+- `@decided` In the AI group: AI engineering (prompts, agents, skills, harness), AI evals, the `agent-creator` (D41),
+  the use of `skill-creator`, and the estimate of consumption before a build (tokens, USD, BRL, per model).
+- `@decided` Each group has its own data engineer skill (D43). The Lab data skill (D25) is only for lab experiments.
+  The AI group has its own, more specific data engineer: consumption, cost and model evals.
+- `@proposed` The estimate method: run a small real sample (3 to 5 runs), measure the real tokens, multiply by the
+  expected volume with a range, convert with the official price of the day, and compare models.
+- `@open` AI security (prompt injection, OWASP LLM Top 10) stays in the Security group, or moves to the AI group.
+- `@open` The AI group gets a lead agent, like the Security Lead.
