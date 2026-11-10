@@ -540,7 +540,7 @@ Status: `@proposed` (with `@decided` items) · Release: 0.2.0 · Asked by the us
 - `@replaced` "The Architect in the main session". Replaced by: D31 from 0.4.0. Until 0.3.x it stays true.
 - `@replaced` "The three lab roles give one report form". Replaced by: D34.
 - `@decided` The lab roles are internal. The Architect dispatches them (D24).
-- `@open` The names of the three lab roles.
+- `@decided` (2026-11-10, the user) The names of the three lab roles: `lab-researcher`, `lab-reader`, `lab-experimenter`.
 - `@proposed` A triage step before the brief of each task. An open question goes to the Lab first. A risk area goes
   to Security. A clear and decided change goes to Engineering. One task can use more than one group.
 - `@proposed` The Architect records a lesson when an unused group would have stopped a problem. The lessons change
@@ -666,7 +666,8 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09.
   runs the suite and attaches the report.
 - `@proposed` (risk, 2026-11-10) The gate has a cost: 3 or more cases, a baseline run and injection tests for each
   AI artifact. The plan states this cost. At `light`, the gate runs once, at the end.
-- `@open` Lab: a sample prompt with a tool, the suite at 0.8 or more in 3 runs, and planted bad versions rejected.
+- `@decided` (2026-11-10, the user) The gate lab runs at the start of the 0.2.0 build, before the gate is built.
+- Lab: a sample prompt with a tool, the suite at 0.8 or more in 3 runs, and planted bad versions rejected.
 
 ### D30 — A lean Architect with reference files
 
@@ -680,7 +681,8 @@ is lost. Measured: `skills/architect/SKILL.md` is 121 lines, about 2,000 tokens.
 - `@proposed` Reference files in `skills/architect/reference/`, read only when a step needs them: `spec.md`,
   `brief.md`, `waves.md`, `lab.md`, `verdicts.md`, `qa-tools.md`. `pace.md` comes with the pace in 0.5.0.
 - `@proposed` The Architect reads a reference again at each use, because a compaction can drop it.
-- `@open` Lab: 5 fixed situations, one file against the split, 3 runs each. PASS: at least as correct, 25% fewer
+- `@decided` (2026-11-10, the user) The split lab runs at the start of the 0.2.0 build, before the split.
+- Lab: 5 fixed situations, one file against the split, 3 runs each. PASS: at least as correct, 25% fewer
   tokens or more, the correct reference in 14 of 15 cases.
 
 ### D31 — The Architect as its own agent
@@ -891,6 +893,9 @@ docs; VS Code extension manifest `engines`).
 - `@proposed` No change in place: a rule that changes meaning gets a new ID; the old ID is marked deprecated, points
   to the new one, and still works for one release. This would replace the in-place rewrites of R24, R11 and R13 in
   0.2.0, and remove the need to run `guilda:init` again for them.
+  `@open` (2026-11-10, the user) This conflicts with the in-place texts of R24, R11 and R13 approved the same day. The
+  user asked for a research of industry practice, so that a rule change never forces each project to run
+  `guilda:init` again.
 - `@proposed` Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe to
   run again.
 - `@proposed` Dependencies with version ranges (for example `^2.0`), resolved by the `{name}--v{version}` tags.
@@ -935,8 +940,9 @@ Release: `@proposed` 0.2.0. Decided by the user on 2026-11-10.
   own group. For example, an Engineering Executor cannot load the `red-team` skill.
 - `@proposed` A hook enforces it: it refuses a skill call from an agent outside the skill's group. `@open` Not
   verified: whether a Claude Code hook can see and refuse one specific skill call. A lab checks it before the build.
-- `@open` Skills that more than one group needs (the data skill, `ai-evals`, `lab-experiment`): one copy in each group,
-  or an explicit shared group. To decide with the 0.2.0 checklist.
+- `@decided` (2026-11-10, the user) Skills that more than one group needs (the data skill, `ai-evals`,
+  `lab-experiment`) go in an explicit shared group: one copy of each skill, and each skill lists the groups that can
+  load it.
 - `@decided` (2026-11-10, the user) The isolation is about which skills an agent loads. Groups still work together
   through the Architect: for example, the AI group asks the Lab to run an experiment.
 
