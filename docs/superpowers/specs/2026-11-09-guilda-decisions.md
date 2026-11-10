@@ -103,6 +103,8 @@ A hook cannot warn when the plugin did not load, so the warning comes from a fil
 - `@proposed` The README says that a project-scope install loads only when Claude Code starts in that project folder.
 - `@proposed` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
 - Risk (2026-11-10): the dependency of D28 can stop the load of guilda. The activation check must detect that case.
+- `@decided` (2026-11-10, the user, U3) The 0.2.0 `guilda:init` and the activation check detect a project layer of
+  0.1.x and tell the user to run `guilda:init` again. This works from any earlier version.
 
 ### D3 — Field report skill `guilda:report`
 
@@ -337,6 +339,9 @@ own the project. The earlier file and the scenario catalog use the working name 
   first is an extreme step, and for an extreme case the foreman talks to the Architect first.
 - Scenario catalog: `2026-11-09-orchestrator-scenarios.md` (written before G18 and the final queue design; see its
   header note).
+- `@decided` (2026-11-10, the user, U4) The role is named `supervisor`. This replaces the name `foreman`. "lead" is not
+  a forbidden word, so the Security Lead keeps its name. Forbidden as names of this role: orchestrator, leader,
+  foreman. Every "foreman" in the register and the backlog means `supervisor`.
 
 ### D16 — Security team
 
