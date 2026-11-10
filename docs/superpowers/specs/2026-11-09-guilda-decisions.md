@@ -138,6 +138,9 @@ A hook cannot warn when the plugin did not load, so the warning comes from a fil
   calls `ensureIgnored`, so a 0.1.x project does not commit the marker. `--agents` takes names in the form
   `guilda:executor`. The O1 lab runs before the `doctor` task. The notice of a missing extension names both
   dependencies, and not the missing one (0.2.0 spec, section 4a, S13, S21).
+- `@proposed` (2026-11-10, the Architect, fifth cold review) `guilda:init` runs `doctor` with `--new-project` in a
+  project that it just set up. Then a missing hooks marker is UNKNOWN, not FAIL. The version line compares
+  `guildaVersion` and `schemaVersion`, and it is UNKNOWN with no config (0.2.0 spec, section 4a, S21).
 - `@decided` The README says that a project-scope install loads only when Claude Code starts in that project folder.
 - `@decided` The Architect confirms that the `guilda:*` agents exist before the first dispatch of a session.
 - Risk (2026-11-10): the dependencies of D28 can stop the load of the extension plugin (D40). The activation check
@@ -182,6 +185,10 @@ The user runs `/guilda:report`. A subagent collects the evidence and drafts a fi
   title line. A repository value is `owner/name` or a GitHub URL, and the script changes the URL to `owner/name`.
   With no `.guilda/` folder the script refuses with the set-up notice (R28) (0.2.0 spec, section 4a).
 - `@decided` (2026-11-10, the user) `.guilda/reports/` is git-ignored. guilda adds it to `.guilda/.gitignore`.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) More details of the `report-send` contract. A send to
+  a repository other than the default has no label, and the output says so. The scan reads the title too. The
+  refusal names the kind and the line of the hit. The saved name has a UTC date and a slug rule. A name
+  that exists gets a number suffix (0.2.0 spec, section 4a, S6).
 - `@decided` (2026-11-10, the user, D51) The skill copies and adapts pieces of
   `superpowers:diagnosing-superpowers`, with the MIT notice. They are the redaction policy, the scrub prompts and
   the templates.
@@ -211,8 +218,11 @@ Status: `@decided` · Release: 0.2.0 · The user, 2026-11-09 · Issues: #2, #5, 
   `review-package` serve the `Brief file:` line and the diff file for Security. `task-start` and `task-done` serve
   `Base commit:`.
 - `@decided` (2026-11-10, from U6) An inline brief, with no `Brief file:` line, needs `Base commit:` too.
-- `@proposed` (2026-11-10, the Architect, fourth cold review) A `Brief file:` path can resolve outside the project
-  root. The hook refuses it (0.2.0 spec, S22).
+- `@decided` (2026-11-10, the user) A `Brief file:` path can resolve outside the project root. The ARC6 hook
+  refuses it (0.2.0 spec, S22). The Architect proposed it in the fourth cold review.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) A fifth script is copied with the four: `sdd-workspace`.
+  The other four call it for the output folder. The copies write to the git-ignored folder `.guilda/work/`. They read
+  the task headings of a guilda plan (0.2.0 spec, section 3f).
 
 ### D6 — Concrete specs
 
@@ -691,6 +701,9 @@ Coherent links between specs, plans and agents, so that a change in a spec reach
   form (0.2.0 spec, section 3, R4, and S46).
 - `@decided` (2026-11-10, the user) The forms that the hook reads: a redirection (`>`, `>>`), `tee`, `cp`,
   `mv` and `touch`.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) A `Bash` command can have a relative
+  path. The hook resolves it from two directories: the project folder and the directory of the command. It follows a `cd` with a literal target, as the
+  R19 reader does (0.2.0 spec, section 3, R4, and S46).
 
 ### D28 — A generic Executor with domain skills
 
@@ -998,6 +1011,10 @@ docs; VS Code extension manifest `engines`).
     `guilda:init`. `skills/update/SKILL.md` changes with it (0.2.0 spec, section 3d, S42 and S43).
   - `@decided` (2026-11-10, the Architect; the user approved) `scripts/config-write.mjs` writes `schemaVersion: 2` in each new config.
     Its `--migrate` mode writes a migrated config, and `guilda:update` runs it after the user approves.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) One exception to "a hook writes no committed file":
+  `.guilda/.gitignore`. A hook can append a missing ignore line to it, and a second run adds nothing. The hooks
+  marker of `doctor` needs it. `--migrate` refuses a broken config. It also refuses an invalid `process` or
+  `explain` value, and a newer `schemaVersion`. The 0.2.0 spec has the details (sections 3d and 4a, S18, S43).
 - `@decided` (research) The Claude Code plugin manifest has no minimum host version field, so guilda checks that a
   feature exists. This closes the `@open` item below.
 - `@replaced` "Each state file has a `schemaVersion`. `guilda:init` and `guilda:update` run migrations that are safe
@@ -1055,6 +1072,9 @@ user on 2026-11-10.
 - `@decided` (2026-11-10, the user) The fallback on a NO-GO for O4: no agent ever runs a production command. The
   agent prepares the command, and the user runs it, for example with `!` in the prompt. The hook refuses each
   production command that it recognizes, from each agent (0.2.0 spec, section 2, Labs, and S34).
+- `@proposed` (2026-11-10, the Architect, fifth cold review) The production lock is a law, so it gets a core rule,
+  R29. The O4 lab picks one of its two `Check:` lines. Its hook does not run with no `.guilda/` folder. It runs in a
+  broken project layer (0.2.0 spec, sections 3a and 3d).
 
 ### D43 — Skills isolated by role group `@decided`
 
@@ -1100,6 +1120,14 @@ Release: 0.2.0, with the hook after its lab; the user confirmed it in the 0.2.0 
 - `@decided` (2026-11-10, the user accepted the Architect's choice) In 0.2.0 five roles get an agent definition
   with a `group`. They are the Architect executor, the coherence validator, `lab-researcher`, `lab-reader` and
   `lab-experimenter`. The open names stay in O3 of the 0.2.0 spec.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) The skill-group hook is a law, so it gets a core rule,
+  R30. Each refusal text cites R30, not D43. The block enters `core/rules.md` only on a GO of the D43 lab (0.2.0
+  spec, section 3a).
+- `@proposed` (2026-11-10, the Architect, fifth cold review) A guilda skill always has a `groups` field. The hook
+  refuses a guilda skill whose file or `groups` field is missing or malformed (fail closed). The item "a skill with
+  no `groups` field is not refused" now covers only the skills that guilda does not own. The four user skills
+  and `guilda:lab` get `groups: [architect]`. The lab must show that the hook input names the agent type. The 0.2.0
+  spec has the details (sections 2 and 3e).
 
 ### D44 — The Architect plans each skill and calls the area leads `@decided`
 
@@ -1352,8 +1380,12 @@ package, seen on 2026-11-10.
   skills for core rules (EXE2, R27, R6). The Architect's reading: a core file names such a skill only as an option.
   `skills/init/SKILL.md` does this today for `superpowers:brainstorming`. The core text stays complete without it
   (0.2.0 spec, O8).
-- `@proposed` (2026-11-10, the Architect) One file lists the copies: `THIRD-PARTY-NOTICES.md`. It has the MIT
-  license text and the copyright line of `superpowers` (0.2.0 spec, S44).
+- `@decided` (2026-11-10, the user, with D51) One file lists the copies: `THIRD-PARTY-NOTICES.md`. It has the MIT
+  license text and the copyright line of `superpowers` (0.2.0 spec, S44). The file is the MIT notice of the copies
+  that D51 approved, so it is part of that decision.
+- `@proposed` (2026-11-10, the Architect, fifth cold review) `scripts/bump-version.mjs` differs from the original
+  in three points. The version form is strict. A missing listed file is an error. An `--audit` that finds a file
+  exits 1 (0.2.0 spec, section 3g).
 - `@decided` (2026-11-10, the user, O9) `scripts/bump-version.sh` is copied as a guilda script, with the MIT
   notice. It updates the version of each plugin of this repository.
 - `@decided` (2026-11-10, the user) The script is rewritten in Node, `scripts/bump-version.mjs`, with no `jq`.
