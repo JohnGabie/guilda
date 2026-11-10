@@ -1,0 +1,22 @@
+{
+  "feature": "A CLI todo app with tags",
+  "turns": [
+    { "id": "A1", "kind": "arch", "text": "I want a CLI todo app with tags. Python 3.12, one user, local only. Commands: add, list, done, tag. Start the requirements step." },
+    { "id": "C1", "kind": "chat", "text": "Quick unrelated question: what is the git command to show the last 5 commits, one line each?" },
+    { "id": "A2", "kind": "arch", "text": "Requirements: a due date is optional. Priority is low, normal or high, and the default is normal. A tag is lowercase, 20 characters or fewer, with no spaces. Now write the spec outline. The one open decision is the storage format (a JSON file or SQLite). Ask me that decision as a question and stop." },
+    { "id": "A3", "kind": "arch", "answer": true, "text": "Answer to your question: SQLite, in the file ~/.todo/todo.db. Each task gets an integer ID that is never used again, also after a delete. Update the spec outline with this." },
+    { "id": "C2", "kind": "chat", "text": "Status check: what is going on with the todo app right now, in one line?" },
+    { "id": "A4", "kind": "arch", "text": "Change of a decision: priority is now a number from 1 to 5, where 1 is the highest, and the default is 3. This replaces low, normal and high. Update the spec." },
+    { "id": "C3", "kind": "chat", "text": "Unrelated: how many minutes are 3.5 hours?" },
+    { "id": "A5", "kind": "arch", "text": "I approve the spec. Write the plan: small tasks, tests first, with order and dependencies." },
+    { "id": "A6", "kind": "arch", "text": "Write the brief for task 1 (the storage layer) in the brief format." },
+    { "id": "C4", "kind": "chat", "text": "Unrelated: what is the name of the UTC-3 time zone in Brazil?" },
+    { "id": "A7", "kind": "arch", "text": "Reviewer verdict for task 1: REJECTED-LARGE. Reason: the spec says an ID is never used again, but the schema uses INTEGER PRIMARY KEY without AUTOINCREMENT, so SQLite can use the ID of a deleted last row again. Handle this verdict." },
+    { "id": "C5", "kind": "chat", "text": "Status check: about how many tasks does the plan have?" },
+    { "id": "A8", "kind": "arch", "text": "Late change: add an export command that writes all tasks to CSV with the columns id,title,priority,due,tags,done. Update the spec, the plan, and write the brief for the new task." },
+    { "id": "C6", "kind": "chat", "text": "Unrelated: write a one-line commit message for a typo fix in the README." },
+    { "id": "R1", "kind": "arch", "recall": true, "text": "Recall question: which storage did we choose, and where is the file?" },
+    { "id": "R2", "kind": "arch", "recall": true, "text": "Recall question: what are the rules for a tag?" },
+    { "id": "R3", "kind": "arch", "recall": true, "text": "Recall question: what is the default priority now, and what was the default before the change?" }
+  ]
+}
