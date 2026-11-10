@@ -1,0 +1,8 @@
+  144 arm-one/skills/architect/SKILL.md
+  140 arm-split/skills/architect/SKILL.md
+   24 arm-split/skills/architect/reference/brief.md
+    6 arm-split/skills/architect/reference/qa-tools.md
+    8 arm-split/skills/architect/reference/spec.md
+   11 arm-split/skills/architect/reference/verdicts.md
+   13 arm-split/skills/architect/reference/waves.md
+  346 total

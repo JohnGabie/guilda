@@ -1,0 +1,8 @@
+{
+  "languages": { "replies": "en", "docs": "en" },
+  "tiers": { "master": "opus", "journeyman": "sonnet", "apprentice": "haiku" },
+  "writing": { "free": [], "exceptions": [] },
+  "security": { "enabled": true, "riskAreas": ["auth", "data-loss"] },
+  "checks": [{ "name": "test", "command": "npm test" }],
+  "scan": { "ignore": [] }
+}

@@ -1,0 +1,40 @@
+{
+  "note": "Written before the first run. Each fact scores 1 when the answer has it, else 0. The grader sees the answers without the arm name.",
+  "reference": { "A": "spec.md", "B": "brief.md", "C": "waves.md", "D": "verdicts.md", "E": "qa-tools.md" },
+  "facts": {
+    "A": {
+      "A1": "The scenario has a tag: @decided, @proposed or @open (ARC2).",
+      "A2": "The scenario gives concrete input data: named note files with their exact content (ARC7).",
+      "A3": "The scenario gives an exact expected result: the exact content of notes.csv (header and rows) or the exact exit code with the exact file text; no vague word such as 'correct', 'valid', 'works' (ARC7).",
+      "A4": "The scenario names its QA tool, and the tool is the CLI (ARC3, ARC7).",
+      "A5": "The scenario names a test: a test file and a test name (ARC7)."
+    },
+    "B": {
+      "B1": "The brief has all 12 fields of the brief format, each on its own `Name:` line: ID / title, Goal, Context, Out of scope, Files it may touch, Contract / interfaces, Tests that must pass, Acceptance, Suggested tier, Risk area, Deletion rules, Dependencies.",
+      "B2": "`Suggested tier:` holds only the tier word, and the reason for the tier is in `Context:`.",
+      "B3": "`Risk area:` is one area from config.security.riskAreas (data-loss), not `none` and not a free text area.",
+      "B4": "`Deletion rules:` is not `none`: it copies or names the rules of core/deletion-safety.md, because the code deletes files (R20).",
+      "B5": "`Acceptance:` names, for each criterion, the spec scenario it cites (or says that a new scenario is needed) and the QA tool (CLI)."
+    },
+    "C": {
+      "C1": "T3 and T4 do not run in parallel, because both change src/export.js.",
+      "C2": "The parallel tasks connect through a written contract (R8), or the answer states that they share no interface and why.",
+      "C3": "At `full`, each task has its own Executor and Reviewer cycle (R24); a wave is not one review of several tasks.",
+      "C4": "Each task is one atomic commit with a test and an Acceptance criterion.",
+      "C5": "The plan is written as a `## Plan: Part 2` section of the feature MD or as `notes-export.plan.md` (R4)."
+    },
+    "D": {
+      "D1": "The Architect handles the REJECTED-LARGE verdict; it does not go back to the Executor as is.",
+      "D2": "The Architect changes the spec, the contract or the brief to remove the conflict (here: the contract/brief that trims the body, or the scenario).",
+      "D3": "The count: this is rejection 2 of the review unit T1; the third rejection stops the work and goes to the user (R11).",
+      "D4": "After the change, the task is dispatched again in the order Executor, Reviewer (code stage), Security in parallel when Risk area is not none, QA, Reviewer (final stage)."
+    },
+    "E": {
+      "E1": "(1) web page: browser.",
+      "E2": "(2) command output: CLI.",
+      "E3": "(3) iOS app: mobile driver.",
+      "E4": "(4) Unity game: game bridge.",
+      "E5": "The answer tells the user that this is the moment to set up the tools that QA needs, and that a setup that installs software or leaves the machine is the user's decision."
+    }
+  }
+}

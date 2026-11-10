@@ -1,0 +1,29 @@
+sentences of arm-one missing from arm-split: 1
+  ## Brief format
+text only in arm-split: 26
+  Each step that names a reference file needs that file.
+  Read the file again at each use, because a compaction can drop it.
+  Read `reference/spec.md` again at each use: scenarios, contracts and security zones.
+  For each scenario, name the tool that QA uses (ARC3).
+  Read `reference/qa-tools.md` again at each use: the tool list and the tool setup.
+  Read `reference/waves.md` again at each use: parallel tasks, and the checks before you hand over a plan.
+  Read `reference/brief.md` again at each use: the brief format.
+  Read `reference/verdicts.md` again at each use: the route of each verdict.
+  Read `reference/verdicts.md` again at each use: where each finding goes.
+  # Architect reference: the brief format
+  Read this file at each use of procedure step 10.
+  A compaction can drop it.
+  # Architect reference: the QA tools
+  Read this file at each use of procedure step 7.
+  A compaction can drop it.
+  # Architect reference: the spec
+  Read this file at each use of procedure step 5.
+  A compaction can drop it.
+  # Architect reference: verdicts and findings
+  Read this file at each use of procedure steps 12 and 13.
+  A compaction can drop it.
+  ## Rejections
+  ## Findings
+  # Architect reference: waves and the plan hand-over
+  Read this file at each use of procedure step 9.
+  A compaction can drop it.

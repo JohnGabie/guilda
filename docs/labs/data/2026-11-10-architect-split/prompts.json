@@ -1,0 +1,10 @@
+{
+  "prefix": "Use the skill `{SKILL}`: load it with the Skill tool, then follow it for the task below. This session tests the skill text. Do not dispatch an agent, do not write or edit a file, and do not wait for an answer: when a step needs a decision of the user, write the question that you would ask, then go on. Give your full answer in the reply text. The project is the current folder (`.guilda/config.json`, `docs/superpowers/specs/notes-export.md`). The process level of the project is `full`.\n\nTask: ",
+  "situations": {
+    "A": "Write one Acceptance scenario for the decision `notes export --format csv` of the spec, as the block that goes in the spec.",
+    "B": "Write the Executor brief for task T2 of the plan in the spec (the `notes purge --older-than <days>` command).",
+    "C": "Plan wave 2, Part 2 of the spec. The new tasks: T3 CSV export (`src/export.js`, `tests/export-csv.test.js`); T4 JSON pretty-print option (`src/export.js`, `tests/export.test.js`); T5 purge dry-run flag (`src/purge.js`, `tests/purge.test.js`); T6 help text (`docs/help.md`). Say which tasks run in parallel, in which order, and what each parallel group needs.",
+    "D": "The Reviewer returned this verdict for task T1: `REJECTED-LARGE` — scenario S1 says the body of note 2 is `call Ana`, and the contract in the brief says that the export trims each body to 5 characters. It is the second rejection of T1. What do you do now? Give each step.",
+    "E": "Name the QA tool for each of these Acceptance scenarios: (1) the web page `web/export.html` shows a Download button; (2) `notes export --format csv` exits 0 and prints `2 notes exported`; (3) the iOS app shows the export sheet; (4) in the Unity game build of the notes app, the pause menu shows an Export item. Then say what else you do about these tools."
+  }
+}

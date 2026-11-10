@@ -1,0 +1,216 @@
+{
+ "seed": 20261110,
+ "method": "python random.Random(seed).shuffle of the 30 (situation, arm, rep) tuples",
+ "runs": [
+  {
+   "n": 1,
+   "id": "r01",
+   "situation": "A",
+   "arm": "one",
+   "rep": 1
+  },
+  {
+   "n": 2,
+   "id": "r02",
+   "situation": "A",
+   "arm": "split",
+   "rep": 1
+  },
+  {
+   "n": 3,
+   "id": "r03",
+   "situation": "E",
+   "arm": "one",
+   "rep": 1
+  },
+  {
+   "n": 4,
+   "id": "r04",
+   "situation": "A",
+   "arm": "split",
+   "rep": 2
+  },
+  {
+   "n": 5,
+   "id": "r05",
+   "situation": "A",
+   "arm": "one",
+   "rep": 2
+  },
+  {
+   "n": 6,
+   "id": "r06",
+   "situation": "E",
+   "arm": "split",
+   "rep": 3
+  },
+  {
+   "n": 7,
+   "id": "r07",
+   "situation": "E",
+   "arm": "one",
+   "rep": 2
+  },
+  {
+   "n": 8,
+   "id": "r08",
+   "situation": "C",
+   "arm": "one",
+   "rep": 1
+  },
+  {
+   "n": 9,
+   "id": "r09",
+   "situation": "C",
+   "arm": "split",
+   "rep": 2
+  },
+  {
+   "n": 10,
+   "id": "r10",
+   "situation": "D",
+   "arm": "one",
+   "rep": 2
+  },
+  {
+   "n": 11,
+   "id": "r11",
+   "situation": "A",
+   "arm": "one",
+   "rep": 3
+  },
+  {
+   "n": 12,
+   "id": "r12",
+   "situation": "C",
+   "arm": "one",
+   "rep": 2
+  },
+  {
+   "n": 13,
+   "id": "r13",
+   "situation": "B",
+   "arm": "one",
+   "rep": 1
+  },
+  {
+   "n": 14,
+   "id": "r14",
+   "situation": "C",
+   "arm": "one",
+   "rep": 3
+  },
+  {
+   "n": 15,
+   "id": "r15",
+   "situation": "B",
+   "arm": "one",
+   "rep": 3
+  },
+  {
+   "n": 16,
+   "id": "r16",
+   "situation": "E",
+   "arm": "one",
+   "rep": 3
+  },
+  {
+   "n": 17,
+   "id": "r17",
+   "situation": "B",
+   "arm": "one",
+   "rep": 2
+  },
+  {
+   "n": 18,
+   "id": "r18",
+   "situation": "E",
+   "arm": "split",
+   "rep": 2
+  },
+  {
+   "n": 19,
+   "id": "r19",
+   "situation": "C",
+   "arm": "split",
+   "rep": 3
+  },
+  {
+   "n": 20,
+   "id": "r20",
+   "situation": "E",
+   "arm": "split",
+   "rep": 1
+  },
+  {
+   "n": 21,
+   "id": "r21",
+   "situation": "B",
+   "arm": "split",
+   "rep": 2
+  },
+  {
+   "n": 22,
+   "id": "r22",
+   "situation": "B",
+   "arm": "split",
+   "rep": 3
+  },
+  {
+   "n": 23,
+   "id": "r23",
+   "situation": "D",
+   "arm": "split",
+   "rep": 1
+  },
+  {
+   "n": 24,
+   "id": "r24",
+   "situation": "C",
+   "arm": "split",
+   "rep": 1
+  },
+  {
+   "n": 25,
+   "id": "r25",
+   "situation": "D",
+   "arm": "split",
+   "rep": 3
+  },
+  {
+   "n": 26,
+   "id": "r26",
+   "situation": "D",
+   "arm": "split",
+   "rep": 2
+  },
+  {
+   "n": 27,
+   "id": "r27",
+   "situation": "D",
+   "arm": "one",
+   "rep": 1
+  },
+  {
+   "n": 28,
+   "id": "r28",
+   "situation": "A",
+   "arm": "split",
+   "rep": 3
+  },
+  {
+   "n": 29,
+   "id": "r29",
+   "situation": "D",
+   "arm": "one",
+   "rep": 3
+  },
+  {
+   "n": 30,
+   "id": "r30",
+   "situation": "B",
+   "arm": "split",
+   "rep": 1
+  }
+ ]
+}
