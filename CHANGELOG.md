@@ -10,7 +10,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ### Added
 
-- The 0.2 design: decisions D1 to D33, experiments E1 and E2, and a release plan from 0.1.1 to 0.5.0.
+- The decision register (D1 to D38, E1, E2), the 0.1.1 and 0.2.0 specs, and a backlog for 0.3.0 to 0.5.0.
 - `skill-creator` is a required plugin dependency. The README install adds the official marketplace first.
 - `ROADMAP.md`, with one GitHub milestone for each release.
 
