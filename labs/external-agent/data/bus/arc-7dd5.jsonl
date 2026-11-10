@@ -1,0 +1,12 @@
+{"id":"m-fc163f","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"Which storage does the app use?","reply_to":null,"time":"2026-11-10T00:59:58.884Z"}
+{"id":"m-1c6204","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"Which export format does the app use?","reply_to":null,"time":"2026-11-10T01:00:34.549Z"}
+{"id":"m-71cf1f","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"What is the maximum note length?","reply_to":null,"time":"2026-11-10T01:00:34.710Z"}
+{"id":"m-a5dce5","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"The user requests adding tags to notes. Please update the spec and plan to include this feature.","reply_to":null,"time":"2026-11-10T01:01:14.535Z"}
+{"id":"m-f67e6d","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"decision","text":"The user confirms adding tags to notes: free text tags, at most 5 tags per note, and a tags column in the CSV export. Please update the spec and plan accordingly.","reply_to":"m-46d2ee","time":"2026-11-10T01:01:39.579Z"}
+{"id":"m-163341","from":"main","to":"arc-7dd5","task":"none","type":"decision","text":"The user changes D2: the export format is now JSON, not CSV. Tell each agent that asked you about the export format.","reply_to":null,"time":"2026-11-10T01:01:52.713Z"}
+{"id":"m-9bb554","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"Which Node.js version does the app use?","reply_to":null,"time":"2026-11-10T01:02:36.363Z"}
+{"id":"m-296e87","from":"ext-codex-cli-39f6","to":"arc-7dd5","task":"none","type":"question","text":"What is the maximum note length?","reply_to":null,"time":"2026-11-10T01:02:41.725Z"}
+{"id":"m-674c7c","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"question","text":"May the app use runtime dependencies?","reply_to":null,"time":"2026-11-10T01:03:23.981Z"}
+{"id":"m-a37634","from":"ext-codex-cli-39f6","to":"arc-7dd5","task":"none","type":"decision","text":"D3 sync uses Dropbox.","reply_to":null,"time":"2026-11-10T01:04:31.176Z"}
+{"id":"m-ed7bb7","from":"ext-codex-voice-4592","to":"arc-7dd5","task":"none","type":"decision","text":"The user decides D3: no sync between machines in version 1.0.","reply_to":null,"time":"2026-11-10T01:04:40.704Z"}
+{"id":"m-511fdb","from":"ext-codex-tui-5c70","to":"arc-7dd5","task":"none","type":"question","text":"Which storage does the app use?","reply_to":null,"time":"2026-11-10T01:12:11.415Z"}

@@ -1,0 +1,11 @@
+# before
+ 603745    1282 tmux new-session -d -s agentchattr-claude-2 -c ~/projects/sala-experimento env -u CLAUDECODE ~/.local/bin/claude --mcp-confi
+ 603746  603745 ~/.local/bin/claude --mcp-config ~/projects/agentchattr/data/provider-config/claude-2-mcp.json
+ 616648  609509 ~/.local/bin/claude --resume 2faf61d8-fac7-442d-9608-ece7086db9bc --allow-dangerously-skip-permissions --model claude-opus-5
+ 827348  616648 /bin/bash -c source ~/.claude/shell-snapshots/snapshot-bash-1794260657557-6bnikz.sh 2>/dev/null || true && shopt -u extglob 
+ 827351  827348 /bin/bash -c source ~/.claude/shell-snapshots/snapshot-bash-1794260657557-6bnikz.sh 2>/dev/null || true && shopt -u extglob 
+ 827352  827348 /bin/bash -c source ~/.claude/shell-snapshots/snapshot-bash-1794260657557-6bnikz.sh 2>/dev/null || true && shopt -u extglob 
+# after
+ 603745    1282 tmux new-session -d -s agentchattr-claude-2 -c ~/projects/sala-experimento env -u CLAUDECODE ~/.local/bin/claude --mcp-confi
+ 603746  603745 ~/.local/bin/claude --mcp-config ~/projects/agentchattr/data/provider-config/claude-2-mcp.json
+ 616648  609509 ~/.local/bin/claude --resume 2faf61d8-fac7-442d-9608-ece7086db9bc --allow-dangerously-skip-permissions --model claude-opus-5

@@ -1,0 +1,50 @@
+› Join the guilda project in this folder with the name tui, and tell me your address.
+  Worked for 9s • 10:11 PM
+
+
+› guilda: new messages arrived. Tell me what they say.
+
+
+• The Architect moved the release of tasknote 1.0 to December 20, 2026.
+
+  Worked for 2s • 10:11 PM
+
+
+› Ask the Architect which storage the app uses.
+
+
+• I’ll ask the Architect which storage the app uses.
+
+• Ran node "<repo>/labs/external-agent/guilda.mjs" send --from ext-codex…
+  └     "reason": "no wake target"
+      }
+    }
+    + 5 lines (^t to expand)
+
+• Asked the Architect which storage the app uses. The answer will arrive in a future turn.
+
+  Worked for 5s • 10:12 PM
+
+
+› guilda: new messages arrived. Tell me what they say.
+
+
+• The Architect says the app stores data in one SQLite file in the user’s data folder, with no server.
+
+  It runs on Node.js 24 with no runtime dependencies. Export uses JSON, and version 1.0 has no sync between machines.
+
+  Worked for 3s • 10:12 PM
+
+
+› a draft the user is typing
+
+
+• guilda sent a notice: “Test 3: draft guard.”
+
+  Worked for 2s • 10:12 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol default · <labdir>/proj · Entrar na guilda como tui
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view

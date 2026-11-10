@@ -1,0 +1,29 @@
+{
+  "messages": [
+    "I’m using the using-superpowers skill to follow the project’s workflow.",
+    "Welcome back! The Architect shared an update: **tasknote 1.0 is scheduled for release on December 15, 2026.**"
+  ],
+  "usage": [
+    {
+      "totalTokens": 16673,
+      "inputTokens": 16608,
+      "cachedInputTokens": 12288,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 65,
+      "reasoningOutputTokens": 15
+    },
+    {
+      "totalTokens": 34267,
+      "inputTokens": 34134,
+      "cachedInputTokens": 28800,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 133,
+      "reasoningOutputTokens": 25
+    }
+  ],
+  "thread": "01a1c2fe-14bf-71f1-b36b-70061f77bcf9",
+  "exit": 0,
+  "pid": 840624,
+  "aliveAfter": false,
+  "stderrTail": ""
+}

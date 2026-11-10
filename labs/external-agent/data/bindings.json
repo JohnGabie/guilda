@@ -1,0 +1,67 @@
+{
+  "agents": {
+    "arc-7dd5": {
+      "tool": "claude",
+      "name": "architect",
+      "role": "architect",
+      "session": "535b3597-1da7-4e31-9755-9df8d01a9867",
+      "sessions": [
+        "535b3597-1da7-4e31-9755-9df8d01a9867"
+      ],
+      "joined": "2026-11-10T00:59:26.035Z",
+      "systemFile": ".guilda/architect-system.md"
+    },
+    "ext-codex-voice-4592": {
+      "tool": "codex",
+      "name": "voice",
+      "role": "external",
+      "session": "01a1c2fa-1399-7540-8a2b-9d8861fd5f95",
+      "sessions": [
+        "01a1c2f7-d81e-7552-90d1-4bec446a40f1",
+        "01a1c2fa-1399-7540-8a2b-9d8861fd5f95"
+      ],
+      "joined": "2026-11-10T00:59:54.517Z"
+    },
+    "ext-codex-cli-39f6": {
+      "tool": "codex",
+      "name": "cli",
+      "role": "external",
+      "session": "01a1c2fa-5b36-7d90-af4d-d78ec059c80f",
+      "sessions": [
+        "01a1c2fa-5b36-7d90-af4d-d78ec059c80f"
+      ],
+      "joined": "2026-11-10T01:02:37.928Z"
+    },
+    "ext-codex-app-8e41": {
+      "tool": "codex",
+      "name": "app",
+      "role": "external",
+      "session": "01a1c2fe-14bf-71f1-b36b-70061f77bcf9",
+      "sessions": [
+        "01a1c2fe-14bf-71f1-b36b-70061f77bcf9"
+      ],
+      "joined": "2026-11-10T01:05:59.850Z"
+    },
+    "ext-codex-tui-5c70": {
+      "tool": "codex",
+      "name": "tui",
+      "role": "external",
+      "session": "01a1c302-1bf6-7732-8492-78dbee1387ab",
+      "sessions": [
+        "01a1c302-1bf6-7732-8492-78dbee1387ab"
+      ],
+      "joined": "2026-11-10T01:11:12.156Z",
+      "wake": {
+        "socket": "<tmux-dir>/guilda-lab",
+        "pane": "%0"
+      }
+    }
+  },
+  "index": {
+    "claude|architect": "arc-7dd5",
+    "codex|voice": "ext-codex-voice-4592",
+    "codex|cli": "ext-codex-cli-39f6",
+    "codex|app": "ext-codex-app-8e41",
+    "codex|tui": "ext-codex-tui-5c70"
+  }
+}
