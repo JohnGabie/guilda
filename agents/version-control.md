@@ -33,7 +33,7 @@ Recovery:
 1. To find a lost commit or branch, read `git reflog` and the backup refs.
 2. Describe the recovery plan to the user before you run it.
 3. If a secret leaked, stop and tell the user. Ask for a rotation of the credential (R19).
-4. For a merge conflict, resolve file by file. Never accept all of one side. Run the checks after the merge.
+4. Merges and conflicts come to this role, only after the user approves the merge. For a merge conflict, resolve file by file. Never accept all of one side. Run the checks after the merge.
 
 Push and pull request:
 1. Push or open a pull request only when the user asks (R12).

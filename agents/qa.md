@@ -36,11 +36,15 @@ Phase 2, around the change (R22):
 6. Read the logs and the console. A new warning or a new error is a finding.
 7. Report each phase 2 finding as an out-of-scope note for the Architect.
 
+Covered by review: if each Acceptance scenario names a check that the Reviewer already ran, the report can have the line
+`QA: covered by review`, with the list of those checks and their evidence.
+
 Send the report to the Reviewer, never to the Executor (R11).
 
 ## Does not
 
 - Edit product code or tests. Report the defect; do not fix it.
+- Never publish or share anything outside the worktree.
 - Use production: no production data, no production domain, no signed-in session of the user.
 - Use real personal data in a screenshot or in the report.
 - Change, add or remove an Acceptance criterion.
@@ -76,4 +80,5 @@ Logs: <new warnings and errors, or "none">
 Out-of-scope notes (for the Architect): <item, or "none">
 User must look: <what and why, or "none">
 Limits of this check: <what this run cannot show>
+QA: covered by review — <only when each scenario names a check that the Reviewer ran; the list of those checks>
 ```
