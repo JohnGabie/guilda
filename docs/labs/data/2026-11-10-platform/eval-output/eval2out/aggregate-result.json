@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.325",
+  "startedAt": "2026-11-16T19:08:32.506Z",
+  "durationSeconds": 31,
+  "costUsd": 0.302909,
+  "partial": false,
+  "suite": {
+    "root": "<tmp>/l6-p4copy-w3Te",
+    "ablation": "with-without",
+    "caseFilter": "empty-new-project",
+    "threshold": 0.8,
+    "concurrency": 3,
+    "plugins": [
+      {
+        "name": "guilda",
+        "version": "0.1.1",
+        "path": "<tmp>/l6-p4copy-w3Te"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "empty-new-project",
+      "dir": "evals/l6-sample/empty-new-project",
+      "source": "mixed",
+      "promptMarkdown": "Set up guilda for this new project.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 8,
+      "graders": [
+        {
+          "name": "asked-user",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "AskUserQuestion",
+            "min": 1
+          }
+        },
+        {
+          "name": "no-write",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Write",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:guilda:)?init\""
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.5,
+            "passed": false,
+            "turns": 11,
+            "costUsd": 0.22673900000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 31,
+            "startedAt": "2026-11-16T19:08:32.519Z",
+            "error": null,
+            "tracePath": "<tmp>/claude-eval-PEHYiz/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "asked-user",
+                "passed": false,
+                "weight": 1,
+                "explanation": "AskUserQuestion called 0x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.5,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.07616999999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 12,
+            "startedAt": "2026-11-16T19:08:32.519Z",
+            "error": null,
+            "tracePath": "<tmp>/claude-eval-RIjyoy/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "asked-user",
+                "passed": false,
+                "weight": 1,
+                "explanation": "AskUserQuestion called 0x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.5,
+        "passRate": 0,
+        "scoreWithout": 0.5,
+        "passRateWithout": 0,
+        "delta": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0.5,
+    "overallPassRate": 0,
+    "meanDelta": 0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "l6dep-ok",
+  "version": "0.0.1",
+  "description": "Lab plugin: a dependency entry in object form with a version range.",
+  "author": { "name": "lab" },
+  "license": "MIT",
+  "dependencies": [
+    { "name": "superpowers", "marketplace": "claude-plugins-official", "version": "^7.0.0" }
+  ]
+}

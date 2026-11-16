@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.325",
+  "startedAt": "2026-11-16T19:09:34.179Z",
+  "durationSeconds": 11,
+  "costUsd": 0.1088654,
+  "partial": false,
+  "suite": {
+    "root": "<tmp>/l6-p4copy-w3Te",
+    "ablation": "none",
+    "caseFilter": "path-env",
+    "threshold": 0,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "guilda",
+        "version": "0.1.1",
+        "path": "<tmp>/l6-p4copy-w3Te"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "path-env",
+      "dir": "evals/l6-sample/path-env",
+      "source": "prose",
+      "promptMarkdown": "Run these two shell commands, each in its own Bash call: `printenv PATH` and `ls -la <tmp>/l6-stub-BVwo`. Reply with both outputs exactly, including any error text.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 180,
+      "maxTurns": 5,
+      "graders": [
+        {
+          "name": "stub-on-path",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "l6-stub-",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.1088654,
+            "judgeCostUsd": 0,
+            "durationSeconds": 11,
+            "startedAt": "2026-11-16T19:09:34.195Z",
+            "error": null,
+            "tracePath": "<tmp>/claude-eval-L0mQOe/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "stub-on-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched l6-stub-",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 1,
+    "overallScore": 1,
+    "overallPassRate": 1
+  }
+}

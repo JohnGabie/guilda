@@ -1,0 +1,20 @@
+Note: --scaffold runs each case's scaffold_script as you. Only use it on case files you (or your org) authored.
+Ablation: defaulting to with-without — a plugin resolved from this path, so each case also runs a no-plugin baseline arm (2× runs) and reports Δ; graders marked with-only (including `tool_used: Skill`) become a plugin-fired indicator rather than part of the score. Pass --ablation none for the previous single-arm run and scoring.
+Plugin under test: "guilda" version "0.1.1" at "<tmp>/l6-p4copy-w3Te"
+Ablation: 2 arms × 1 case (2 runs)
+Concurrency: up to 3 runs in flight (all children share your rate limit; progress lines interleave, results keep case order)
+  scaffold: <tmp>/l6-p4copy-w3Te/evals/l6-sample/empty-new-project/fixture.sh
+  scaffold: <tmp>/l6-p4copy-w3Te/evals/l6-sample/empty-new-project/fixture.sh
+  kept temp: <tmp>/claude-eval-FGeKFz
+⚠ kept <tmp>/claude-eval-FGeKFz: home/ and tmp/ in it were written by the plugin under test and are sealed in <tmp>/claude-eval-FGeKFz/sealed (mode 000; the kept directory is read-only) — open them with `chmod 700 <tmp>/claude-eval-FGeKFz <tmp>/claude-eval-FGeKFz/sealed` to inspect, and do not run git (or anything that loads configuration from its working directory) anywhere inside the kept directory
+  empty-new-project run 1/1 [with]: score 0.50  $0.08
+    ✗ asked-user (weight 1): AskUserQuestion called 0x (expected 1..∞)
+    ✓ no-write (weight 1): Write called 0x (expected 0..0)
+    ✗ skill-fired [with-only, not scored]: Skill called 0x (expected 1..∞)
+  kept temp: <tmp>/claude-eval-tb35bF
+⚠ kept <tmp>/claude-eval-tb35bF: home/ and tmp/ in it were written by the plugin under test and are sealed in <tmp>/claude-eval-tb35bF/sealed (mode 000; the kept directory is read-only) — open them with `chmod 700 <tmp>/claude-eval-tb35bF <tmp>/claude-eval-tb35bF/sealed` to inspect, and do not run git (or anything that loads configuration from its working directory) anywhere inside the kept directory
+  empty-new-project run 1/1 [without]: score 0.50  $0.08
+    ✗ asked-user (weight 1): AskUserQuestion called 0x (expected 1..∞)
+    ✓ no-write (weight 1): Write called 0x (expected 0..0)
+✗ empty-new-project  with 0.50  without 0.50  Δ 0.00  (2 runs)  $0.16
+Report: <tmp>/l6-evalout-LkLS/report.html

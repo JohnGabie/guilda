@@ -1,0 +1,9 @@
+Note: --scaffold runs each case's scaffold_script as you. Only use it on case files you (or your org) authored.
+Plugin under test: "guilda" version "0.1.1" at "<tmp>/l6-p4copy-w3Te"
+  scaffold: <tmp>/l6-p4copy-w3Te/evals/l6-sample/path-probe-workspace/stub.sh
+  kept temp: <tmp>/claude-eval-4VbxEK
+⚠ kept <tmp>/claude-eval-4VbxEK: home/ and tmp/ in it were written by the plugin under test and are sealed in <tmp>/claude-eval-4VbxEK/sealed (mode 000; the kept directory is read-only) — open them with `chmod 700 <tmp>/claude-eval-4VbxEK <tmp>/claude-eval-4VbxEK/sealed` to inspect, and do not run git (or anything that loads configuration from its working directory) anywhere inside the kept directory
+  path-probe-workspace run 1/1: score 1.00  $0.09
+    ✓ stub-ran (weight 1): matched L6PROBE-STUB-RAN
+✓ path-probe-workspace  score 1.00  (1 run)  $0.09
+Report: <tmp>/l6-evalout-tYNT/report.html

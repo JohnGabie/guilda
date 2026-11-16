@@ -1,0 +1,4 @@
+{"hook":"session-start","root":"copy","pid":3391652,"t":1794856029132}
+{"hook":"pre-tool-use","root":"copy","pid":3391861,"t":1794856033287}
+{"hook":"pre-tool-use","root":"copy","pid":3391925,"t":1794856034448}
+{"hook":"post-tool-use","root":"copy","pid":3391936,"t":1794856034542}

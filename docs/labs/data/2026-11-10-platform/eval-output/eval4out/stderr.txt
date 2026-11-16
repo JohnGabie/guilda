@@ -1,0 +1,7 @@
+Plugin under test: "guilda" version "0.1.1" at "<tmp>/l6-p4copy-w3Te"
+  kept temp: <tmp>/claude-eval-L0mQOe
+⚠ kept <tmp>/claude-eval-L0mQOe: home/ and tmp/ in it were written by the plugin under test and are sealed in <tmp>/claude-eval-L0mQOe/sealed (mode 000; the kept directory is read-only) — open them with `chmod 700 <tmp>/claude-eval-L0mQOe <tmp>/claude-eval-L0mQOe/sealed` to inspect, and do not run git (or anything that loads configuration from its working directory) anywhere inside the kept directory
+  path-env run 1/1: score 1.00  $0.11
+    ✓ stub-on-path (weight 1): matched l6-stub-
+✓ path-env  score 1.00  (1 run)  $0.11
+Report: <tmp>/l6-evalout-BD3q/report.html

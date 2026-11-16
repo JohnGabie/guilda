@@ -1,0 +1,112 @@
+=== p1-ok
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup 
+session_id: 08f741c4-4276-46d2-8b33-26b0ac15c68d
+skills(l6/guilda): ["l6dep-ok:l6dep-ok-hello","guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["l6dep-ok:l6dep-ok-hello","guilda:architect","guilda:init","guilda:update"]
+tool_use: Skill {"skill":"l6dep-ok:l6dep-ok-hello"}
+result: "L6DEP-OK-LOADED" turns 3 cost 0.34277880000000005
+init plugin entries (lab or guilda): [{"name":"l6dep-ok","path":"<tmp>/l6-lab-lP13/plugins/l6dep-ok","source":"l6dep-ok@inline","version":"0.0.1"},{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup
+=== p1-miss
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup 
+session_id: 92df43a8-9d99-409a-a504-21eb9964a85a
+skills(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+tool_use: Skill {"skill":"l6dep-miss-hello"}
+result: "I couldn't run `l6dep-miss-hello`, so there is nothing from it to relay. The skill lookup failed, and the session reports that one plugin did not load because of an unmet dependency.\n\nIf `l6dep-miss-hello` belongs to that plugin, the plugin could not be loaded here — that is different from the skill not being installed. Resolving the plugin's missing dependency and starting a new session should turns 2 cost 0.3500654
+"plugin_errors":[{"plugin":"l6dep-miss@inline","type":"dependency-unsatisfied","message":"Dependency \"skill-creator@claude-plugins-official\" is not installed — run `claude plugin install skill-creator@claude-plugins-official`, or check that its marketplace is added"}]
+init plugin entries (lab or guilda): [{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup
+=== p1-range
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup 
+session_id: 6e16b0a7-56e6-4bd7-8a39-e08b91bed76a
+skills(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+result: "OK" turns 1 cost 0.329714
+"plugin_errors":[{"plugin":"l6dep-range@inline","type":"dependency-version-unsatisfied","message":"Requires \"superpowers@claude-plugins-official\" ^8.0.0, installed 7.0.2"}]
+init plugin entries (lab or guilda): [{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup
+=== p2-root
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup 
+session_id: c7fbae34-5d35-4c33-9ec6-f5b24afd6f68
+skills(l6/guilda): ["l6root:l6root-top","guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["l6root:l6root-top","guilda:architect","guilda:init","guilda:update"]
+result: "l6root:l6root-top" turns 1 cost 0.330602
+init plugin entries (lab or guilda): [{"name":"l6root","path":"<tmp>/l6-lab-lP13/plugins/l6root","source":"l6root@inline","version":"0.0.1"},{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup
+=== p3-hidden
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup {"systemMessage":"L6 notice from SessionStart"}
+hook: hook_response SessionStart:startup 
+session_id: e3fb3fb3-6c25-417f-8192-660f86e2b22d
+skills(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+tool_use: Skill {"skill":"l6skills:l6-hidden"}
+result: "HIDDEN-SKILL-LOADED-7731" turns 3 cost 0.34324160000000004
+init plugin entries (lab or guilda): [{"name":"l6skills","path":"<tmp>/l6-lab-lP13/plugins/l6skills","source":"l6skills@inline","version":"0.0.1"},{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup,SessionStart:startup
+=== p5-pretool
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup {"systemMessage":"L6 notice from SessionStart"}
+hook: hook_response SessionStart:startup 
+session_id: 7d66bce9-3089-4660-b675-77f37e158f88
+skills(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+tool_use: Bash {"command":"echo l6-pretool-check","description":"Print the check string"}
+system: informational {"type":"system","subtype":"informational","content":"PreToolUse:Bash says: L6 notice from PreToolUse","level":"notice","uuid":"358c83eb-cb27-4144-81a7-4fe992fa5283","session_id":"7d66bce9-3089-4660-b675-77f37e158f88"}
+result: "l6-pretool-check" turns 2 cost 0.34252059999999995
+"type":"system","subtype":"informational","content":"PreToolUse:Bash says: L6 notice from PreToolUse","level":"notice","uuid":"358c83eb-cb27-4144-81a7-4fe992fa5283","session_id":"7d66bce9-3089-4660-b675-77f37e158f88"
+init plugin entries (lab or guilda): [{"name":"l6skills","path":"<tmp>/l6-lab-lP13/plugins/l6skills","source":"l6skills@inline","version":"0.0.1"},{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup,SessionStart:startup
+=== p6-sid
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup {"systemMessage":"L6 notice from SessionStart"}
+hook: hook_response SessionStart:startup 
+session_id: 75c56271-cc87-4bff-853b-f326fe750454
+skills(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["l6skills:l6-sid","guilda:architect","guilda:init","guilda:update"]
+tool_use: Skill {"skill":"l6skills:l6-sid"}
+result: "SID=75c56271-cc87-4bff-853b-f326fe750454" turns 3 cost 0.34351980000000004
+init plugin entries (lab or guilda): [{"name":"l6skills","path":"<tmp>/l6-lab-lP13/plugins/l6skills","source":"l6skills@inline","version":"0.0.1"},{"name":"guilda","path":"$HOME/.claude/plugins/cache/guilda/guilda/0.1.0","source":"guilda@guilda","version":"0.1.0"}]
+hook_started: SessionStart:startup,SessionStart:startup,SessionStart:startup
+=== p8a-deps
+hook: hook_started SessionStart:startup 
+session_id: 5aedb35a-b334-4803-b650-cff3313eedae
+skills(l6/guilda): []
+slash(l6/guilda): []
+tool_use: Bash {"command":"echo l6-p8","description":"Print the requested text"}
+tool_use: Write {"file_path":"<tmp>/l6-proj-KleV/notes.txt","content":"hello\n"}
+result: "DONE" turns 3 cost 0.33191539999999997
+"plugin_errors":[{"plugin":"guilda@inline","type":"dependency-unsatisfied","message":"Dependency \"skill-creator@claude-plugins-official\" is not installed — run `claude plugin install skill-creator@claude-plugins-official`, or check that its marketplace is added"}]
+init plugin entries (lab or guilda): []
+hook_started: SessionStart:startup
+=== p8b-nodeps
+hook: hook_started SessionStart:startup 
+hook: hook_started SessionStart:startup 
+hook: hook_response SessionStart:startup {"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"guilda 0.2.0-l6test active\n\n# guilda core rules\n\nEach rule has an ID. Cite the ID in a verdict or a report: \"violates R3\".\nCheck levels: law = a hook blocks the action. Gate = the Reviewer rejects the work. Judgment = 
+session_id: f651593c-96cb-4dae-ac72-cfaa98c86879
+skills(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+slash(l6/guilda): ["guilda:architect","guilda:init","guilda:update"]
+tool_use: Bash {"command":"echo l6-p8","description":"Print the requested text"}
+tool_use: Write {"file_path":"<tmp>/l6-proj-vU2m/notes.txt","content":"hello\n"}
+result: "DONE" turns 3 cost 0.3630914
+init plugin entries (lab or guilda): [{"name":"guilda","path":"<tmp>/l6-p8copy-JaCN","source":"guilda@inline","version":"0.2.0-l6test"}]
+hook_started: SessionStart:startup,SessionStart:startup
+=== invalid runs (relative --plugin-dir path, runner bug; not used as evidence)
+p1-miss.jsonl: "plugin_errors":[{"plugin":"inline[0]
+p1-ok.jsonl: "plugin_errors":[{"plugin":"inline[0]
+p2-root.jsonl: "plugin_errors":[{"plugin":"inline[0]

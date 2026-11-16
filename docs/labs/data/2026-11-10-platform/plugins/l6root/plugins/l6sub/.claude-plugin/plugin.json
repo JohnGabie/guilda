@@ -1,0 +1,7 @@
+{
+  "name": "l6sub",
+  "version": "0.0.1",
+  "description": "Lab plugin in a subfolder.",
+  "author": { "name": "lab" },
+  "license": "MIT"
+}

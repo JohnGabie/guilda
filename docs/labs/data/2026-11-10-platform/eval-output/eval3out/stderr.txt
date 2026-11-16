@@ -1,0 +1,7 @@
+Plugin under test: "guilda" version "0.1.1" at "<tmp>/l6-p4copy-w3Te"
+  kept temp: <tmp>/claude-eval-LuSewV
+⚠ kept <tmp>/claude-eval-LuSewV: home/ and tmp/ in it were written by the plugin under test and are sealed in <tmp>/claude-eval-LuSewV/sealed (mode 000; the kept directory is read-only) — open them with `chmod 700 <tmp>/claude-eval-LuSewV <tmp>/claude-eval-LuSewV/sealed` to inspect, and do not run git (or anything that loads configuration from its working directory) anywhere inside the kept directory
+  path-probe run 1/1: score 0.00  $0.09
+    ✗ stub-ran (weight 1): pattern not found in last_message
+✓ path-probe  score 0.00  (1 run)  $0.09
+Report: <tmp>/l6-evalout-ZBPH/report.html

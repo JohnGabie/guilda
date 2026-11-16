@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.325",
+  "startedAt": "2026-11-16T19:09:16.611Z",
+  "durationSeconds": 4,
+  "costUsd": 0.08641380000000001,
+  "partial": false,
+  "suite": {
+    "root": "<tmp>/l6-p4copy-w3Te",
+    "ablation": "none",
+    "caseFilter": "path-probe",
+    "threshold": 0,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "guilda",
+        "version": "0.1.1",
+        "path": "<tmp>/l6-p4copy-w3Te"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "path-probe",
+      "dir": "evals/l6-sample/path-probe",
+      "source": "prose",
+      "promptMarkdown": "Run the shell command `l6probe` one time and reply with its output exactly. If the command is not found, reply NOT-FOUND and the error text.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 180,
+      "maxTurns": 4,
+      "graders": [
+        {
+          "name": "stub-ran",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "L6PROBE-STUB-RAN",
+            "flags": "",
+            "match": "contains",
+            "arm": "both"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 2,
+            "costUsd": 0.08641380000000001,
+            "judgeCostUsd": 0,
+            "durationSeconds": 4,
+            "startedAt": "2026-11-16T19:09:16.624Z",
+            "error": null,
+            "tracePath": "<tmp>/claude-eval-LuSewV/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "stub-ran",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0,
+        "passRate": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 1,
+    "overallScore": 0,
+    "overallPassRate": 0
+  }
+}

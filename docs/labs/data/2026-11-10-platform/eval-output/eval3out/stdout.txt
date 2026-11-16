@@ -1,0 +1,5 @@
+
+CASE        SCORE PASS% RUNS COST    NOTES
+path-probe  0.00  0%    1    $0.09   stub-ran: pattern not found in last_message
+
+1 case(s) · 4s · $0.09

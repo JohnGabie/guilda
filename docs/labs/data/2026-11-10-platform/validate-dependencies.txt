@@ -1,0 +1,9 @@
+claude plugin validate --strict --json <plugin>, field manifest.errors, dependencies value changed in a copy of l6dep-ok:
+
+[{"name":"superpowers","marketplace":"claude-plugins-official","version":"^7.0.0"}]  success true,  errors []   (l6dep-ok)
+[{"name":"skill-creator",...,"version":"^1.0.0"}, "skill-creator@claude-plugins-official"]  success true (l6dep-miss)
+[{"name":"superpowers",...,"version":7}]   (a number)   success true, errors []
+"notarray"                                success false, dependencies: expected array, received string
+[{"marketplace":"x"}]                     success false, dependencies.0: Invalid input
+[{"name":"a","bogus":1}]                  success true,  errors [] (an unknown key in an entry is not reported)
+[42]                                      success false, dependencies.0: Invalid input

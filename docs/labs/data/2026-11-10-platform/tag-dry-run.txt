@@ -1,0 +1,34 @@
+Throwaway repository <tmp>/tagrepo: root plugin l6core 0.2.0 (source "./"), subfolder plugin l6ext 0.2.0
+(source "./plugins/l6ext"), one marketplace.json at the root listing both. One commit, no remote.
+
+== claude plugin tag --dry-run plugins/l6ext (cwd = repository root)
+Plugin:  l6ext
+Version: 0.2.0 (from plugin.json)
+Marketplace entry: plugins[1] in <tmp>/tagrepo/.claude-plugin/marketplace.json
+Tag:     l6ext--v0.2.0
+
+✔ Dry run — would create tag l6ext--v0.2.0 at HEAD in <tmp>/tagrepo
+  git -C <tmp>/tagrepo tag -a l6ext--v0.2.0 -m "l6ext 0.2.0"
+  git -C <tmp>/tagrepo push origin refs/tags/l6ext--v0.2.0
+exit=0
+
+== claude plugin tag --dry-run . (cwd = repository root)
+Plugin:  l6core
+Version: 0.2.0 (from plugin.json)
+Marketplace entry: plugins[0] in <tmp>/tagrepo/.claude-plugin/marketplace.json
+Tag:     l6core--v0.2.0
+
+✔ Dry run — would create tag l6core--v0.2.0 at HEAD in <tmp>/tagrepo
+  git -C <tmp>/tagrepo tag -a l6core--v0.2.0 -m "l6core 0.2.0"
+  git -C <tmp>/tagrepo push origin refs/tags/l6core--v0.2.0
+exit=0
+
+== claude plugin tag --dry-run (cwd = plugins/l6ext, no path)
+Tag:     l6ext--v0.2.0   (same output as the first command)
+exit=0
+
+== control: marketplace entry plugins[1].version = "0.1.9", plugin.json 0.2.0, committed
+✘ Version mismatch: plugin.json says "0.2.0" but .claude-plugin/marketplace.json plugins[1].version says "0.1.9". plugin.json wins at install time, so update the marketplace entry to "0.2.0" (or remove it) before tagging.
+exit=1
+
+git tag -l after all commands: 0 tags.

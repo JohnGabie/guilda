@@ -1,0 +1,7 @@
+{
+  "name": "l6root",
+  "version": "0.0.1",
+  "description": "Lab plugin at a repository root that holds a second plugin in a subfolder.",
+  "author": { "name": "lab" },
+  "license": "MIT"
+}

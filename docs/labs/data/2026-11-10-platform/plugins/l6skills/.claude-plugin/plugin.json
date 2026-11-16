@@ -1,0 +1,7 @@
+{
+  "name": "l6skills",
+  "version": "0.0.1",
+  "description": "Lab plugin: a hidden skill, a session ID skill, and notice hooks.",
+  "author": { "name": "lab" },
+  "license": "MIT"
+}
