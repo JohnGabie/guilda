@@ -57,10 +57,10 @@ it. Semver rules of `RELEASING.md`, with the 0.x rule below.
 | Release | Theme | Scope |
 |---|---|---|
 | 0.1.1 | fixes | D4, the first item of D11, the README note of D2, the CHANGELOG parser that reads both formats, the fail-closed laws fix and the no-folder record fix (D40) |
-| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27), D40 to D46 as each one states, with R28 (D40), the 0.2.0 part of D51 |
-| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35, D32, the mod part of D24 |
+| 0.2.0 | process | D1, D2, D3, D5 to D10, the second item of D11, D19, D23 to D26, D28 to D30, D34, D36, the plan file name and its R4 hook (D27), D40 to D46 as each one states, with R28 (D40), the 0.2.0 part of D51, the build process part of D52 (no product code) |
+| 0.3.0 | traceability and state | D27 block index with the `Uses:` lines and the check, D12, D13, D14, D20, D21, the measure of D22, D35, D32, the mod part of D24, the `record_task` step of D52 |
 | 0.4.0 | the Architect outside the main session | D31, D17, D18, D33, the Codex adapter (lab `external-agent`), D49 `@proposed` |
-| 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 with the red team and blue team skills of D28, D38, D47 and D48 `@proposed` |
+| 0.5.0 | supervisor and pace | D15, the pace of D22 with the `cswap` fork plan, D16 and D37 with the red team and blue team skills of D28, D38, D47 and D48 `@proposed`, with the `cswap` reads of D52 |
 
 - `@decided` While the major number is 0, a core rule that changes meaning raises the minor number. The CHANGELOG
   entry lists the rule IDs that changed. `RELEASING.md` says this.
@@ -581,9 +581,8 @@ hours that the user wants for the work.
 - `@decided` The Architect sets the pace with the user in the plan of the feature. The supervisor only executes the pace.
 - `@decided` Near a limit, or under the pace, the supervisor assesses the risk and asks the Architect one precise question
   with the facts, 2 or 3 options and its recommendation. The Architect decides.
-- `@decided` The usage source is the user's fork of `cswap`, with a minimal command (for example `cswap pace --json`):
-  for each account, the usage percent and the reset time of the 5-hour and the 7-day windows. guilda never uses
-  `cswap list --json` and never runs `cswap switch`.
+- `@replaced` The usage source "the user's fork of `cswap`, with a minimal command `cswap pace --json`". That
+  command gave the percent and the reset times of each account. Replaced by: D52 (the `cswap` MCP tools). The privacy limits stay: guilda never uses `cswap list --json` and never runs `cswap switch`.
 - `@decided` guilda keeps only these values, and never writes account data to a log or a report.
 - `@decided` The goal: a constant flow that does not pass a limit and does not stand still.
 - `@decided` Without `cswap`, or with `usage.source: "off"`, the function is off and guilda works as 0.1.0 does.
@@ -960,6 +959,7 @@ Status: `@decided` · Release: 0.5.0 (with the supervisor) · The user, 2026-11-
 - `@decided` G5 stays: after a restart of the machine or the session, only the user starts the work again.
 - `@decided` When the work stops because the usage of the accounts ran out, a scheduled trigger reads the reset times
   from the `cswap` fork, waits for an account with usage left, and resumes the stopped work.
+  (2026-11-16) D52 names the read: the trigger is a script, so it reads `cswap budget --json`, not an MCP tool.
 - `@decided` The trigger resumes only the project that asked for the work, in that folder, with its own queue (D14).
   Each trigger records the project path and the work ID, and refuses to run on a mismatch.
 - `@open` The mechanism (cron, systemd timer, a Claude Code scheduled task) and its limits.
@@ -1429,6 +1429,47 @@ package, seen on 2026-11-10.
   spec, section 3g, S45).
 - `@decided` (2026-11-10, the user) The destination path of each copy is in the 0.2.0
   spec, section 3f. Each copy is in the core plugin. The bump script has its own `.version-bump.json`.
+
+### D52 — Usage source: the cswap MCP `@decided`
+
+Release: the build process of 0.2.0 from now; the product parts with D22, D35 and D38 (0.3.0 and 0.5.0). Decided by the
+user on 2026-11-16.
+
+The user installed the `cswap` MCP server: local, stdio, read-only. Its tools give the usage data that D22, D35, D38
+and D45 need.
+
+- `@decided` The usage source of D22, D35, D38 and D45 is the `cswap` MCP. It replaces the planned minimal command
+  `cswap pace --json` of D22.
+- The tools, as installed on 2026-11-16:
+  - `get_budget`: the advice word, the fleet, the accounts and the horizons. The advice word is `can_speed_up`,
+    `ok`, `slow_down`, `blocked` or `unknown`. Each account has its 5-hour and weekly percent and reset times. The
+    horizons are 24, 72 and 168 hours, each with `reachableTokens`. The unit is the weighted token: the model weight × (input + cache write + 5 × output + 0.01 ×
+    cache read).
+  - `get_advice`: the advice word only.
+  - `record_task`: one task with its role, its start and its end. Optional fields: tier, model, tool, task ID,
+    address, project hash, attempt, agent ID, session ID and outcome. It sums the tokens from the local logs by agent ID.
+  - `measure_start` and `measure_stop`: the tokens and the percent before and after a piece of work, with a
+    `contaminated` list. `measure_account`: one account.
+  - `estimate_task`: n, median, mean, p25 and p75 for a role, a tier, a model and a project hash. Below n = 5 the
+    answer is `unknown`.
+  - `fits`: it reads a list of tasks and a number of hours. Each task has a role, a tier, a model, a project hash
+    and a count. The answer is `yes`, `tight`, `no` or `unknown`.
+  - Each answer has `confidence` and `assumptions`.
+- `@decided` The privacy limits of D22 stay. guilda never uses `cswap list --json` and never runs `cswap switch`. It
+  keeps only the account number and the plan. A project is a hash, never a path.
+- `@decided` The controller calls `record_task` at the end of each task, with the `agent_id` of the Agent tool result.
+  The controller is the Architect until 0.5.0, then the supervisor.
+- `@decided` The Architect calls `get_budget`, `estimate_task` and `fits` in the plan step and before each wave.
+- `@decided` The budget limits the planned work. It never creates work (the server instruction: "Do not create work
+  only to spend quota"). `can_speed_up` can raise the parallelism of planned work only.
+- `@decided` `slow_down` lowers the parallelism and keeps at least 1 agent (D22, U5-11).
+- `@decided` `unknown` is not zero. With `unknown`, the plan pace applies.
+- `@decided` A script cannot call an MCP tool. So a script (the `watch` pace read, the resume trigger of D38) reads
+  the same data from the command `cswap budget --json`. An agent uses the MCP tools. Not verified: the command name
+  and its JSON form. The 0.5.0 spec gates it (O5-1).
+- `@decided` The off switch of D22 stays. With `usage.source: "off"`, or with no `cswap`, guilda works as before.
+- Not in `cswap` on 2026-11-16: a measure for each model and a budget for each model. Also missing: a plan
+  budget for waves, a drift alarm and the Codex usage (D22 `@open`). guilda treats each one as `unknown` until it exists.
 
 ## Experiments
 
