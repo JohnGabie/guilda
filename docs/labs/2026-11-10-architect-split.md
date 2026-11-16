@@ -2,7 +2,7 @@
 
 2026-11-10 · branch `lab/0.2-architect-split` (cut at `2120f95`) · spec `docs/superpowers/specs/2026-11-09-guilda-0.2.0.md` (L2, S15, sections 3, 3a, 3b, T13) · decisions D30, D19, D34 · agent ID `ae03c506aba8f6a86` (the file name of this agent's transcript in the `subagents` folder of the controller session `2faf61d8-fac7-442d-9608-ece7086db9bc`; the session ID is the `CLAUDE_CODE_SESSION_ID` environment variable) · model of the lab agent: Opus 5.5 (`claude-opus-5-5`) · account: the user's normal login and config; no config change.
 
-Run: 2026-11-16, 16:16 to 16:33 local time · agent ID of the run agent: see controller · model of the run agent: Opus 5.5 (`claude-opus-5-5`) · model of the 31 `claude -p` sessions: `claude-fable-5-2` (the default model of the login; `modelUsage` of each `result` event) · account: the user's normal login and config; no config change.
+Run: 2026-11-16, 16:16 to 16:33 local time · agent ID of the run agent: `a2f9e5869b7896e0a` (the transcript file `subagents/agent-a2f9e5869b7896e0a.jsonl` of session `2faf61d8-fac7-442d-9608-ece7086db9bc`, which holds this lab prompt; filled by the controller) · model of the run agent: Opus 5.5 (`claude-opus-5-5`) · model of the 31 `claude -p` sessions: `claude-fable-5-2` (the default model of the login; `modelUsage` of each `result` event) · account: the user's normal login and config; no config change.
 
 ## Hypothesis
 
