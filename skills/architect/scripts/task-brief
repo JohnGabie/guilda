@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# adapted from superpowers 7.0.0, MIT, Copyright (c) 2025 Jesse Vincent, see THIRD-PARTY-NOTICES.md.
+# Extract the full text of one task from a guilda plan into a file that the
+# Executor reads in one call, so the task text never goes through the context of
+# the controller.
+#
+# Usage: task-brief PLAN_FILE TASK_ID [--part N] [OUTFILE]
+#   TASK_ID is T<n> or L<n>. The task heading is '### <TASK_ID> — ' or
+#   '#### <TASK_ID> — '. The script prints the lines from that heading to the
+#   next heading of the same or a higher level. It reads no heading inside a
+#   code fence.
+#   If the same ID is in two '## Plan: Part N' sections, the script exits 3 and
+#   names the parts. --part N picks one.
+# Default OUTFILE: <repository root>/.guilda/work/<plan name>/<TASK_ID>-brief.md
+# Exit: 2 for a bad call, 3 when the task is not found or is in more than one part.
+set -euo pipefail
+
+usage() { echo "usage: task-brief PLAN_FILE TASK_ID [--part N] [OUTFILE]" >&2; exit 2; }
+
+[ $# -ge 2 ] || usage
+plan=$1
+id=$2
+shift 2
+part=""
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --part)
+      [ $# -ge 2 ] || usage
+      part=$2
+      shift 2
+      ;;
+    *)
+      [ -z "$out" ] || usage
+      out=$1
+      shift
+      ;;
+  esac
+done
+
+[ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+case "$id" in
+  [TL][0-9]|[TL][0-9][0-9]*) ;;
+  *) echo "bad task ID: $id (use T<n> or L<n>)" >&2; exit 2 ;;
+esac
+case "$id" in
+  *[!TL0-9]*) echo "bad task ID: $id (use T<n> or L<n>)" >&2; exit 2 ;;
+esac
+if [ -n "$part" ]; then
+  case "$part" in
+    ''|*[!0-9]*) echo "bad part number: $part" >&2; exit 2 ;;
+  esac
+fi
+
+# The parts where the task heading is. Part 0 means a heading above any
+# '## Plan: Part N' section.
+parts=$(awk -v id="$id" '
+  /^```/ || /^~~~/ { infence = !infence; next }
+  infence { next }
+  /^##[ \t]+Plan:[ \t]+Part[ \t]+[0-9]+/ {
+    s = $0; sub(/^##[ \t]+Plan:[ \t]+Part[ \t]+/, "", s); sub(/[^0-9].*$/, "", s)
+    cur = s + 0; next
+  }
+  index($0, "### " id " — ") == 1 || index($0, "#### " id " — ") == 1 {
+    if (!(cur in seen)) { seen[cur] = 1; list = list (list == "" ? "" : " ") cur }
+  }
+  END { print list }
+' "$plan")
+
+if [ -z "$part" ]; then
+  count=$(printf '%s\n' "$parts" | wc -w | tr -d ' ')
+  if [ "$count" -gt 1 ]; then
+    names=""
+    for p in $parts; do names="$names Part $p,"; done
+    echo "task ${id} is in more than one part of ${plan}:${names%,}. Use --part N." >&2
+    exit 3
+  fi
+fi
+
+body=$(awk -v id="$id" -v want="$part" '
+  /^```/ || /^~~~/ { infence = !infence; if (intask) print; next }
+  infence { if (intask) print; next }
+  /^##[ \t]+Plan:[ \t]+Part[ \t]+[0-9]+/ {
+    s = $0; sub(/^##[ \t]+Plan:[ \t]+Part[ \t]+/, "", s); sub(/[^0-9].*$/, "", s)
+    cur = s + 0
+  }
+  /^#+[ \t]/ {
+    match($0, /^#+/); level = RLENGTH
+    if (intask && level <= tlevel) intask = 0
+    if (!intask && (index($0, "### " id " — ") == 1 || index($0, "#### " id " — ") == 1) \
+        && (want == "" || cur == want + 0)) { intask = 1; tlevel = level }
+  }
+  intask { print }
+' "$plan")
+
+if [ -z "$body" ]; then
+  if [ -n "$part" ]; then
+    echo "task ${id} not found in Part ${part} of ${plan} (no heading '### ${id} — ')" >&2
+  else
+    echo "task ${id} not found in ${plan} (no heading '### ${id} — ')" >&2
+  fi
+  exit 3
+fi
+
+if [ -z "$out" ]; then
+  # Invoke via bash rather than direct exec: some extractors (Python zipfile)
+  # strip Unix exec bits when unpacking marketplace packages.
+  dir=$("${BASH:-bash}" "$(cd "$(dirname "$0")" && pwd)/sdd-workspace" "$plan")
+  out="$dir/${id}-brief.md"
+fi
+
+printf '%s\n' "$body" > "$out"
+echo "wrote ${out}: $(wc -l < "$out" | tr -d ' ') lines"

@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# adapted from superpowers 7.0.0, MIT, Copyright (c) 2025 Jesse Vincent, see THIRD-PARTY-NOTICES.md.
+# Resolve and ensure the working-tree folder that guilda uses for the short-lived
+# files of one plan: task briefs, review packages, test logs and the progress
+# ledger. Print the absolute path of that folder.
+#
+# One folder for each plan: <repository root>/.guilda/work/<plan name>/. The plan
+# name is the file name without .md and without .plan, so login.md and
+# login.plan.md own one folder. A plan-path marker in the folder holds the path
+# of the feature MD (the plan file path with .plan removed). A folder that
+# another plan owns is skipped, and the name gets the parent folder name, then a
+# counter. A folder with no marker is adopted for the current plan.
+#
+# The folder is in the working tree, not under .git/, because Claude Code treats
+# .git/ as a protected path. The file .guilda/work/.gitignore holds one line, *.
+# The script writes it only when it does not exist. So the folder ignores itself
+# and the script changes no committed file.
+#
+# With no .guilda/ folder, the script prints "guilda is not set up", exits 2 and
+# creates nothing.
+#
+# Usage: sdd-workspace PLAN_FILE
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "usage: sdd-workspace PLAN_FILE" >&2
+  exit 2
+fi
+
+plan=$1
+[ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+
+slug=$(basename "$plan" .md)
+slug=${slug%.plan}
+[ -n "$slug" ] && [ "$slug" != "." ] && [ "$slug" != ".." ] \
+  || { echo "cannot derive a workspace name from: $plan" >&2; exit 2; }
+
+# Physical path, spelled the way pwd -P spells the plan path below: on Git
+# Bash, rev-parse prints the drive-letter form while pwd prints the /c form, and the
+# repo-relative marker check needs both in the same form.
+root=$(CDPATH='' cd -- "$(git rev-parse --show-toplevel)" && pwd -P)
+[ -d "$root/.guilda" ] || { echo "guilda is not set up" >&2; exit 2; }
+base="$root/.guilda/work"
+
+# Normalize the plan path and express it as the marker value: the path of the
+# feature MD (the plan file path with .plan removed), repo-relative when the
+# plan lives under the repo root, absolute otherwise.
+plan_dir=$(CDPATH='' cd -- "$(dirname "$plan")" && pwd -P)
+plan_file=$(basename "$plan")
+case "$plan_file" in
+  *.plan.md) plan_file=${plan_file%.plan.md}.md ;;
+esac
+plan_abs="$plan_dir/$plan_file"
+case "$plan_abs" in
+  "$root"/*) plan_id=${plan_abs#"$root"/} ;;
+  *)         plan_id=$plan_abs ;;
+esac
+
+# True when the folder at $1 is (or becomes) this plan's: an existing marker
+# must name this plan; a missing marker means a new folder, and the plan claims
+# it by writing one.
+owns() {
+  if [ -e "$1/plan-path" ]; then
+    [ "$(cat "$1/plan-path")" = "$plan_id" ]
+  else
+    mkdir -p "$1"
+    printf '%s\n' "$plan_id" > "$1/plan-path"
+  fi
+}
+
+dir="$base/$slug"
+if ! owns "$dir"; then
+  parent=$(basename "$plan_dir")
+  dir="$base/$slug-$parent"
+  if ! owns "$dir"; then
+    n=2
+    while ! owns "$base/$slug-$parent-$n"; do n=$((n + 1)); done
+    dir="$base/$slug-$parent-$n"
+  fi
+fi
+
+# Create-only: a project can commit its own .gitignore here, and an overwrite
+# would revert it on every run.
+[ -e "$base/.gitignore" ] || printf '*\n' > "$base/.gitignore"
+CDPATH='' cd -- "$dir" && pwd

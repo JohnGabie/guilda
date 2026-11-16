@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# adapted from superpowers 7.0.0, MIT, Copyright (c) 2025 Jesse Vincent, see THIRD-PARTY-NOTICES.md.
+# Close one task in a single call: run the test command of the task, keep its
+# full output in the workspace, print the tail, and, only if the command
+# succeeded, append the completion line to the ledger. A failing command records
+# nothing: the task is not complete.
+#
+# Usage: task-done PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]
+#   BASE is the SHA that task-start printed; the completion line records BASE..HEAD.
+# Exit: the exit status of the test command.
+set -euo pipefail
+
+if [ $# -lt 5 ] || [ "$4" != "--" ]; then
+  echo "usage: task-done PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]" >&2
+  exit 2
+fi
+
+plan=$1
+id=$2
+base=$3
+shift 4
+here="$(cd "$(dirname "$0")" && pwd)"
+
+git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
+
+dir=$("${BASH:-bash}" "$here/sdd-workspace" "$plan")
+log="$dir/${id}-tests.log"
+ledger="$dir/progress.md"
+
+# Render the command the way a person would type it, for the ledger line.
+cmd=""
+for a in "$@"; do
+  case "$a" in
+    *[[:space:]\"\;\|\&]*) cmd="$cmd '$a'" ;;
+    *) cmd="$cmd $a" ;;
+  esac
+done
+cmd=${cmd# }
+
+rc=0
+"$@" > "$log" 2>&1 || rc=$?
+
+tail -n 5 "$log"
+if [ "$rc" -ne 0 ]; then
+  echo "task-done: test command exited $rc; task $id NOT recorded (full output: $log)" >&2
+  exit "$rc"
+fi
+
+last=$(grep -v '^[[:space:]]*$' "$log" | tail -n 1) || last="(no output)"
+[ -f "$ledger" ] || printf '# Task ledger — plan: %s\n' "$plan" > "$ledger"
+line="Task $id: complete (commits $(git rev-parse --short=7 "$base")..$(git rev-parse --short=7 HEAD), tests: $cmd → $last)"
+printf '%s\n' "$line" >> "$ledger"
+echo "ledger: $line"

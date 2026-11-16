@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# adapted from superpowers 7.0.0, MIT, Copyright (c) 2025 Jesse Vincent, see THIRD-PARTY-NOTICES.md.
+# Begin one task in a single call: extract the brief of the task (with
+# task-brief of this folder, so all five scripts share one workspace) and record
+# BASE, the commit that the review range of the task is cut from.
+#
+# Usage: task-start PLAN_FILE TASK_ID [--part N]
+# Prints:
+#   brief: <path to the brief file of the task>
+#   base:  <full SHA of HEAD>
+# --part N goes to task-brief, for a task ID that is in two parts of the plan.
+set -euo pipefail
+
+if [ $# -ne 2 ] && { [ $# -ne 4 ] || [ "$3" != "--part" ]; }; then
+  echo "usage: task-start PLAN_FILE TASK_ID [--part N]" >&2
+  exit 2
+fi
+
+plan=$1
+id=$2
+shift 2
+here="$(cd "$(dirname "$0")" && pwd)"
+
+out=$("${BASH:-bash}" "$here/task-brief" "$plan" "$id" "$@")
+brief=$(printf '%s\n' "$out" | sed -n 's/^wrote \(.*\): [0-9][0-9]* lines$/\1/p')
+[ -n "$brief" ] || { echo "task-brief did not report a path: $out" >&2; exit 1; }
+
+echo "brief: $brief"
+echo "base: $(git rev-parse HEAD)"
