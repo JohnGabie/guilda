@@ -8,11 +8,15 @@
 claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin marketplace add JohnGabie/guilda
 claude plugin install guilda@guilda
+claude plugin install guilda-skills@guilda
 ```
 
-`guilda` needs the `skill-creator` plugin of the official Anthropic marketplace. The install adds it as a
-dependency. If the official marketplace is not added, `guilda` installs but does not load. The first line adds it;
-skip that line if `claude plugin marketplace list` already shows the official marketplace.
+The core `guilda` works alone. `guilda-skills` needs the `superpowers` and `skill-creator` plugins of the official
+Anthropic marketplace. The install of `guilda-skills` adds them as dependencies. Skip the first line when
+`claude plugin marketplace list` already shows the official marketplace.
+
+To check that `guilda` loaded, ask Claude Code to list its agents: a `guilda:*` agent (for example
+`guilda:executor`) exists when it did.
 
 A project-scope install loads only when Claude Code starts in that project folder.
 

@@ -1,0 +1,10 @@
+{
+  "name": "ios-on-linux",
+  "version": "0.1.1",
+  "description": "Control a real iPhone from a Linux PC through mobile-mcp, without a Mac.",
+  "author": {
+    "name": "USER"
+  },
+  "repository": "https://github.com/JohnGabie/guilda",
+  "license": "MIT"
+}

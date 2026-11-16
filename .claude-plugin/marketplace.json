@@ -1,6 +1,6 @@
 {
   "name": "guilda",
-  "description": "Marketplace for the guilda plugin.",
+  "description": "Marketplace for guilda, guilda-skills and ios-on-linux.",
   "owner": {
     "name": "USER"
   },
@@ -11,6 +11,14 @@
     {
       "name": "guilda",
       "source": "./"
+    },
+    {
+      "name": "guilda-skills",
+      "source": "./plugins/guilda-skills"
+    },
+    {
+      "name": "ios-on-linux",
+      "source": "./plugins/ios-on-linux"
     }
   ]
 }

@@ -28,14 +28,50 @@ test('CHANGELOG top released entry equals plugin version', () => {
   assert.equal(m[1], plugin.version);
 });
 
-test('plugin requires skill-creator from the official marketplace', () => {
-  const plugin = readJson('.claude-plugin/plugin.json');
-  assert.ok(Array.isArray(plugin.dependencies), 'plugin.json has a dependencies list');
-  assert.ok(plugin.dependencies.includes('skill-creator@claude-plugins-official'));
+const CORE = '.claude-plugin/plugin.json';
+const EXT = 'plugins/guilda-skills/.claude-plugin/plugin.json';
+const IOS = 'plugins/ios-on-linux/.claude-plugin/plugin.json';
+
+test('the core manifest has no dependencies field (S17)', () => {
+  assert.equal('dependencies' in readJson(CORE), false);
 });
 
-test('marketplace allows dependencies from the official marketplace', () => {
-  const market = readJson('.claude-plugin/marketplace.json');
-  assert.ok(Array.isArray(market.allowCrossMarketplaceDependenciesOn));
-  assert.ok(market.allowCrossMarketplaceDependenciesOn.includes('claude-plugins-official'));
+test('the extension manifest lists skill-creator and superpowers (S17)', () => {
+  const ext = readJson(EXT);
+  assert.equal(ext.name, 'guilda-skills');
+  assert.deepEqual(ext.dependencies, [
+    { name: 'superpowers', marketplace: 'claude-plugins-official', version: '^7.0.0' },
+    'skill-creator@claude-plugins-official',
+  ]);
+});
+
+test('the ios-on-linux manifest has no dependencies field (S17)', () => {
+  const ios = readJson(IOS);
+  assert.equal(ios.name, 'ios-on-linux');
+  assert.equal('dependencies' in ios, false);
+});
+
+test('the marketplace lists three plugins with their sources (S17)', () => {
+  const got = readJson('.claude-plugin/marketplace.json').plugins.map((p) => [p.name, p.source]);
+  assert.deepEqual(got, [
+    ['guilda', './'],
+    ['guilda-skills', './plugins/guilda-skills'],
+    ['ios-on-linux', './plugins/ios-on-linux'],
+  ]);
+});
+
+test('allowCrossMarketplaceDependenciesOn has the marketplace of each dependency (S17)', () => {
+  const allowed = readJson('.claude-plugin/marketplace.json').allowCrossMarketplaceDependenciesOn;
+  for (const dep of readJson(EXT).dependencies) {
+    const mk = typeof dep === 'string' ? dep.split('@')[1] : dep.marketplace;
+    assert.ok(allowed.includes(mk), `${mk} is allowed`);
+  }
+});
+
+test('the three manifests have one version, and .version-bump.json lists each of them (S45)', () => {
+  const version = readJson(CORE).version;
+  assert.equal(readJson(EXT).version, version);
+  assert.equal(readJson(IOS).version, version);
+  const listed = readJson('.version-bump.json').files.map((f) => f.path);
+  for (const p of [CORE, EXT, IOS]) assert.ok(listed.includes(p), `${p} is listed`);
 });

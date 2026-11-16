@@ -6,8 +6,5 @@
     "name": "USER"
   },
   "repository": "https://github.com/JohnGabie/guilda",
-  "license": "MIT",
-  "dependencies": [
-    "skill-creator@claude-plugins-official"
-  ]
+  "license": "MIT"
 }

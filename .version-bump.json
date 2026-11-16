@@ -1,6 +1,17 @@
 {
   "files": [
-    { "path": ".claude-plugin/plugin.json", "field": "version" }
+    {
+      "path": ".claude-plugin/plugin.json",
+      "field": "version"
+    },
+    {
+      "path": "plugins/guilda-skills/.claude-plugin/plugin.json",
+      "field": "version"
+    },
+    {
+      "path": "plugins/ios-on-linux/.claude-plugin/plugin.json",
+      "field": "version"
+    }
   ],
   "audit": {
     "exclude": [
