@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
-import { loadConfig } from '../scripts/lib/project.mjs';
+import { loadConfig, SETUP_NOTICE } from '../scripts/lib/project.mjs';
 
 const PLUGIN_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'), 'utf8'),
@@ -14,10 +14,33 @@ const run = (dir, source = 'startup') =>
   runHook(SCRIPT, { hook_event_name: 'SessionStart', source, cwd: dir }, dir);
 const context = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
 
-test('no config: empty stdout, exit 0', () => {
-  const r = run(tempProject());
-  assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+const NOTICE = SETUP_NOTICE;
+
+for (const source of ['startup', 'clear']) {
+  test(`S41: no .guilda folder at ${source}: additionalContext and systemMessage are the R28 notice`, () => {
+    const dir = tempProject();
+    const r = run(dir, source);
+    assert.equal(r.code, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
+    assert.equal(out.hookSpecificOutput.additionalContext, NOTICE);
+    assert.equal(out.systemMessage, NOTICE);
+  });
+}
+
+test('S41: at compact and resume: empty stdout', () => {
+  const dir = tempProject();
+  for (const source of ['compact', 'resume']) {
+    const r = run(dir, source);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
+});
+
+test('S41: no .guilda folder after the runs', () => {
+  const dir = tempProject();
+  for (const source of ['startup', 'clear', 'compact', 'resume']) run(dir, source);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
 const BROKEN_TAIL = '. guilda runs with safe defaults. Run guilda:init to fix .guilda/config.json.';
@@ -42,6 +65,13 @@ test('S16: { not json at startup: the rules, safe defaults and the notice', () =
   assert.ok(ctx.includes('Full rule blocks: '));
   assert.ok(ctx.includes('guilda: ' + loadConfig(dir).reason + BROKEN_TAIL));
   assert.doesNotMatch(ctx, /guilda updated/);
+});
+
+test('S16: the broken-layer context has the R28 heading', () => {
+  const dir = tempProject({ config: '{ not json' });
+  const ctx = context(run(dir));
+  assert.equal(HEADINGS[HEADINGS.length - 1][1], 'R28');
+  assert.ok(ctx.includes('### R28 — Tell the user when guilda is not set up'));
 });
 
 test('broken project layer: compact and resume give the rules and no notice (S15)', () => {

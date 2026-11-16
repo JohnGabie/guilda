@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { projectState, readProjectRules } from '../lib/project.mjs';
+import { projectState, readProjectRules, SETUP_NOTICE } from '../lib/project.mjs';
 import { contextRules } from '../lib/rules-context.mjs';
 import { countViolations, ensureIgnored } from '../lib/violations.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
@@ -60,7 +60,17 @@ await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const pluginRoot = resolvePluginRoot();
   const project = projectState(projectDir);
-  if (project.state === 'none') return;
+  if (project.state === 'none') {
+    // R28: no .guilda folder. Tell the model and the user once per session, write nothing.
+    if (input.source === 'startup' || input.source === 'clear') {
+      const out = {
+        hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: SETUP_NOTICE },
+        systemMessage: SETUP_NOTICE,
+      };
+      process.stdout.write(JSON.stringify(out));
+    }
+    return;
+  }
   const { config } = project;
   const broken = project.state === 'broken';
   const fresh = input.source === 'startup' || input.source === 'clear';

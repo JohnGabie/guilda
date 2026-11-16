@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { projectState } from '../lib/project.mjs';
+import { projectState, SETUP_NOTICE } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { validateBrief, briefFileOf, isExecutorDispatch } from '../lib/formats.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
@@ -57,7 +57,14 @@ function deny(projectDir, action, reason) {
 // (ARC6 of the Architect skill).
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
-  if (projectState(projectDir).state === 'none') return 0;
+  if (projectState(projectDir).state === 'none') {
+    // R28: tell the user at each dispatch of a guilda agent. Never refuse, never record.
+    const type = (input.tool_input ?? {}).subagent_type;
+    if (typeof type === 'string' && type.startsWith('guilda:')) {
+      process.stdout.write(JSON.stringify({ systemMessage: SETUP_NOTICE }) + '\n');
+    }
+    return 0;
+  }
 
   const toolInput = input.tool_input ?? {};
   if (!isExecutorDispatch(toolInput)) return 0;

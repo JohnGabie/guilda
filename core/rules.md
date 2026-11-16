@@ -137,3 +137,8 @@ Check: gate — The Reviewer rejects a lab report that has no agent ID of the ag
 Rule:  Report the evidence with its limits, never make a result look better, and send each objection to your lead.
 Why:   A grader that preferred a fake success to an honest failure built a wrong product (D39), and only a lead argues with the user (D46).
 Check: judgment — No check can see truth yet, so a Lab study (D39, D46) refines this rule in a later release.
+
+### R28 — Tell the user when guilda is not set up
+Rule:  With no `.guilda/` folder, tell the user that guilda is not set up, and run no other law.
+Why:   A plugin that loads and does nothing looks like it works, so the user trusts checks that never ran (#2, #11).
+Check: law — SessionStart, and PreToolUse on the dispatch of a `guilda:*` agent, print the set-up notice.

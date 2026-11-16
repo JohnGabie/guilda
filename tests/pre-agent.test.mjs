@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { SETUP_NOTICE } from '../scripts/lib/project.mjs';
 import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
 const HOOK = 'scripts/hooks/pre-agent.mjs';
@@ -26,11 +27,23 @@ function records(dir) {
   return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
-test('no config -> allow, no output', () => {
+test('S41: no .guilda folder and guilda:executor: systemMessage is the R28 notice, no deny, no record, no folder', () => {
   const dir = tempProject();
   const r = runHook(HOOK, dispatch('guilda:executor', 'no brief'), dir);
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.systemMessage, SETUP_NOTICE);
+  assert.equal(out.hookSpecificOutput, undefined);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('no .guilda folder and another agent type: empty stdout', () => {
+  const dir = tempProject();
+  for (const type of ['general-purpose', undefined]) {
+    const r = runHook(HOOK, dispatch(type, 'x'), dir);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
@@ -241,6 +254,7 @@ test('no .guilda folder -> allow, no record', () => {
   const dir = tempProject();
   const r = runHook(HOOK, fileDispatch('guilda:executor', 'briefs/none.md'), dir);
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+  assert.equal(JSON.parse(r.stdout).hookSpecificOutput, undefined);
+  assert.equal(JSON.parse(r.stdout).systemMessage, SETUP_NOTICE);
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });

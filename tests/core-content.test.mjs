@@ -14,7 +14,7 @@ const LEVELS = {
   R1: 'gate', R2: 'gate', R3: 'gate', R4: 'law', R5: 'gate', R6: 'gate', R7: 'gate', R8: 'gate', R9: 'gate',
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'gate', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
-  R26: 'gate', R27: 'judgment',
+  R26: 'gate', R27: 'judgment', R28: 'law',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -37,6 +37,10 @@ test('R15 mechanism names the ste-check report', () => {
 
 test('core/rules.md + core/writing.md have 142 lines or fewer', () => {
   assert.ok(nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md')) <= 142);
+});
+
+test('R28 has the level law', () => {
+  assert.equal(blocks(read('core/rules.md')).R28.level, 'law');
 });
 
 test('R27 has the level judgment (S38)', () => {
