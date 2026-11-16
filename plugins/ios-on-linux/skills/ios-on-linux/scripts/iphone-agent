@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Keeps the mobile-mcp agent working on an iPhone from Linux.
+#   iphone-agent renew   re-sign and reinstall the agent with xtool (free Apple ID signing lasts 7 days)
+#   iphone-agent mount   mount the Developer Disk Image (needed after every iPhone reboot)
+#   iphone-agent fix     both, then restart the mobilecli daemon (default)
+# Settings below can be overridden with environment variables.
+set -euo pipefail
+DIR="${IOS_DDI_DIR:-$HOME/.local/share/go-ios-ddi}"
+AGENT_VER="${AGENT_VER:-0.0.36}"
+AGENT_SHA="${AGENT_SHA:-951870bd8c1ee668345008d1803b14fd1e5bc4ee31d08e9581c29cf8f75cf3d3}"
+IOS="${IOS_BIN:-$(command -v ios || echo "$HOME/.npm-global/bin/ios")}"
+IPA="$DIR/devicekit-ios-runner-$AGENT_VER.ipa"
+mkdir -p "$DIR"
+
+udid() {
+  if [ -n "${UDID:-}" ]; then echo "$UDID"; return; fi
+  "$IOS" list 2>/dev/null | grep -o '[0-9A-F]\{8\}-[0-9A-F]\{16\}' | head -1
+}
+
+renew() {
+  local id; id=$(udid); [ -n "$id" ] || { echo "No iPhone found over USB."; exit 1; }
+  [ -f "$IPA" ] || curl -fsSL -o "$IPA" \
+    "https://github.com/mobile-next/devicekit-ios/releases/download/$AGENT_VER/devicekit-ios-runner.ipa"
+  echo "$AGENT_SHA  $IPA" | sha256sum -c --quiet || { echo "Checksum mismatch, not installing."; exit 1; }
+  xtool install --udid "$id" --usb "$IPA"
+}
+
+mount_ddi() {
+  local id; id=$(udid); [ -n "$id" ] || { echo "No iPhone found over USB."; exit 1; }
+  # Apple's TSS server uses Apple Root CA, which many distros don't ship; trust it only for this command.
+  [ -f "$DIR/ca-plus-apple.pem" ] || { echo "Missing $DIR/ca-plus-apple.pem (see setup.md step 4)."; exit 1; }
+  SSL_CERT_FILE="$DIR/ca-plus-apple.pem" "$IOS" image auto --basedir="$DIR" --udid="$id" 2>&1 |
+    grep -v 'agent is not running' | grep -o '"msg":"[^"]*"' | tail -2
+}
+
+restart_daemon() { pkill -x mobilecli-linux || true; }
+
+case "${1:-fix}" in
+  renew) renew ;;
+  mount) mount_ddi; restart_daemon ;;
+  fix) renew; mount_ddi; restart_daemon ;;
+  *) echo "usage: iphone-agent [renew|mount|fix]"; exit 1 ;;
+esac
