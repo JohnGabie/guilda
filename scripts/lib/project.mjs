@@ -84,8 +84,12 @@ export function loadConfig(projectDir) {
   return { ok: true, config };
 }
 
-const REPO_NAME = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const GITHUB_URL = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/;
+// An owner starts with a letter or digit. A name does not start with '-' and is not '.' or '..', so the value
+// cannot climb a path or read as a command flag.
+const OWNER = '[A-Za-z0-9][A-Za-z0-9_.-]*';
+const NAME = '(?!\\.\\.?(?:$|\\/|\\.git))[A-Za-z0-9_.][A-Za-z0-9_.-]*';
+const REPO_NAME = new RegExp(`^${OWNER}\\/${NAME}$`);
+const GITHUB_URL = new RegExp(`^https:\\/\\/github\\.com\\/(${OWNER})\\/(${NAME}?)(?:\\.git)?\\/?$`);
 
 /** Return 'owner/name' for owner/name or a https://github.com/owner/name URL, or null. */
 export function normalizeRepo(value) {

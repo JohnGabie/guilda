@@ -216,6 +216,10 @@ test('normalizeRepo', () => {
     assert.equal(normalizeRepo(value), 'acme/tools', value);
   }
   for (const value of ['x', '', 'https://example.com/a/b']) assert.equal(normalizeRepo(value), null, value);
+  for (const value of ['../..', 'a/.', 'a/..', '-x/-y', 'acme/-tools', '.acme/tools', 'https://github.com/../..']) {
+    assert.equal(normalizeRepo(value), null, value);
+  }
+  assert.equal(normalizeRepo('acme/.github'), 'acme/.github');
 });
 
 test('the safe defaults are complete (S16)', () => {
