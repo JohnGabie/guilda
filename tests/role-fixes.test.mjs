@@ -29,7 +29,7 @@ test('the Executor names the Skills field', () => {
   assert.match(t, /Load each skill that the `Skills:` field of the brief names, before the work/);
   assert.match(t, /no other domain skill/);
   assert.match(t, /use it when it is installed/);
-  assert.match(t, /not in your skill list, read its `SKILL.md` \(a project skill is at `\.claude\/skills\/<name>\/SKILL\.md`\) and follow it/);
+  assert.match(t, /missing from your skill list\. Then read its `SKILL\.md` and follow it\. A project skill is at `\.claude\/skills\/<name>\/SKILL\.md`/);
   assert.match(t, /timeout on each long command/);
   assert.match(t, /Commit each green item/);
 });
@@ -37,14 +37,14 @@ test('the Executor names the Skills field', () => {
 test('the Executor, QA and the Reviewer text say outside the worktree', () => {
   for (const rel of ['agents/executor.md', 'agents/qa.md']) {
     const t = flat(read(rel));
-    assert.match(t, /Never publish or share anything outside the worktree/, rel);
+    assert.match(t, /Publish or share anything outside the worktree/, rel);
   }
 });
 
 test('QA has the line QA: covered by review', () => {
   const t = flat(read('agents/qa.md'));
   assert.match(read('agents/qa.md'), /^QA: covered by review/m);
-  assert.match(t, /each Acceptance scenario names a check that the Reviewer already ran/);
+  assert.match(t, /each Acceptance scenario can name a check that the Reviewer already ran/);
   assert.match(t, /list of those checks/);
 });
 

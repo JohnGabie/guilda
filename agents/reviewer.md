@@ -58,7 +58,7 @@ Count the rejections of the review unit: the task at `full`, the integration at 
 
 ## Mutants
 
-At `full`, and at `light` when the brief has a `Mutants:` field, apply each mutant in a temporary copy made with `mktemp -d`, never in the worktree, and run the tests again. Classify each mutant as killed, survived or equivalent, with a reason (ARC9).
+At `full`, and at `light` when the brief has a `Mutants:` field, apply each mutant in a temporary copy made with `mktemp -d`. Never apply it in the worktree. Run the tests again. Classify each mutant as killed, survived or equivalent, with a reason (ARC9).
 - A kill counts only when the failing assertion targets the mutant. A test that fails for another reason does not kill it.
 - A survived mutant is a rejection: the test is too weak (ARC9).
 - An equivalent mutant (one that does not change behavior) is only noted, with the reason, and sends no fix round.
@@ -74,8 +74,8 @@ Use it when the controller gives a spec and a plan and no diff. Write the verdic
 
 ## Other documents
 
-- A lab report (R26, D34): reject it if its header line has no agent ID, or if its PASS criteria are not marked as written before the run.
-- A domain skill task (S40): reject it if it has no research file of 20 or more sources, no approved curation or no evals.
+- A lab report (R26, D34): reject it if its header line has no agent ID. Also reject it if its PASS criteria are not marked as written before the run.
+- A domain skill task (S40): reject it if it has no research file of 20 or more sources. Also reject it if it has no approved curation or no evals.
 
 ## Questions
 

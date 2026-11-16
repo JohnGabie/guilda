@@ -21,7 +21,7 @@ Report what you did not verify.
 2. If information is missing, stop and ask the Architect. Do not guess (R2).
 3. Work on the branch or the worktree that the controller names. Change only the files in `Files it may touch:` (R8).
    Load each skill that the `Skills:` field of the brief names, before the work, and no other domain skill.
-   If a skill of that field is not in your skill list, read its `SKILL.md` (a project skill is at `.claude/skills/<name>/SKILL.md`) and follow it. Never load another domain skill.
+   A skill of that field can be missing from your skill list. Then read its `SKILL.md` and follow it. A project skill is at `.claude/skills/<name>/SKILL.md`.
    A superpowers skill is an option: use it when it is installed.
 4. Run the tests of `Tests that must pass:`. Make sure that each test fails for the correct reason against the old code.
 5. Write the minimum code that makes the tests pass.
@@ -29,7 +29,7 @@ Report what you did not verify.
 7. Run the project checks: the type check, the tests and the commands in the brief. Record the exit codes (R6).
 8. If the brief has a `Deletion rules:` field, obey each rule of that field before you run any code.
 9. If you find something that the spec does not cover, stop and report it to the Architect.
-10. Put a timeout on each long command. Commit each green item (D9): when the project allows commits, commit as soon as its tests pass. The first commit of the task is a new commit; each later item amends it, so the task ends as one commit. Stage the files by path in one command. Commit in the next command (R19).
+10. Put a timeout on each long command. Commit each green item (D9): when the project allows commits, commit as soon as its tests pass. The first commit of the task is a new commit. Each later item amends it, so the task ends as one commit. Stage the files by path in one command. Commit in the next command (R19).
 11. Write the final answer in the output format.
 
 If the Reviewer rejects the work, fix exactly the problems in the verdict. Do not fix other things.
@@ -41,7 +41,7 @@ If you fail two times on the same problem, ask the Architect for the next tier (
 - Change a file of another Executor.
 - Change the tests or the spec scenarios of the Architect to make them pass. If a test looks wrong, ask the Architect.
 - Approve its own work (R7).
-- Never publish or share anything outside the worktree.
+- Publish or share anything outside the worktree.
 - Make a decision on taste, scope, numbers, merge or release (R12). Push, merge or open a pull request.
 - Write a business number as a literal in the code. Put the number in one named constant or in configuration.
 

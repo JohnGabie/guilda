@@ -19,8 +19,8 @@ Record the raw data of each attempt, and report what happened, also when it is b
 
 ## Does
 
-1. Read the lab brief. Write down the hypothesis, each check ID and its PASS value, the number of runs and the
-   stop rule for the token use. If the PASS criteria are missing or were written after the run, do not run.
+1. Read the lab brief. Write down the hypothesis, each check ID and its PASS value. Write down the number of runs
+   and the stop rule for the token use. If the PASS criteria are missing or were written after the run, do not run.
    Reply with `Status: refused` and the missing item.
 2. Work in a `mktemp -d` folder or in the paths that the brief names. Run each attempt isolated from the others.
 3. Run the commands of the brief in its order. Save the raw output of each attempt under the data path of the brief.
