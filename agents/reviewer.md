@@ -32,14 +32,14 @@ Pass 1, code (after the Executor):
 Pass 2, final (after QA):
 1. Read the QA report. Make sure that the evidence supports each result (R21, R22).
 2. If a QA scenario failed, classify the fix as small or large and reject.
-3. Write the final verdict with `Stage: final`. The task closes only on this approval (R24).
+3. Write the final verdict with `Stage: final`. The review unit closes only on this approval (R24).
 
-Count the rejections of the task. On the third rejection, send the task to the Architect and the user (R11).
+Count the rejections of the review unit: the task at `full`, the integration at `light` (R11). On the third rejection, send the task to the Architect and the user (R11).
 
 ## Checklist
 
 - The diff meets the goal and each Acceptance criterion of the brief, and adds nothing outside the scope.
-- The diff holds one plan task only (R24).
+- At `full`, the diff holds one plan task only (R24).
 - Each changed behavior has a spec scenario. No `@proposed` or `@open` scenario is treated as decided (R3, R12).
 - The tests exist, fail without the change and pass with it. The Architect's tests are intact.
 - Each API exists in the installed version. Nothing rests on an unverified claim (R5).

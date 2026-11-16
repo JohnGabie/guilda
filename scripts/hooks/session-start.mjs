@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectState, readProjectRules } from '../lib/project.mjs';
+import { contextRules } from '../lib/rules-context.mjs';
 import { countViolations } from '../lib/violations.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
@@ -58,7 +59,12 @@ await runHookMain(async (input) => {
     const { config } = project;
     const installed = installedVersion(pluginRoot);
     const parts = [`guilda ${installed} active`];
-    parts.push(readCore(pluginRoot, 'rules.md'), readCore(pluginRoot, 'writing.md'));
+    const root = pluginRoot.split(path.sep).join('/');
+    parts.push(
+      contextRules(readCore(pluginRoot, 'rules.md')),
+      `Full rule blocks: ${root}/core/rules.md`,
+      readCore(pluginRoot, 'writing.md'),
+    );
     const projectRules = readProjectRules(projectDir).trim();
     if (projectRules) parts.push(projectRules);
     const t = config.tiers;
@@ -66,7 +72,6 @@ await runHookMain(async (input) => {
       `Languages: replies ${config.languages.replies}, docs ${config.languages.docs}. ` +
         `Tiers: master ${t.master}, journeyman ${t.journeyman}, apprentice ${t.apprentice}.`,
     );
-    const root = pluginRoot.split(path.sep).join('/');
     parts.push(`Diary command: node "${root}/scripts/journal-skeleton.mjs" <reason>`);
     parts.push(`Glossary: ${root}/core/glossary.md`);
     const notice = versionNotice(installed, config.guildaVersion);

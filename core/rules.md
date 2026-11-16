@@ -18,10 +18,10 @@ Rule:  Do not write product code before the user approves the spec in a separate
 Why:   Code from an unapproved spec builds the wrong thing.
 Check: gate — The Reviewer rejects product code whose spec has no separate approval message from the user.
 
-### R4 — One MD per feature; plans are sections
-Rule:  Write each plan as a `## Plan: Part N` section of its feature MD, not as a new file.
-Why:   One file keeps the spec, its Acceptance scenarios and its plan in step.
-Check: law — PreToolUse refuses a new file in `docs/superpowers/plans/`.
+### R4 — One MD per feature; the plan is a section or one plan file
+Rule:  Write each plan as a `## Plan: Part N` section of its feature MD, or in `<feature>.plan.md` next to it.
+Why:   One place for each plan keeps the spec, its Acceptance scenarios and its plan in step.
+Check: law — PreToolUse refuses a new file in `docs/superpowers/plans/`, and a new `*.plan.md` file whose `<feature>.md` is not in the same folder.
 
 ### R5 — Memory is a guess
 Rule:  Label a claim from model memory "guess (memory)" until you verify it in the project or in current official sources.
@@ -56,16 +56,16 @@ Check: gate — The Reviewer rejects a third attempt that runs at the tier of th
 ### R11 — Small or large rejection; 3 rejections escalate
 Rule:  Send small rejections to the Executor, large to the Architect, and the third to the Architect and the user.
 Why:   A large fix changes a spec scenario, an Acceptance criterion, a contract or the file list, and only the Architect owns them.
-Check: gate — The verdict states `REJECTED-SMALL` or `REJECTED-LARGE`. The controller counts the rejections of each task. QA sends its report to the Reviewer, never to the Executor.
+Check: gate — The verdict states `REJECTED-SMALL` or `REJECTED-LARGE`. The controller counts the rejections of each review unit: a task at `full`, the integration at `light`. A verdict with `Stage: spec` does not count. QA sends its report to the Reviewer, never to the Executor.
 
 ### R12 — The human decides
 Rule:  Ask the user before any decision on taste, scope, numbers, merge, release or an irreversible action.
 Why:   These decisions carry the risk and the values of the user, and an agent cannot know them.
 Check: gate — The Reviewer rejects work that makes one of these decisions without an answer from the user.
 
-### R13 — Questions through AskUserQuestion
-Rule:  Ask the user through AskUserQuestion with 2 to 4 options, and put the recommended option first.
-Why:   Fixed options are fast to answer, and the first option shows the recommendation.
+### R13 — Decisions through the question tool
+Rule:  Ask each decision in the question tool in plain words, with context, 2 to 4 options and the recommended first.
+Why:   The context (where, what, a concrete scenario, the effect of each option) lets the user decide; a decision in a long reply was missed five times, and a rule ID with no meaning was not understood.
 Check: judgment — No hook and no Reviewer sees the questions, so this rule is text only.
 
 ### R14 — The Architect disagrees
@@ -118,12 +118,22 @@ Rule:  Before you report a change done, meet every item of the definition of don
 Why:   A typo needs less proof than a feature, and one fixed list either wastes work or skips risk.
 Check: gate — The Reviewer rejects a change that misses an item of the definition of done for its size.
 
-### R24 — One plan task per executor ↔ reviewer cycle
-Rule:  Give each plan task its own Executor ↔ Reviewer cycle, and close the task only on the Reviewer's written approval.
-Why:   A cycle that covers several tasks hides defects in a large diff.
-Check: gate — The Reviewer rejects a diff that holds more than one plan task.
+### R24 — One review cycle for each review unit
+Rule:  Give each plan task its own Executor ↔ Reviewer cycle at `full`, and one review of the integration at `light`.
+Why:   A cycle that covers several tasks hides defects in a large diff, and a `light` project accepts that risk by choice.
+Check: gate — At `full`, the Reviewer rejects a diff that holds more than one plan task, and each task closes only on a written approval of the Reviewer. At `light`, the controller closes the integration only on a written approval of the Reviewer.
 
 ### R25 — The owner classifies a rule change
 Rule:  Ask the project owner if a rule change is for this project only or for all projects.
 Why:   A wrong guess spreads a local rule to every project or keeps a core improvement in one project.
 Check: judgment — Only the owner knows the intent, so no hook and no Reviewer can check this rule.
+
+### R26 — Labs run in a dispatched agent
+Rule:  Run each lab, experiment or spike in a dispatched agent, never in the controller session.
+Why:   The controller writes the hypothesis and gives the verdict, so a lab that it runs itself grades its own work and fills its context.
+Check: gate — The Reviewer rejects a lab report that has no agent ID of the agent that ran the lab (D34).
+
+### R27 — Truth first; only the leads disagree
+Rule:  Report the evidence with its limits, never make a result look better, and send each objection to your lead.
+Why:   A grader that preferred a fake success to an honest failure built a wrong product (D39), and only a lead argues with the user (D46).
+Check: judgment — No check can see truth yet, so a Lab study (D39, D46) refines this rule in a later release.

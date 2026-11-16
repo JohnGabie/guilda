@@ -128,3 +128,43 @@ function runHookWithRoot(dir, root) {
   });
   return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
+
+// S47: the context has the short form of each core rule (section 3h).
+const CORE_RULES = fs.readFileSync(path.join(REPO_ROOT, 'core', 'rules.md'), 'utf8').replace(/\r\n/g, '\n');
+const RULE_BLOCKS = [...CORE_RULES.matchAll(/^### (\S+) — (.*)\nRule: (.*)\nWhy: .*\nCheck: (\w+) — .*$/gm)]
+  .map((m) => ({ id: m[1], title: m[2], rule: `Rule: ${m[3]}`, level: m[4] }));
+const ctxOf = (rules) => context(run(tempProject({ config: MINIMAL_CONFIG, rules })));
+
+test('the context has the R19 law line and no Rule: line of a law rule', () => {
+  const ctx = ctxOf('# Project rules\n');
+  const lines = ctx.split('\n');
+  assert.ok(lines.includes('### R19 — No secrets or absolute paths in commits (law — enforced by a hook)'));
+  const laws = RULE_BLOCKS.filter((b) => b.level === 'law');
+  assert.ok(laws.length >= 3);
+  for (const b of laws) assert.ok(!lines.includes(b.rule), b.id);
+});
+
+test('the context has the R1 heading with (gate) and the Rule: line of R1 under it', () => {
+  const lines = ctxOf('# Project rules\n').split('\n');
+  const i = lines.indexOf('### R1 — Source of truth (gate)');
+  assert.ok(i >= 0);
+  assert.equal(lines[i + 1], RULE_BLOCKS.find((b) => b.id === 'R1').rule);
+});
+
+test('no context line starts with Why: or Check:', () => {
+  for (const l of ctxOf('# Project rules\n').split('\n')) assert.doesNotMatch(l, /^(Why|Check):/);
+});
+
+test('the context has the Full rule blocks: line with the path of core/rules.md', () => {
+  const lines = ctxOf('# Project rules\n').split('\n');
+  assert.ok(lines.includes('Full rule blocks: ' + REPO_ROOT.split(path.sep).join('/') + '/core/rules.md'));
+});
+
+test('context has 110 non-blank lines or fewer with a 20-line project rules file and a version notice', () => {
+  const rules = Array.from({ length: 20 }, (_, i) => `P${i + 1}. Rule number ${i + 1}.`).join('\n');
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.0.1' }, rules });
+  const ctx = context(run(dir));
+  assert.match(ctx, /guilda updated/);
+  const n = ctx.split('\n').filter((l) => l.trim() !== '').length;
+  assert.ok(n <= 110, `got ${n} lines`);
+});

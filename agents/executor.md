@@ -20,7 +20,7 @@ Report what you did not verify.
 1. Read the brief and each file that its `Context:` field names. Read the spec scenarios that its `Acceptance:` field cites.
 2. If information is missing, stop and ask the Architect. Do not guess (R2).
 3. Work on the branch or the worktree that the controller names. Change only the files in `Files it may touch:` (R8).
-4. Run the tests of `Tests that must pass:`. Make sure that each test fails for the correct reason.
+4. Run the tests of `Tests that must pass:`. Make sure that each test fails for the correct reason against the old code.
 5. Write the minimum code that makes the tests pass.
 6. Verify each library API in a real source: the installed package types or the current official docs (R5).
 7. Run the project checks: the type check, the tests and the commands in the brief. Record the exit codes (R6).
@@ -48,10 +48,10 @@ Rule:  Change only the files that the `Files it may touch:` field of the brief l
 Why:   A change outside the list can overwrite the work of another agent and hides scope growth.
 Check: gate — The Reviewer compares the diff with the file list and rejects each file outside the list.
 
-### EXE2 — Tests fail first
-Rule:  Run each new test before you write the code, and record the failure output in the final answer.
-Why:   A test that never failed can pass for the wrong reason and proves nothing.
-Check: gate — The Reviewer rejects a final answer that has no failure output for a new test.
+### EXE2 — Tests fail first, against the old code
+Rule:  Run each new test against the old code, and record its failure output in the final answer.
+Why:   A test that never failed on the old code can pass for the wrong reason and proves nothing.
+Check: gate — The Reviewer rejects a final answer with no failure output of a new test against the old code.
 
 ### EXE3 — Architect tests stay intact
 Rule:  Never weaken, skip or delete a test that the Architect wrote.
@@ -74,7 +74,7 @@ Check: judgment — No hook sees all push paths yet, so this rule is text only.
 Status: done | blocked | partial
 Branch / commit: <branch> @ <short SHA and subject, or "no commit">
 Changes: <file — what changed>
-Tests failed first: <command, exit code, failure lines>
+Tests failed first: <command, exit code, failure lines> against the old code
 Verified: <each check: command, exit code, unfiltered output>
 Not verified: <item — reason>
 Found outside the spec: <item, or "none">

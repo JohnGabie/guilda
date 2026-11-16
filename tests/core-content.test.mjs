@@ -14,6 +14,7 @@ const LEVELS = {
   R1: 'gate', R2: 'gate', R3: 'gate', R4: 'law', R5: 'gate', R6: 'gate', R7: 'gate', R8: 'gate', R9: 'gate',
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'gate', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
+  R26: 'gate', R27: 'judgment',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -24,7 +25,7 @@ function blocks(text) {
   return out;
 }
 
-test('core/rules.md has R1..R25 with the levels above', () => {
+test('core/rules.md has each rule of LEVELS with its level, and no other rule', () => {
   const found = blocks(read('core/rules.md'));
   assert.deepEqual(Object.keys(found), Object.keys(LEVELS));
   for (const [id, level] of Object.entries(LEVELS)) assert.equal(found[id].level, level, id);
@@ -34,8 +35,12 @@ test('R15 mechanism names the ste-check report', () => {
   assert.match(blocks(read('core/rules.md')).R15.text, /Check: gate — .*ste-check/);
 });
 
-test('core/rules.md + core/writing.md have 125 lines or fewer', () => {
-  assert.ok(nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md')) <= 125);
+test('core/rules.md + core/writing.md have 142 lines or fewer', () => {
+  assert.ok(nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md')) <= 142);
+});
+
+test('R27 has the level judgment (S38)', () => {
+  assert.equal(blocks(read('core/rules.md')).R27.level, 'judgment');
 });
 
 test('core/subagent.md has 60 lines or fewer', () => {
@@ -61,9 +66,10 @@ test('tiers.json has the three tier keys', () => {
 
 test('glossary has the process terms in the fixed line format', () => {
   const terms = ['brief', 'spec', 'plan', 'executor', 'reviewer', 'QA', 'security', 'architect', 'controller', 'lab',
-    'verdict'];
+    'verdict', 'process level', 'security zone', 'review unit', 'domain skill', 'triage', 'mutant', 'field report',
+    'lab report', 'Lab group'];
   const lines = read('core/glossary.md').split(/\r?\n/).filter((l) => l.startsWith('- **'));
-  const re = /^- \*\*([^*]+)\*\*: [^.]+\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
+  const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
   for (const line of lines) assert.match(line, re);
   assert.deepEqual(lines.map((l) => l.match(re)[1]), terms);
 });
