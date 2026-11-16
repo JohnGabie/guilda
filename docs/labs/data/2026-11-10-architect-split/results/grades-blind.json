@@ -1,0 +1,638 @@
+{
+ "X01": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**Browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**Mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**Game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; installing \"is the user's decision\""
+  }
+ },
+ "X02": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and exact three lines \"id,title,body\", \"1,Milk,buy milk\", \"2,Call,call Ana\""
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes a header and one row for each note'\""
+  }
+ },
+ "X03": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines; extra `Mutants:` not rewarded."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the code deletes user files\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: Copy of `core/deletion-safety.md`\" with the rules copied"
+  },
+  "B5": {
+   "score": 1,
+   "why": "A1\u2013A6 each cite S2\u2013S7 and \"QA tool: CLI\"; A7 is a pending placeholder."
+  }
+ },
+ "X04": {
+  "C1": {
+   "score": 1,
+   "why": "\"T3 and T4 are never parallel. Both change `src/export.js` (R8).\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"A contract that keeps `src/cli.js` out of the wave\"; T5 files \"do not overlap\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"each code task runs its own cycle (R24): Executor \u2192 Reviewer\"; T6 docs exempt."
+  },
+  "C4": {
+   "score": 0,
+   "why": "Only says atomic commits \"are not possible\" without git; no one-commit-per-task with test and Acceptance."
+  },
+  "C5": {
+   "score": 0,
+   "why": "No `## Plan: Part 2` section or `notes-export.plan.md` named."
+  }
+ },
+ "X05": {
+  "D1": {
+   "score": 1,
+   "why": "\"It comes to me, not the Executor.\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"correct the brief\": Contract with \"no trim or truncation\"; or change spec if B."
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"This is rejection 2, not 3\"; third rejection: \"I stop and ask the user (R11)\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "Executor, Reviewer code stage, \"No Security\" as risk none, QA, Reviewer final stage."
+  }
+ },
+ "X06": {
+  "D1": {
+   "score": 1,
+   "why": "\"comes to the Architect and does not go back to the Executor\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"I remove the trim line from `Contract / interfaces:`\""
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"this is the second\"; third rejection: \"I stop and ask the user (R11)\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "Executor, Reviewer code stage, no Security (risk none), QA, Reviewer final stage."
+  }
+ },
+ "X07": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the task deletes user files\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: copy of `core/deletion-safety.md` (R20).\" with rules copied"
+  },
+  "B5": {
+   "score": 0,
+   "why": "Criterion \"`npm test` exits with 0\" cites no scenario and names no QA tool."
+  }
+ },
+ "X08": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the task is in the risk area\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: copy of `core/deletion-safety.md` (R20).\" with rules copied"
+  },
+  "B5": {
+   "score": 1,
+   "why": "S2\u2013S6 each with \"QA tool: CLI\"; security line is a pending placeholder."
+  }
+ },
+ "X09": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; setup \"is the user's decision\""
+  }
+ },
+ "X10": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and exact three lines of `notes.csv`, each ended by `\\n`."
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes one row for each note'\""
+  }
+ },
+ "X11": {
+  "C1": {
+   "score": 1,
+   "why": "\"T3 and T4 never run in parallel... they share `src/export.js`\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"need a written contract so that wave 2 never edits `src/cli.js`\"; \"No shared file\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"Each task keeps its own cycle (R24): Executor \u2192 Reviewer (code stage) \u2192 QA \u2192 Reviewer\""
+  },
+  "C4": {
+   "score": 0,
+   "why": "No statement that each task is one atomic commit with a test and Acceptance criterion."
+  },
+  "C5": {
+   "score": 1,
+   "why": "Plan written under heading \"## Plan: Part 2 (draft)\""
+  }
+ },
+ "X12": {
+  "D1": {
+   "score": 1,
+   "why": "\"comes to me, the Architect, not back to the Executor\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"replace the trim line with: `body` is the file content after the first line\""
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"this is rejection 2 of T1\"; third: \"I stop and ask the user... (R11)\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "Executor, Reviewer code stage, \"No Security\" (risk none), QA, Reviewer final stage."
+  }
+ },
+ "X13": {
+  "C1": {
+   "score": 1,
+   "why": "\"T3 and T4 never run together. Both edit `src/export.js`\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"Written contract: neither task may touch `src/cli.js`.\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"Each task gets its own cycle (R24): Executor \u2192 Reviewer (code) \u2192 QA \u2192 Reviewer (final)\""
+  },
+  "C4": {
+   "score": 0,
+   "why": "No one-atomic-commit-per-task statement with test and Acceptance criterion."
+  },
+  "C5": {
+   "score": 0,
+   "why": "No `## Plan: Part 2` section or `notes-export.plan.md` named."
+  }
+ },
+ "X14": {
+  "D1": {
+   "score": 1,
+   "why": "\"comes to the Architect and does not go back to the Executor as it stands\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"Fix the brief\": \"Remove the trim line from `Contract / interfaces:`\""
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"This was the second rejection of T1. A third one means I stop and ask the user (R11)\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "Executor, Reviewer code stage, QA, Reviewer final; \"no Security pass\" as risk none."
+  }
+ },
+ "X15": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**Browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**Mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**Game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; setup \"is your decision\""
+  }
+ },
+ "X16": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the task deletes user files\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: Copy of `core/deletion-safety.md` (R20).\" with rules copied"
+  },
+  "B5": {
+   "score": 1,
+   "why": "S2\u2013S5 each with \"Tool: CLI\"; security line is a pending placeholder."
+  }
+ },
+ "X17": {
+  "C1": {
+   "score": 1,
+   "why": "\"T4 and T3 both edit `src/export.js`, so they can never be parallel (R8)\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"A `src/cli.js` contract\"; \"The file sets do not overlap\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"One cycle per task (R24): each task runs Executor \u2192 Reviewer (code) \u2192 QA \u2192 Reviewer\""
+  },
+  "C4": {
+   "score": 0,
+   "why": "No one-atomic-commit-per-task statement with test and Acceptance criterion."
+  },
+  "C5": {
+   "score": 1,
+   "why": "\"write... the `## Plan: Part 2` section in `notes-export.md` (R4)\""
+  }
+ },
+ "X18": {
+  "D1": {
+   "score": 1,
+   "why": "\"The `REJECTED-LARGE` verdict comes to me, not the Executor\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"Fix the brief\": \"`Contract / interfaces:` remove the trim\""
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"Keep the rejection count at two\"; third: \"I stop and ask the user... (R11)\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "Executor, Reviewer code stage, QA, Reviewer final; \"no Security pass\" as risk none."
+  }
+ },
+ "X19": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**Browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**Mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**Game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; setup \"is the user's decision\""
+  }
+ },
+ "X20": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the code deletes user files\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: copy of `core/deletion-safety.md` (R20).\" with rules copied"
+  },
+  "B5": {
+   "score": 0,
+   "why": "Criterion \"No delete call receives an unvalidated... path\" cites no scenario; tool is \"Reviewer and Security read the diff\"."
+  }
+ },
+ "X21": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; \"the user's decision, not mine\""
+  }
+ },
+ "X22": {
+  "C1": {
+   "score": 1,
+   "why": "\"T4 shares `src/export.js` with T3, so the two can never be parallel (R8)\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"Written contract for T3\", \"Written contract for T5\", \"Written contract for T4\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"each task gets its own Executor \u2192 Reviewer (code) \u2192 QA \u2192 Reviewer (final) cycle\""
+  },
+  "C4": {
+   "score": 0,
+   "why": "No one-atomic-commit-per-task statement with test and Acceptance criterion."
+  },
+  "C5": {
+   "score": 1,
+   "why": "\"Plan section for the spec\": a \"## Plan: Part 2\" block"
+  }
+ },
+ "X23": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and \"exactly these 3 lines\": header and two rows."
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes each note'\""
+  }
+ },
+ "X24": {
+  "D1": {
+   "score": 1,
+   "why": "\"`REJECTED-LARGE` comes to the Architect, not to the Executor\""
+  },
+  "D2": {
+   "score": 1,
+   "why": "\"Correct the brief of T1\": body is full text \"with no trim\""
+  },
+  "D3": {
+   "score": 1,
+   "why": "\"This is the second rejection of T1\"; third: \"I stop and ask the user\""
+  },
+  "D4": {
+   "score": 1,
+   "why": "\"Executor... \u2192 Reviewer (code stage) \u2192 QA \u2192 Reviewer (final stage)\"; \"No Security run\" as risk none."
+  }
+ },
+ "X25": {
+  "B1": {
+   "score": 1,
+   "why": "All 12 fields present on their own `Name:` lines."
+  },
+  "B2": {
+   "score": 1,
+   "why": "\"Suggested tier: master\"; Context has \"Tier reason: the command deletes user files\""
+  },
+  "B3": {
+   "score": 1,
+   "why": "\"Risk area: data-loss\""
+  },
+  "B4": {
+   "score": 1,
+   "why": "\"Deletion rules: Copy of `core/deletion-safety.md` (R20).\" with rules copied"
+  },
+  "B5": {
+   "score": 0,
+   "why": "Criterion 4 cites no scenario and no CLI tool: \"verified by the unit test\"."
+  }
+ },
+ "X26": {
+  "E1": {
+   "score": 1,
+   "why": "Scenario 1: \"**browser**\""
+  },
+  "E2": {
+   "score": 1,
+   "why": "Scenario 2: \"**CLI**\""
+  },
+  "E3": {
+   "score": 1,
+   "why": "Scenario 3: \"**mobile driver**\""
+  },
+  "E4": {
+   "score": 1,
+   "why": "Scenario 4: \"**game bridge**\""
+  },
+  "E5": {
+   "score": 1,
+   "why": "\"This is the moment to set up the tools that QA needs\"; setup \"is the user's decision\""
+  }
+ },
+ "X27": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and \"exactly these 3 lines\" with header and two rows."
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes one row for each note'\""
+  }
+ },
+ "X28": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and \"exactly these three lines\" with header and two rows."
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes one row for each note'\""
+  }
+ },
+ "X29": {
+  "C1": {
+   "score": 1,
+   "why": "\"T4 shares `src/export.js` with T3, so it cannot run beside it (R8)\""
+  },
+  "C2": {
+   "score": 1,
+   "why": "\"the `cli.js` forwarding contract\"; \"They touch different files\""
+  },
+  "C3": {
+   "score": 1,
+   "why": "\"At `full`, each task is its own cycle (R24): Executor, then Reviewer\""
+  },
+  "C4": {
+   "score": 0,
+   "why": "No one-atomic-commit-per-task statement with test and Acceptance criterion."
+  },
+  "C5": {
+   "score": 0,
+   "why": "No `## Plan: Part 2` section or `notes-export.plan.md` named."
+  }
+ },
+ "X30": {
+  "A1": {
+   "score": 1,
+   "why": "\"S2 \u2014 CSV export `@proposed`\""
+  },
+  "A2": {
+   "score": 1,
+   "why": "\"`1.md` (`# Milk` / `buy milk`) and `2.md` (`# Call` / `call Ana`)\""
+  },
+  "A3": {
+   "score": 1,
+   "why": "Exit code 0 and \"exactly these 3 lines\" with header and two rows."
+  },
+  "A4": {
+   "score": 1,
+   "why": "\"Tool: CLI.\""
+  },
+  "A5": {
+   "score": 1,
+   "why": "\"Test: `tests/export.test.js`, 'csv export writes one row for each note'\""
+  }
+ }
+}

@@ -1,0 +1,1223 @@
+[
+ {
+  "id": "r01",
+  "situation": "A",
+  "arm": "one",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 29,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 6,
+    "cache_creation": 25612,
+    "cache_read": 43550,
+    "output": 2291
+   }
+  },
+  "input": 6,
+  "cache_creation": 25612,
+  "cache_read": 43550,
+  "output": 2291,
+  "input_total": 69168,
+  "turns": 5,
+  "cost_usd": 0.5101899999999999,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/docs/superpowers/specs/notes-export.md",
+   "<tmp>/.guilda/config.json"
+  ],
+  "correct_reference": "spec.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X27",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r02",
+  "situation": "A",
+  "arm": "split",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 28,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 26042,
+    "cache_read": 80279,
+    "output": 2046
+   }
+  },
+  "input": 8,
+  "cache_creation": 26042,
+  "cache_read": 80279,
+  "output": 2046,
+  "input_total": 106329,
+  "turns": 7,
+  "cost_usd": 0.5146318,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [
+   "spec.md",
+   "qa-tools.md"
+  ],
+  "other_reads": [
+   "<tmp>/docs/superpowers/specs/notes-export.md",
+   "<tmp>/.guilda/config.json"
+  ],
+  "correct_reference": "spec.md",
+  "read_correct": true,
+  "est_arch_tokens": 2715,
+  "blind_label": "X10",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md",
+   "spec.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r03",
+  "situation": "E",
+  "arm": "one",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 32,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25676,
+    "cache_read": 79644,
+    "output": 2474
+   }
+  },
+  "input": 8,
+  "cache_creation": 25676,
+  "cache_read": 79644,
+  "output": 2474,
+  "input_total": 105328,
+  "turns": 4,
+  "cost_usd": 0.5257688,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "qa-tools.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X15",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r04",
+  "situation": "A",
+  "arm": "split",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 29,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 26038,
+    "cache_read": 80273,
+    "output": 2134
+   }
+  },
+  "input": 8,
+  "cache_creation": 26038,
+  "cache_read": 80273,
+  "output": 2134,
+  "input_total": 106319,
+  "turns": 7,
+  "cost_usd": 0.5180866,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [
+   "spec.md",
+   "qa-tools.md"
+  ],
+  "other_reads": [
+   "<tmp>/docs/superpowers/specs/notes-export.md",
+   "<tmp>/.guilda/config.json"
+  ],
+  "correct_reference": "spec.md",
+  "read_correct": true,
+  "est_arch_tokens": 2715,
+  "blind_label": "X02",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md",
+   "spec.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r05",
+  "situation": "A",
+  "arm": "one",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 32,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 6,
+    "cache_creation": 25857,
+    "cache_read": 43548,
+    "output": 2411
+   }
+  },
+  "input": 6,
+  "cache_creation": 25857,
+  "cache_read": 43548,
+  "output": 2411,
+  "input_total": 69411,
+  "turns": 4,
+  "cost_usd": 0.5189096,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "spec.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X28",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r06",
+  "situation": "E",
+  "arm": "split",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 26,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25693,
+    "cache_read": 79391,
+    "output": 1850
+   }
+  },
+  "input": 8,
+  "cache_creation": 25693,
+  "cache_read": 79391,
+  "output": 1850,
+  "input_total": 105092,
+  "turns": 6,
+  "cost_usd": 0.5010302000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [
+   "qa-tools.md"
+  ],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "qa-tools.md",
+  "read_correct": true,
+  "est_arch_tokens": 2540,
+  "blind_label": "X21",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r07",
+  "situation": "E",
+  "arm": "one",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 32,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25645,
+    "cache_read": 79636,
+    "output": 2366
+   }
+  },
+  "input": 8,
+  "cache_creation": 25645,
+  "cache_read": 79636,
+  "output": 2366,
+  "input_total": 105289,
+  "turns": 4,
+  "cost_usd": 0.5209512000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "qa-tools.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X01",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r08",
+  "situation": "C",
+  "arm": "one",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 100,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 31859,
+    "cache_read": 157390,
+    "output": 7017
+   }
+  },
+  "input": 12,
+  "cache_creation": 31859,
+  "cache_read": 157390,
+  "output": 7017,
+  "input_total": 189261,
+  "turns": 7,
+  "cost_usd": 0.821998,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "waves.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X11",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r09",
+  "situation": "C",
+  "arm": "split",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 97,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 30310,
+    "cache_read": 158218,
+    "output": 5346
+   }
+  },
+  "input": 12,
+  "cache_creation": 30310,
+  "cache_read": 158218,
+  "output": 5346,
+  "input_total": 188540,
+  "turns": 9,
+  "cost_usd": 0.7305396,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [
+   "waves.md"
+  ],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "waves.md",
+  "read_correct": true,
+  "est_arch_tokens": 2611,
+  "blind_label": "X22",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "verdicts.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r10",
+  "situation": "D",
+  "arm": "one",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 33,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 26104,
+    "cache_read": 79582,
+    "output": 2234
+   }
+  },
+  "input": 8,
+  "cache_creation": 26104,
+  "cache_read": 79582,
+  "output": 2234,
+  "input_total": 105694,
+  "turns": 4,
+  "cost_usd": 0.5230044,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "verdicts.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X14",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r11",
+  "situation": "A",
+  "arm": "one",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 27,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 6,
+    "cache_creation": 25860,
+    "cache_read": 43550,
+    "output": 2101
+   }
+  },
+  "input": 6,
+  "cache_creation": 25860,
+  "cache_read": 43550,
+  "output": 2101,
+  "input_total": 69416,
+  "turns": 4,
+  "cost_usd": 0.5065580000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "spec.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X23",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r12",
+  "situation": "C",
+  "arm": "one",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 65,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 10,
+    "cache_creation": 27505,
+    "cache_read": 119340,
+    "output": 5776
+   }
+  },
+  "input": 10,
+  "cache_creation": 27505,
+  "cache_read": 119340,
+  "output": 5776,
+  "input_total": 146855,
+  "turns": 7,
+  "cost_usd": 0.695068,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "waves.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X04",
+  "score": 3,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r13",
+  "situation": "B",
+  "arm": "one",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 132,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 32068,
+    "cache_read": 157615,
+    "output": 9080
+   }
+  },
+  "input": 12,
+  "cache_creation": 32068,
+  "cache_read": 157615,
+  "output": 9080,
+  "input_total": 189695,
+  "turns": 7,
+  "cost_usd": 0.907907,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "brief.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X25",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r14",
+  "situation": "C",
+  "arm": "one",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 56,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 26353,
+    "cache_read": 80707,
+    "output": 4943
+   }
+  },
+  "input": 8,
+  "cache_creation": 26353,
+  "cache_read": 80707,
+  "output": 4943,
+  "input_total": 107068,
+  "turns": 5,
+  "cost_usd": 0.6355734,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "waves.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X29",
+  "score": 3,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r15",
+  "situation": "B",
+  "arm": "one",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 144,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 29904,
+    "cache_read": 156884,
+    "output": 8846
+   }
+  },
+  "input": 12,
+  "cache_creation": 29904,
+  "cache_read": 156884,
+  "output": 8846,
+  "input_total": 186800,
+  "turns": 7,
+  "cost_usd": 0.8637767999999999,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "brief.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X08",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r16",
+  "situation": "E",
+  "arm": "one",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 31,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25665,
+    "cache_read": 79640,
+    "output": 2429
+   }
+  },
+  "input": 8,
+  "cache_creation": 25665,
+  "cache_read": 79640,
+  "output": 2429,
+  "input_total": 105313,
+  "turns": 4,
+  "cost_usd": 0.523792,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "qa-tools.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X19",
+  "score": 5,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r17",
+  "situation": "B",
+  "arm": "one",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 130,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 14,
+    "cache_creation": 32574,
+    "cache_read": 198128,
+    "output": 11290
+   }
+  },
+  "input": 14,
+  "cache_creation": 32574,
+  "cache_read": 198128,
+  "output": 11290,
+  "input_total": 230716,
+  "turns": 10,
+  "cost_usd": 1.0125216,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "brief.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X20",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r18",
+  "situation": "E",
+  "arm": "split",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 26,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25489,
+    "cache_read": 79391,
+    "output": 1943
+   }
+  },
+  "input": 8,
+  "cache_creation": 25489,
+  "cache_read": 79391,
+  "output": 1943,
+  "input_total": 104888,
+  "turns": 4,
+  "cost_usd": 0.5014862,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "qa-tools.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X09",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r19",
+  "situation": "C",
+  "arm": "split",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 81,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 31189,
+    "cache_read": 158858,
+    "output": 5512
+   }
+  },
+  "input": 12,
+  "cache_creation": 31189,
+  "cache_read": 158858,
+  "output": 5512,
+  "input_total": 190059,
+  "turns": 7,
+  "cost_usd": 0.7513715999999999,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "waves.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X17",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "verdicts.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r20",
+  "situation": "E",
+  "arm": "split",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 27,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25559,
+    "cache_read": 79391,
+    "output": 2070
+   }
+  },
+  "input": 8,
+  "cache_creation": 25559,
+  "cache_read": 79391,
+  "output": 2070,
+  "input_total": 104958,
+  "turns": 4,
+  "cost_usd": 0.5076862,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "qa-tools.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X26",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r21",
+  "situation": "B",
+  "arm": "split",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 123,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 32738,
+    "cache_read": 158084,
+    "output": 10280
+   }
+  },
+  "input": 12,
+  "cache_creation": 32738,
+  "cache_read": 158084,
+  "output": 10280,
+  "input_total": 190834,
+  "turns": 8,
+  "cost_usd": 0.9667208,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "brief.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X16",
+  "score": 5,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r22",
+  "situation": "B",
+  "arm": "split",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 146,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 30888,
+    "cache_read": 158178,
+    "output": 10460
+   }
+  },
+  "input": 12,
+  "cache_creation": 30888,
+  "cache_read": 158178,
+  "output": 10460,
+  "input_total": 189078,
+  "turns": 9,
+  "cost_usd": 0.9443396000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "brief.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X03",
+  "score": 5,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r23",
+  "situation": "D",
+  "arm": "split",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 42,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 10,
+    "cache_creation": 26825,
+    "cache_read": 116477,
+    "output": 3219
+   }
+  },
+  "input": 10,
+  "cache_creation": 26825,
+  "cache_read": 116477,
+  "output": 3219,
+  "input_total": 143312,
+  "turns": 5,
+  "cost_usd": 0.5813354000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "verdicts.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X12",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "spec.md",
+   "verdicts.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r24",
+  "situation": "C",
+  "arm": "split",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 91,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 12,
+    "cache_creation": 31074,
+    "cache_read": 158961,
+    "output": 5350
+   }
+  },
+  "input": 12,
+  "cache_creation": 31074,
+  "cache_read": 158961,
+  "output": 5350,
+  "input_total": 190047,
+  "turns": 9,
+  "cost_usd": 0.7430721999999998,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [
+   "waves.md"
+  ],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "waves.md",
+  "read_correct": true,
+  "est_arch_tokens": 2611,
+  "blind_label": "X13",
+  "score": 3,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "verdicts.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ },
+ {
+  "id": "r25",
+  "situation": "D",
+  "arm": "split",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 41,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 10,
+    "cache_creation": 27279,
+    "cache_read": 116476,
+    "output": 3055
+   }
+  },
+  "input": 10,
+  "cache_creation": 27279,
+  "cache_read": 116476,
+  "output": 3055,
+  "input_total": 143765,
+  "turns": 5,
+  "cost_usd": 0.5820392000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "verdicts.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X24",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "spec.md",
+   "verdicts.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r26",
+  "situation": "D",
+  "arm": "split",
+  "rep": 2,
+  "exit": "0",
+  "seconds": 41,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 10,
+    "cache_creation": 26890,
+    "cache_read": 116427,
+    "output": 3092
+   }
+  },
+  "input": 10,
+  "cache_creation": 26890,
+  "cache_read": 116427,
+  "output": 3092,
+  "input_total": 143327,
+  "turns": 5,
+  "cost_usd": 0.5772854000000001,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "verdicts.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X05",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "spec.md",
+   "verdicts.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r27",
+  "situation": "D",
+  "arm": "one",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 40,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25727,
+    "cache_read": 79574,
+    "output": 2830
+   }
+  },
+  "input": 8,
+  "cache_creation": 25727,
+  "cache_read": 79574,
+  "output": 2830,
+  "input_total": 105309,
+  "turns": 5,
+  "cost_usd": 0.5408108,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "verdicts.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X18",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r28",
+  "situation": "A",
+  "arm": "split",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 26,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 26172,
+    "cache_read": 80273,
+    "output": 1865
+   }
+  },
+  "input": 8,
+  "cache_creation": 26172,
+  "cache_read": 80273,
+  "output": 1865,
+  "input_total": 106453,
+  "turns": 6,
+  "cost_usd": 0.5094706,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/docs/superpowers/specs/notes-export.md",
+   "<tmp>/.guilda/config.json"
+  ],
+  "correct_reference": "spec.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X30",
+  "score": 5,
+  "reference_access_any_tool": [
+   "qa-tools.md",
+   "spec.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r29",
+  "situation": "D",
+  "arm": "one",
+  "rep": 3,
+  "exit": "0",
+  "seconds": 36,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 8,
+    "cache_creation": 25623,
+    "cache_read": 79586,
+    "output": 2701
+   }
+  },
+  "input": 8,
+  "cache_creation": 25623,
+  "cache_read": 79586,
+  "output": 2701,
+  "input_total": 105217,
+  "turns": 4,
+  "cost_usd": 0.5339892,
+  "is_error": false,
+  "skill_calls": [
+   "arm-one:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [],
+  "correct_reference": "verdicts.md",
+  "read_correct": null,
+  "est_arch_tokens": 2593,
+  "blind_label": "X06",
+  "score": 4,
+  "reference_access_any_tool": [],
+  "read_correct_any_tool": null,
+  "searched_installed_guilda": false
+ },
+ {
+  "id": "r30",
+  "situation": "B",
+  "arm": "split",
+  "rep": 1,
+  "exit": "0",
+  "seconds": 117,
+  "models": {
+   "claude-fable-5-2": {
+    "input": 14,
+    "cache_creation": 58654,
+    "cache_read": 173053,
+    "output": 7750
+   }
+  },
+  "input": 14,
+  "cache_creation": 58654,
+  "cache_read": 173053,
+  "output": 7750,
+  "input_total": 231721,
+  "turns": 10,
+  "cost_usd": 1.2831866,
+  "is_error": false,
+  "skill_calls": [
+   "arm-split:architect"
+  ],
+  "reference_reads": [],
+  "other_reads": [
+   "<tmp>/.guilda/config.json",
+   "<tmp>/docs/superpowers/specs/notes-export.md"
+  ],
+  "correct_reference": "brief.md",
+  "read_correct": false,
+  "est_arch_tokens": 2435,
+  "blind_label": "X07",
+  "score": 4,
+  "reference_access_any_tool": [
+   "brief.md",
+   "qa-tools.md",
+   "spec.md",
+   "waves.md"
+  ],
+  "read_correct_any_tool": true,
+  "searched_installed_guilda": true
+ }
+]
