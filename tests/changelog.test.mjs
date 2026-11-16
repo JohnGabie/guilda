@@ -124,6 +124,6 @@ test('update skill names the required commands and steps', () => {
   assert.match(text, /guilda--v\*/);
   assert.match(text, /claude plugin update guilda@guilda/);
   assert.match(text, /\/reload-plugins/);
-  assert.match(text, /guilda:init/);
+  assert.match(text, /config-write\.mjs.* --migrate/);
   assert.match(text, /scripts\/changelog\.mjs/);
 });
