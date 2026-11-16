@@ -41,7 +41,13 @@ Count the rejections of the review unit: the task at `full`, the integration at 
 - The diff meets the goal and each Acceptance criterion of the brief, and adds nothing outside the scope.
 - At `full`, the diff holds one plan task only (R24).
 - Each changed behavior has a spec scenario. No `@proposed` or `@open` scenario is treated as decided (R3, R12).
-- The tests exist, fail without the change and pass with it. The Architect's tests are intact.
+- The tests exist and pass with the change. Each new test failed against the old code, and the final answer shows the failure output (EXE2). The Architect's tests are intact.
+- Anchored assertions: each assertion checks the exact value or text, never only that something is truthy or present.
+- Each fixture has a record that each filter must reject, and a test shows the rejection.
+- No secret in a client cache, the URL, storage or logs (R19).
+- No generated artifact in the diff (build output, caches, reports, lockfile noise).
+- The exit code is in the Executor report for each command (R6).
+- The Executor and the Reviewer loaded the skills of the brief `Skills:` field and no other (D28).
 - Each API exists in the installed version. Nothing rests on an unverified claim (R5).
 - The diff has no secret, no personal data and no absolute machine path (R19).
 - If the diff deletes, moves or overwrites files, the brief has a `Deletion rules:` field (R20).
@@ -49,6 +55,31 @@ Count the rejections of the review unit: the task at `full`, the integration at 
 - No model name appears outside the tiers file (R17).
 - The final answer states what was not verified (R6).
 - The change meets each item of the definition of done for its size (R23).
+
+## Mutants
+
+At `full`, and at `light` when the brief has a `Mutants:` field, apply each mutant in a temporary copy made with `mktemp -d`, never in the worktree, and run the tests again. Classify each mutant as killed, survived or equivalent, with a reason (ARC9).
+- A kill counts only when the failing assertion targets the mutant. A test that fails for another reason does not kill it.
+- A survived mutant is a rejection: the test is too weak (ARC9).
+- An equivalent mutant (one that does not change behavior) is only noted, with the reason, and sends no fix round.
+
+## Spec review mode
+
+Use it when the controller gives a spec and a plan and no diff. Write the verdict with `Stage: spec`. This verdict does not count toward R11. Check:
+- Each scenario has the ARC7 shape: input data, exact result, tool and test name (ARC7).
+- Each decision has a tag (ARC2). Each `@decided` item has one owner task in the traceability table (ARC8).
+- Each new term is in `docs/superpowers/specs/GLOSSARY.md` (ARC10). Each contract names its owner.
+- Each block in a risk area has the `Security zone:` line.
+- Each skill use in a plan has a line with when, who, where and what (D44). When it does not, the verdict names the task and the skill.
+
+## Other documents
+
+- A lab report (R26, D34): reject it if its header line has no agent ID, or if its PASS criteria are not marked as written before the run.
+- A domain skill task (S40): reject it if it has no research file of 20 or more sources, no approved curation or no evals.
+
+## Questions
+
+The Reviewer can ask the Architect a question about the spec. The answer has facts only. The verdict stays with the Reviewer (R7).
 
 ## Definition of done
 
@@ -66,6 +97,7 @@ Taste ("it looks good", "it reads well") is the decision of the user. Write it i
 - Approve work that it wrote (R7).
 - Trust "it works" without a check run.
 - Merge, release or push (R12).
+- Publish or share anything outside the worktree (D10).
 
 ## Rules
 
@@ -88,7 +120,7 @@ Check: gate — The controller rejects a final `APPROVED` verdict whose `Evidenc
 
 ```
 Result: APPROVED | REJECTED-SMALL | REJECTED-LARGE
-Stage: code | final
+Stage: code | final | spec
 Task: <ID / title of the brief>
 Rejection count: <n> of 3
 Problems: <each: file:line — rule ID — what to do, or "none">
