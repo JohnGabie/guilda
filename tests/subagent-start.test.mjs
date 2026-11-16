@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tempProject, runHook, MINIMAL_CONFIG } from './helpers.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
 const SCRIPT = 'scripts/hooks/subagent-start.mjs';
 const run = (dir) => runHook(SCRIPT, { hook_event_name: 'SubagentStart', cwd: dir }, dir);
@@ -11,10 +13,18 @@ test('without config: empty stdout, exit 0', () => {
   assert.equal(r.stdout, '');
 });
 
-test('invalid config: empty stdout, exit 0', () => {
+test('a broken layer gives Docs language: en. Process: full.', () => {
   const r = run(tempProject({ config: '{ nope' }));
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+  const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /^Docs language: en\. Process: full\. Glossary: .*glossary\.md$/m);
+});
+
+test('the line has Process: full. for a 0.1.0 fixture and Process: light. for a light config (S18)', () => {
+  const fixture = fs.readFileSync(path.join(REPO_ROOT, 'tests', 'fixtures', 'compat', '0.1.0', 'config.json'), 'utf8');
+  const ctx = (config) => JSON.parse(run(tempProject({ config })).stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx(fixture), /^Docs language: en\. Process: full\. Glossary: /m);
+  assert.match(ctx({ ...MINIMAL_CONFIG, process: 'light' }), /^Docs language: en\. Process: light\. Glossary: /m);
 });
 
 test('with config: context has R5, the docs language and the glossary path', () => {

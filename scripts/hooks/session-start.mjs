@@ -2,14 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { projectState, readProjectRules } from '../lib/project.mjs';
 import { contextRules } from '../lib/rules-context.mjs';
-import { countViolations } from '../lib/violations.mjs';
+import { countViolations, ensureIgnored } from '../lib/violations.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
 
 const DIARY_LINES = 220;
 const ESCALATION_THRESHOLD = 2;
-const BROKEN_NOTICE_TAIL =
-  'The laws R4, R18, R19 and ARC6 run with safe defaults. Run guilda:init to fix .guilda/config.json.';
+const BROKEN_NOTICE_TAIL = 'guilda runs with safe defaults. Run guilda:init to fix .guilda/config.json.';
+const MARKER_FILE = '.hooks-live.json';
 
 function readCore(root, name) {
   try {
@@ -33,10 +33,22 @@ function newestDiary(projectDir) {
 
 function versionNotice(installed, configured) {
   if (compareSemver(installed, configured) <= 0) return '';
-  const majorUp = parseInt(installed, 10) > parseInt(configured, 10);
-  return majorUp
-    ? `guilda updated ${configured} → ${installed}; guilda:init is required`
-    : `guilda updated ${configured} → ${installed}; run guilda:init to review the project layer`;
+  return (
+    `guilda updated ${configured} → ${installed}. The project layer works as it is. ` +
+    'Run guilda:update to see the changes and to save the new version.'
+  );
+}
+
+/** Write the hooks marker. It never throws. When ensureIgnored throws, it writes no marker. */
+function writeMarker(projectDir, sessionId, installed) {
+  try {
+    const dir = path.join(projectDir, '.guilda');
+    ensureIgnored(dir);
+    const marker = { sessionId: sessionId ?? null, version: installed, at: new Date().toISOString() };
+    fs.writeFileSync(path.join(dir, MARKER_FILE), JSON.stringify(marker, null, 2) + '\n');
+  } catch {
+    // A hook must never stop the context.
+  }
 }
 
 function emit(additionalContext) {
@@ -48,43 +60,45 @@ await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const pluginRoot = resolvePluginRoot();
   const project = projectState(projectDir);
-  if (project.state === 'none') {
-    // Not a guilda project: print nothing.
-  } else if (project.state === 'broken') {
-    // One notice per session: only at startup and clear.
-    if (input.source === 'startup' || input.source === 'clear') {
-      emit(`guilda: ${project.reason}. ${BROKEN_NOTICE_TAIL}`);
-    }
-  } else {
-    const { config } = project;
-    const installed = installedVersion(pluginRoot);
-    const parts = [`guilda ${installed} active`];
-    const root = pluginRoot.split(path.sep).join('/');
-    parts.push(
-      contextRules(readCore(pluginRoot, 'rules.md')),
-      `Full rule blocks: ${root}/core/rules.md`,
-      readCore(pluginRoot, 'writing.md'),
-    );
-    const projectRules = readProjectRules(projectDir).trim();
-    if (projectRules) parts.push(projectRules);
-    const t = config.tiers;
-    parts.push(
-      `Languages: replies ${config.languages.replies}, docs ${config.languages.docs}. ` +
-        `Tiers: master ${t.master}, journeyman ${t.journeyman}, apprentice ${t.apprentice}.`,
-    );
-    parts.push(`Diary command: node "${root}/scripts/journal-skeleton.mjs" <reason>`);
-    parts.push(`Glossary: ${root}/core/glossary.md`);
+  if (project.state === 'none') return;
+  const { config } = project;
+  const broken = project.state === 'broken';
+  const fresh = input.source === 'startup' || input.source === 'clear';
+  const installed = installedVersion(pluginRoot);
+  const parts = [`guilda ${installed} active`];
+  const root = pluginRoot.split(path.sep).join('/');
+  parts.push(
+    contextRules(readCore(pluginRoot, 'rules.md')),
+    `Full rule blocks: ${root}/core/rules.md`,
+    readCore(pluginRoot, 'writing.md'),
+  );
+  const projectRules = readProjectRules(projectDir).trim();
+  if (projectRules) parts.push(projectRules);
+  const t = config.tiers;
+  parts.push(
+    `Languages: replies ${config.languages.replies}, docs ${config.languages.docs}. ` +
+      `Tiers: master ${t.master}, journeyman ${t.journeyman}, apprentice ${t.apprentice}.`,
+    `Process: ${config.process}. Explain: ${config.explain}.`,
+    `Diary command: node "${root}/scripts/journal-skeleton.mjs" <reason>`,
+    `Glossary: ${root}/core/glossary.md`,
+  );
+  if (!broken) {
     const notice = versionNotice(installed, config.guildaVersion);
     if (notice) parts.push(notice);
-    for (const [rule, count] of countViolations(projectDir)) {
-      if (count >= ESCALATION_THRESHOLD) {
-        parts.push(`${rule}: ${count} violations — propose a stronger check (design 6.13)`);
-      }
-    }
-    if (input.source === 'resume' || input.source === 'compact') {
-      const diary = newestDiary(projectDir);
-      if (diary) parts.push(diary);
-    }
-    emit(parts.filter(Boolean).join('\n\n'));
   }
+  if (fresh) {
+    parts.push(...project.notices);
+    if (broken) parts.push(`guilda: ${project.reason}. ${BROKEN_NOTICE_TAIL}`);
+  }
+  for (const [rule, count] of countViolations(projectDir)) {
+    if (count >= ESCALATION_THRESHOLD) {
+      parts.push(`${rule}: ${count} violations — propose a stronger check (design 6.13)`);
+    }
+  }
+  if (input.source === 'resume' || input.source === 'compact') {
+    const diary = newestDiary(projectDir);
+    if (diary) parts.push(diary);
+  }
+  emit(parts.filter(Boolean).join('\n\n'));
+  writeMarker(projectDir, input.session_id, installed);
 });

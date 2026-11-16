@@ -20,40 +20,63 @@ test('no config: empty stdout, exit 0', () => {
   assert.equal(r.stdout, '');
 });
 
-const BROKEN_TAIL = '. The laws R4, R18, R19 and ARC6 run with safe defaults. Run guilda:init to fix .guilda/config.json.';
+const BROKEN_TAIL = '. guilda runs with safe defaults. Run guilda:init to fix .guilda/config.json.';
+const CORE_TEXT = fs.readFileSync(path.join(REPO_ROOT, 'core', 'rules.md'), 'utf8').replace(/\r\n/g, '\n');
+const HEADINGS = [...CORE_TEXT.matchAll(/^### (\S+) — (.*)$/gm)];
+const TIERS = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'core', 'tiers.json'), 'utf8'));
 
-test('invalid config: one notice line and no rules', () => {
+test('S16: { not json at startup: the rules, safe defaults and the notice', () => {
   const dir = tempProject({ config: '{ not json' });
   const r = run(dir);
   assert.equal(r.code, 0);
   const out = JSON.parse(r.stdout).hookSpecificOutput;
   assert.equal(out.hookEventName, 'SessionStart');
-  assert.match(out.additionalContext, /^guilda: /);
-  assert.equal(out.additionalContext.split('\n').length, 1);
-  assert.doesNotMatch(out.additionalContext, /R1\b/);
-  assert.equal(out.additionalContext, 'guilda: ' + loadConfig(dir).reason + BROKEN_TAIL);
+  const ctx = out.additionalContext;
+  const first = HEADINGS[0];
+  const last = HEADINGS[HEADINGS.length - 1];
+  assert.ok(ctx.includes(`### ${first[1]} — ${first[2]}`));
+  assert.ok(ctx.includes(`### ${last[1]} — ${last[2]}`));
+  assert.match(ctx, /Languages: replies en, docs en\./);
+  assert.ok(ctx.includes(`Tiers: master ${TIERS.master}, journeyman ${TIERS.journeyman}, apprentice ${TIERS.apprentice}`));
+  assert.match(ctx, /^Process: full\. Explain: full\.$/m);
+  assert.ok(ctx.includes('Full rule blocks: '));
+  assert.ok(ctx.includes('guilda: ' + loadConfig(dir).reason + BROKEN_TAIL));
+  assert.doesNotMatch(ctx, /guilda updated/);
 });
 
-test('broken project layer: compact and resume give no notice (S15)', () => {
+test('broken project layer: compact and resume give the rules and no notice (S15)', () => {
   const dir = tempProject({ config: '{ not json' });
   for (const source of ['compact', 'resume']) {
     const r = run(dir, source);
     assert.equal(r.code, 0);
-    assert.equal(r.stdout, '');
+    const ctx = context(r);
+    assert.match(ctx, /### R1 /);
+    assert.doesNotMatch(ctx, /safe defaults/);
+    assert.doesNotMatch(ctx, /guilda: /);
   }
+});
+
+test('broken layer at compact: the rules, no notice', () => {
+  const dir = tempProject({ config: '{ not json', rules: 'P1. Keep it.\n' });
+  const ctx = context(run(dir, 'compact'));
+  assert.match(ctx, /### R25 /);
+  assert.match(ctx, /P1\. Keep it/);
+  assert.doesNotMatch(ctx, /Run guilda:init/);
 });
 
 test('broken project layer: clear gives the notice', () => {
   const dir = tempProject({ config: '{ not json' });
   const expected = 'guilda: ' + loadConfig(dir).reason + BROKEN_TAIL;
-  assert.equal(context(run(dir, 'clear')), expected);
-  assert.equal(context(run(dir, 'startup')), expected);
+  assert.ok(context(run(dir, 'clear')).includes(expected));
+  assert.ok(context(run(dir, 'startup')).includes(expected));
 });
 
 test('.guilda without config.json: notice with the reason .guilda/config.json is missing (S15)', () => {
   const dir = tempProject({ rules: '# Project rules\n' });
-  assert.equal(context(run(dir)), 'guilda: .guilda/config.json is missing' + BROKEN_TAIL);
-  assert.equal(run(dir, 'compact').stdout, '');
+  assert.ok(context(run(dir)).includes('guilda: .guilda/config.json is missing' + BROKEN_TAIL));
+  const compact = context(run(dir, 'compact'));
+  assert.match(compact, /### R1 /);
+  assert.doesNotMatch(compact, /config\.json is missing/);
 });
 
 test('valid config: context has R1, R25 and the project rule P1', () => {
@@ -80,20 +103,96 @@ test('compact: context has the newest diary', () => {
   assert.doesNotMatch(context(run(dir, 'startup')), /NEW ENTRY/);
 });
 
-test('version notice for 0.1.0 to 0.2.0', () => {
+const UPDATE_TEXT = (from, to) =>
+  `guilda updated ${from} → ${to}. The project layer works as it is. Run guilda:update to see the changes and to save the new version.`;
+
+test('S42: 0.1.0 to 0.2.0 and 0.1.0 to 1.0.0 give the one text, and no notice line has guilda:init', () => {
   const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.0.1' } });
   const ctx = context(run(dir));
-  assert.match(ctx, new RegExp('guilda updated 0\\.0\\.1 → ' + VERSION_RE + '; run guilda:init to review the project layer'));
-});
-
-test('major notice', () => {
-  // installed is the plugin version, so a config newer than it is not an update; use a fake plugin root.
+  assert.ok(ctx.includes(UPDATE_TEXT('0.0.1', PLUGIN_VERSION)));
   const root = tempProject();
   fs.mkdirSync(path.join(root, '.claude-plugin'));
   fs.writeFileSync(path.join(root, '.claude-plugin', 'plugin.json'), '{"version":"1.0.0"}');
-  const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.9.0' } });
-  const r = runHookWithRoot(dir, root);
-  assert.match(context(r), /guilda:init is required/);
+  const dir2 = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.1.0' } });
+  const ctx2 = context(runHookWithRoot(dir2, root));
+  assert.ok(ctx2.includes(UPDATE_TEXT('0.1.0', '1.0.0')));
+  for (const c of [ctx, ctx2]) {
+    for (const line of c.split('\n')) {
+      if (line.includes('guilda updated')) assert.doesNotMatch(line, /guilda:init/);
+    }
+  }
+});
+
+test('S18: a 0.1.0 fixture gives the line Process: full. Explain: full.', () => {
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'tests', 'fixtures', 'compat', '0.1.0', 'config.json'), 'utf8');
+  const ctx = context(run(tempProject({ config: text })));
+  assert.match(ctx, /^Process: full\. Explain: full\.$/m);
+  const lines = ctx.split('\n');
+  const i = lines.findIndex((l) => l.startsWith('Languages: '));
+  assert.equal(lines[i + 1] === '' ? lines[i + 2] : lines[i + 1], 'Process: full. Explain: full.');
+});
+
+test('process light gives Process: light.', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, process: 'light', explain: 'brief' } });
+  assert.match(context(run(dir)), /^Process: light\. Explain: brief\.$/m);
+});
+
+test('S18: the bytes of config.json do not change', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const file = path.join(dir, '.guilda', 'config.json');
+  const before = fs.readFileSync(file);
+  run(dir);
+  assert.deepEqual(fs.readFileSync(file), before);
+});
+
+test('S18: .guilda/.gitignore gets .hooks-live.json, and a second run does not change its bytes', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  run(dir);
+  const file = path.join(dir, '.guilda', '.gitignore');
+  const first = fs.readFileSync(file);
+  assert.ok(first.toString().split('\n').includes('.hooks-live.json'));
+  run(dir);
+  assert.deepEqual(fs.readFileSync(file), first);
+});
+
+test('the marker has the session ID, the version and a time', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  runHook(SCRIPT, { hook_event_name: 'SessionStart', source: 'startup', cwd: dir, session_id: 'sess-1' }, dir);
+  const m = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', '.hooks-live.json'), 'utf8'));
+  assert.equal(m.sessionId, 'sess-1');
+  assert.equal(m.version, PLUGIN_VERSION);
+  assert.ok(!Number.isNaN(Date.parse(m.at)));
+  assert.equal(new Date(m.at).toISOString(), m.at);
+});
+
+test('no .guilda folder: no marker and no folder', () => {
+  const dir = tempProject();
+  const r = run(dir);
+  assert.equal(r.code, 0);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('a .gitignore that cannot be written: context printed, no marker, exit 0', { skip: process.platform === 'win32' }, () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  // A directory in place of the file makes ensureIgnored throw, even for a root user.
+  fs.mkdirSync(path.join(dir, '.guilda', '.gitignore'));
+  const r = run(dir);
+  assert.equal(r.code, 0);
+  assert.match(context(r), /### R1 /);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', '.hooks-live.json')), false);
+});
+
+test('schemaVersion 99 gives the newer notice (S18)', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, schemaVersion: 99 } });
+  assert.match(context(run(dir)), /schemaVersion 99, newer than this guilda knows/);
+});
+
+test('an invalid process gives its notice at startup and not at compact', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, process: 'bogus' } });
+  const start = context(run(dir));
+  assert.match(start, /invalid process value/);
+  assert.match(start, /^Process: full\./m);
+  assert.doesNotMatch(context(run(dir, 'compact')), /invalid process value/);
 });
 
 test('no notice when versions are equal', () => {

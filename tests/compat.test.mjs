@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { projectState, checkStrict } from '../scripts/lib/project.mjs';
 import { changesBetween } from '../scripts/changelog.mjs';
-import { tempProject, REPO_ROOT } from './helpers.mjs';
+import { tempProject, runHook, REPO_ROOT } from './helpers.mjs';
 
 // The config that guilda:init of each published version wrote, and the CHANGELOG of that version (S19).
 const VERSIONS = ['0.1.0', '0.1.1'];
@@ -31,6 +31,14 @@ for (const version of VERSIONS) {
     assert.equal(r.config.guildaVersion, version);
     assert.equal(checkStrict(config), null);
     assert.deepEqual(fs.readFileSync(path.join(dir, '.guilda', 'config.json')), before);
+  });
+
+  test(`${version}: the session start runs on the fixture of each published version with exit 0 and a Process line`, () => {
+    const dir = tempProject({ config: fs.readFileSync(fixture(version, 'config.json'), 'utf8') });
+    const r = runHook('scripts/hooks/session-start.mjs', { hook_event_name: 'SessionStart', source: 'startup', cwd: dir }, dir);
+    assert.equal(r.code, 0);
+    const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+    assert.match(ctx, /^Process: full\. Explain: full\.$/m);
   });
 
   test(`${version}: an unknown field is ignored`, () => {
