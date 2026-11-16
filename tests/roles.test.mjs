@@ -157,6 +157,31 @@ test('architect skill rules pass lintRules with prefix ARC', () => {
   assert.deepEqual(lintRules(rules, { prefix: 'ARC' }), []);
 });
 
+test('the Architect skill has ARC1 to ARC10, each heading one time (S15)', () => {
+  const rules = section(parse(SKILL).body, 'Rules');
+  for (let n = 1; n <= 10; n++) {
+    const heads = rules.split('\n').filter((l) => l.startsWith(`### ARC${n} — `));
+    assert.equal(heads.length, 1, `ARC${n} has one heading`);
+  }
+  for (const key of ['Rule:', 'Why:', 'Check:']) {
+    assert.equal(rules.split('\n').filter((l) => l.startsWith(key)).length, 10, `ten ${key} lines`);
+  }
+});
+
+test('ARC1 names the question tool', () => {
+  const rules = section(parse(SKILL).body, 'Rules');
+  const block = rules.match(/^### ARC1 — [\s\S]*?(?=^### ARC2 — )/m)[0];
+  assert.match(block, /question tool/);
+  assert.match(parse(SKILL).body, /Ask each decision alone in the question tool \(ARC1\)/);
+});
+
+test('step 9 names <feature>.plan.md', () => {
+  const body = parse(SKILL).body;
+  const step = body.match(/^9\. [\s\S]*?(?=^10\. )/m)[0];
+  assert.match(step, /<feature>\.plan\.md/);
+  assert.match(step, /At `full`, one task is one cycle \(R24\)/);
+});
+
 test('architect skill names the dispatch model and the Security switch', () => {
   const body = parse(SKILL).body;
   assert.match(body, /config\.tiers\[/);
