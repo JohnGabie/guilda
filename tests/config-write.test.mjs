@@ -10,7 +10,8 @@ import { installedVersion } from '../scripts/lib/version.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'config-write.mjs');
 
-const { guildaVersion, ...ANSWERS } = MINIMAL_CONFIG;
+const { guildaVersion, ...base } = MINIMAL_CONFIG;
+const ANSWERS = { ...base, process: 'full', explain: 'full' };
 
 /** Write an answers file in its own temp dir (outside the project). */
 function answersFile(content) {
@@ -105,4 +106,118 @@ test('config-write prints usage and exits 1 without arguments', () => {
   const r = configWrite();
   assert.equal(r.code, 1);
   assert.match(r.stdout, /usage/);
+});
+
+const CHECK = path.join(REPO_ROOT, 'scripts', 'config-check.mjs');
+const run = (script, ...args) => {
+  const r = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+  return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+};
+const configFile = (dir) => path.join(dir, '.guilda', 'config.json');
+
+test('process medium is refused with exit 1 (S1)', () => {
+  const dir = tempProject();
+  const r = configWrite(dir, answersFile({ ...ANSWERS, process: 'medium' }));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /process must be light or full/);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('explain loud is refused (S30)', () => {
+  const dir = tempProject();
+  const r = configWrite(dir, answersFile({ ...ANSWERS, explain: 'loud' }));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /explain must be brief or full/);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('brief and full are accepted (S30)', () => {
+  for (const explain of ['brief', 'full']) {
+    const dir = tempProject();
+    const r = configWrite(dir, answersFile({ ...ANSWERS, process: 'light', explain }));
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const { config } = loadConfig(dir);
+    assert.equal(config.explain, explain);
+    assert.equal(config.process, 'light');
+  }
+});
+
+test('a new config has schemaVersion 2 (S43)', () => {
+  const dir = tempProject();
+  const r = configWrite(dir, answersFile({ ...ANSWERS, schemaVersion: 1 }));
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(loadConfig(dir).config.schemaVersion, 2);
+});
+
+test('answers with no process are refused', () => {
+  const dir = tempProject();
+  const { process: _p, ...noProcess } = ANSWERS;
+  const r = configWrite(dir, answersFile(noProcess));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /config not written: process is missing/);
+  const { explain: _e, ...noExplain } = ANSWERS;
+  const r2 = configWrite(dir, answersFile(noExplain));
+  assert.equal(r2.code, 1);
+  assert.match(r2.stdout, /config not written: explain is missing/);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('config-check refuses process medium and accepts light', () => {
+  const bad = tempProject({ config: { ...MINIMAL_CONFIG, process: 'medium' } });
+  const r = run(CHECK, bad);
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /process must be light or full/);
+  const good = tempProject({ config: { ...MINIMAL_CONFIG, process: 'light' } });
+  const ok = run(CHECK, good);
+  assert.equal(ok.code, 0, ok.stdout);
+  assert.equal(ok.stdout.trim(), 'ok');
+});
+
+test('S43: a 0.1.0 fixture gets schemaVersion 2, process full, explain full and the installed guildaVersion; each other key is equal', () => {
+  const old = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'tests', 'fixtures', 'compat', '0.1.0', 'config.json'), 'utf8'));
+  const dir = tempProject({ config: old });
+  const r = run(SCRIPT, dir, '--migrate');
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const version = installedVersion(REPO_ROOT);
+  assert.equal(r.stdout.trim(), `migrated .guilda/config.json (guildaVersion ${version}, schemaVersion 2)`);
+  const text = fs.readFileSync(configFile(dir), 'utf8');
+  assert.ok(text.endsWith('}\n'));
+  const got = JSON.parse(text);
+  assert.equal(got.schemaVersion, 2);
+  assert.equal(got.process, 'full');
+  assert.equal(got.explain, 'full');
+  assert.equal(got.guildaVersion, version);
+  const { guildaVersion: _g, ...oldRest } = old;
+  const { guildaVersion: _h, schemaVersion: _s, process: _p, explain: _x, ...gotRest } = got;
+  assert.deepEqual(gotRest, oldRest);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', '.gitignore')), false, 'migrate changes no other file');
+});
+
+test('S43: a second --migrate changes no byte', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(run(SCRIPT, dir, '--migrate').code, 0);
+  const before = fs.readFileSync(configFile(dir));
+  const r = run(SCRIPT, dir, '--migrate');
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.trim(), 'already migrated');
+  assert.deepEqual(fs.readFileSync(configFile(dir)), before);
+});
+
+test('S43: --migrate refuses { not json, process medium and schemaVersion 3; each prints migrate refused: and changes no byte', () => {
+  const cases = [
+    '{ not json',
+    JSON.stringify({ ...MINIMAL_CONFIG, process: 'medium' }, null, 2),
+    JSON.stringify({ ...MINIMAL_CONFIG, schemaVersion: 3 }, null, 2),
+  ];
+  const expected = [/Run guilda:init to fix \.guilda\/config\.json/, /invalid process value/, /schemaVersion 3 is newer than this guilda/];
+  cases.forEach((text, i) => {
+    const dir = tempProject({ config: text });
+    const r = run(SCRIPT, dir, '--migrate');
+    assert.equal(r.code, 1, r.stdout);
+    assert.match(r.stderr, /^migrate refused: /);
+    assert.match(r.stderr, expected[i]);
+    assert.equal(r.stderr.trim().split('\n').length, 1);
+    assert.equal(fs.readFileSync(configFile(dir), 'utf8'), text);
+    assert.equal(fs.existsSync(path.join(dir, '.guilda', '.gitignore')), false);
+  });
 });

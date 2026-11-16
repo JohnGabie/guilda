@@ -1,5 +1,7 @@
 {
   "languages": { "replies": "<language of replies, e.g. en>", "docs": "<language of docs, e.g. en>" },
+  "process": "<light or full>",
+  "explain": "<brief or full>",
   "tiers": {
     "master": "<model for master; default in core/tiers.json>",
     "journeyman": "<model for journeyman; default in core/tiers.json>",

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 // Usage: node scripts/config-write.mjs <projectDir> <answers.json> [--replace]
+//        node scripts/config-write.mjs <projectDir> --migrate
 // Builds <projectDir>/.guilda/config.json from the answers of guilda:init. The answers file has the config keys
 // without guildaVersion; this script takes guildaVersion from the installed plugin. It writes the config only when
 // the config passes the schema, and it never replaces an existing config without --replace. Exit 1 with the reason
 // on any problem. It also makes .guilda/.gitignore list the hook state files.
 // A tier that is missing, empty or a placeholder ("<...>") gets its default from core/tiers.json. Any other string
-// value that is still a placeholder stops the write.
+// value that is still a placeholder stops the write. The answers must have process and explain. A new config gets
+// schemaVersion. --migrate saves a 0.1.x config in the 0.2.0 form and changes no other file.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkSchema } from './lib/project.mjs';
+import { loadConfig, checkStrict, migrateConfig, SCHEMA_VERSION } from './lib/project.mjs';
 import { installedVersion } from './lib/version.mjs';
 import { ensureIgnored } from './lib/violations.mjs';
 
@@ -20,7 +22,43 @@ function fail(reason) {
   process.exit(1);
 }
 
+function migrate(projectDir) {
+  const refuse = (why) => {
+    console.error(`migrate refused: ${why}`);
+    process.exit(1);
+  };
+  const loaded = loadConfig(projectDir);
+  if (loaded === null) refuse('no .guilda/config.json. Run guilda:init to fix .guilda/config.json.');
+  if (!loaded.ok) refuse(`${loaded.reason}. Run guilda:init to fix .guilda/config.json.`);
+  const { config } = loaded;
+  const allowed = { process: ['light', 'full'], explain: ['brief', 'full'] };
+  for (const [field, values] of Object.entries(allowed)) {
+    if (config[field] !== undefined && !values.includes(config[field])) refuse(`invalid ${field} value`);
+  }
+  if (typeof config.schemaVersion === 'number' && config.schemaVersion > SCHEMA_VERSION) {
+    refuse(`schemaVersion ${config.schemaVersion} is newer than this guilda`);
+  }
+  const file = path.join(projectDir, '.guilda', 'config.json');
+  const next = JSON.stringify(migrateConfig({ ...config, guildaVersion: installedVersion(PLUGIN_ROOT) }), null, 2) + '\n';
+  if (next === fs.readFileSync(file, 'utf8')) {
+    console.log('already migrated');
+    process.exit(0);
+  }
+  try {
+    fs.writeFileSync(file, next);
+  } catch (err) {
+    refuse(`cannot write .guilda/config.json: ${err.message}`);
+  }
+  console.log(`migrated .guilda/config.json (guildaVersion ${installedVersion(PLUGIN_ROOT)}, schemaVersion ${SCHEMA_VERSION})`);
+  process.exit(0);
+}
+
 const args = process.argv.slice(2);
+if (args.includes('--migrate')) {
+  const dir = args.find((a) => a !== '--migrate');
+  if (!dir) fail('usage: config-write.mjs <projectDir> --migrate');
+  migrate(dir);
+}
 const replace = args.includes('--replace');
 const [projectDir, answersPath] = args.filter((a) => a !== '--replace');
 if (!projectDir || !answersPath) fail('usage: config-write.mjs <projectDir> <answers.json> [--replace]');
@@ -66,11 +104,14 @@ function findPlaceholder(value, at) {
   return null;
 }
 
-const { guildaVersion: _ignored, ...rest } = answers;
-const config = { guildaVersion: installedVersion(PLUGIN_ROOT), ...rest, tiers: fillTiers(rest.tiers) };
+const { guildaVersion: _ignored, schemaVersion: _ignoredSchema, ...rest } = answers;
+for (const field of ['process', 'explain']) {
+  if (rest[field] === undefined) fail(`config not written: ${field} is missing`);
+}
+const config = { guildaVersion: installedVersion(PLUGIN_ROOT), schemaVersion: SCHEMA_VERSION, ...rest, tiers: fillTiers(rest.tiers) };
 const placeholder = findPlaceholder(config, '');
 if (placeholder) fail(`config not written: ${placeholder} is still a placeholder; put the real value`);
-const problem = checkSchema(config);
+const problem = checkStrict(config);
 if (problem) fail(`config not written: ${problem}`);
 
 const guildaDir = path.join(projectDir, '.guilda');

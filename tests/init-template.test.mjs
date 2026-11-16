@@ -15,6 +15,9 @@ test('config-template passes config-check after its placeholders are filled', ()
   const template = path.join(REFS, 'config-template.json');
   const parsed = JSON.parse(fs.readFileSync(template, 'utf8'));
   assert.equal('guildaVersion' in parsed, false, 'config-write sets guildaVersion');
+  assert.equal('schemaVersion' in parsed, false, 'config-write sets schemaVersion');
+  assert.match(parsed.process, /^<.*>$/);
+  assert.match(parsed.explain, /^<.*>$/);
 
   const raw = tempProject();
   const rejected = node('config-write.mjs', raw, template);
@@ -24,6 +27,8 @@ test('config-template passes config-check after its placeholders are filled', ()
 
   // Fill the placeholders that the user answers. The tier placeholders stay: config-write fills them.
   parsed.languages = { replies: 'en', docs: 'en' };
+  parsed.process = 'light';
+  parsed.explain = 'brief';
   parsed.checks = [{ name: 'test', command: 'npm test' }];
   const filled = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guilda test ')), 'answers.json');
   fs.writeFileSync(filled, JSON.stringify(parsed));
@@ -36,6 +41,20 @@ test('config-template passes config-check after its placeholders are filled', ()
   const written = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'config.json'), 'utf8'));
   const defaults = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'core', 'tiers.json'), 'utf8'));
   assert.deepEqual(written.tiers, defaults);
+});
+
+test('a template with the process placeholder left is refused', () => {
+  const parsed = JSON.parse(fs.readFileSync(path.join(REFS, 'config-template.json'), 'utf8'));
+  parsed.languages = { replies: 'en', docs: 'en' };
+  parsed.checks = [{ name: 'test', command: 'npm test' }];
+  parsed.explain = 'brief';
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guilda test ')), 'answers.json');
+  fs.writeFileSync(file, JSON.stringify(parsed));
+  const dir = tempProject();
+  const r = node('config-write.mjs', dir, file);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /process/);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
 
 test('rules-template passes lintRules with prefix P', () => {
