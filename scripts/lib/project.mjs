@@ -134,8 +134,9 @@ export function checkStrict(c) {
  */
 export function dispatchAgentTypes(config) {
   const types = isObject(config) && isObject(config.dispatch) ? config.dispatch.agentTypes : undefined;
-  if (!Array.isArray(types)) return [];
-  return types.filter((t) => isString(t) && t.trim() !== '').map((t) => t.trim().toLowerCase());
+  // A list with any bad item reads as empty, as the strict check refuses it (fail closed).
+  if (!Array.isArray(types) || !types.every((t) => isString(t) && t.trim() !== '')) return [];
+  return types.map((t) => t.trim().toLowerCase());
 }
 
 /**

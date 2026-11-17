@@ -251,6 +251,7 @@ test('checkStrict: dispatch.agentTypes is a list of non-empty strings', () => {
 
 test('dispatchAgentTypes reads a list in lower case and treats a bad value as empty', async () => {
   const { dispatchAgentTypes } = await import('../scripts/lib/project.mjs');
-  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: [' A ', 'b', '', 3] } }), ['a', 'b']);
+  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: [' A ', 'b'] } }), ['a', 'b']);
+  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: ['a', '', 3] } }), []);
   for (const c of [{}, { dispatch: 'x' }, { dispatch: { agentTypes: 'a' } }, null]) assert.deepEqual(dispatchAgentTypes(c), []);
 });
