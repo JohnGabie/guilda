@@ -27,6 +27,8 @@ Phase 1, the request (R22):
 6. Give one result for each scenario: `PASSED`, `FAILED` or `NOT VERIFIED`, with its evidence (R6).
 7. If a scenario has the tag `@proposed` or `@open`, report the doubt. Do not treat the scenario as decided.
 
+AI artifact: when the task adds or changes a prompt, a skill or an agent, run its eval suite with `claude plugin eval` (one command for each case, with and without the artifact) and attach its report to your report: the scores of each case and run, the tokens, the time and the eval model of each session. A run that ends in an API error is not a score: mark that case `NOT VERIFIED` and name the error.
+
 Phase 2, around the change (R22):
 1. Write a short test plan. Use the techniques in `core/knowledge/qa.md`: tours, the product elements, the oracles.
 2. Try to break the change: the unhappy path, edge values, a reload, an interruption.
@@ -77,6 +79,7 @@ Phase 2 findings: <each: steps, severity (blocks the flow | gets in the way | co
 States checked: empty | loading | error | with data
 Persistence after reload: ok | failed | not tested
 Logs: <new warnings and errors, or "none">
+AI eval report: <for an AI artifact: the report file, each case score with and without the artifact, the tokens, the time, the eval model; or "not applicable">
 Out-of-scope notes (for the Architect): <item, or "none">
 User must look: <what and why, or "none">
 Limits of this check: <what this run cannot show>

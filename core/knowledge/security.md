@@ -116,3 +116,30 @@ What the source says:
 - MASVS-AUTH-1: the enforcement of authentication and authorization "must be on the remote endpoint".
 - MASVS-PLATFORM-1: "The app uses IPC mechanisms securely." The related weaknesses name insecure deep links and misuse of the clipboard.
 - MASVS-PRIVACY-1: "The app minimizes access to sensitive data and resources."
+
+## 6. AI artifacts
+
+An AI artifact is a prompt that a model runs, a skill or an agent definition. A task that adds or changes one is in this risk area.
+
+Risk area name: `ai`.
+
+Links:
+- List: https://genai.owasp.org/llm-top-10/
+- LLM03: https://genai.owasp.org/llmrisk/llm032025-supply-chain/
+- LLM04: https://genai.owasp.org/llmrisk/llm042025-data-and-model-poisoning/
+- LLM08: https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/
+- The other entries: the links of section 4.
+
+Read note: the pages of LLM03, LLM04 and LLM08 were read on 2026-11-17. The other entries rest on section 4.
+
+What to check (one line for each entry of the source):
+- LLM01 Prompt Injection: check that the artifact treats its input as data, that untrusted external content is separated and marked, and that a high-risk action needs human approval.
+- LLM02 Sensitive Information Disclosure: check that the artifact reaches personal, financial or health data only where its task needs it (least privilege).
+- LLM03 Supply Chain: check that each model, data source and third-party component comes from a vetted supplier and is in an inventory of components.
+- LLM04 Data and Model Poisoning: check that the origin of the data that the artifact uses for training, fine-tuning or embedding is tracked and verified.
+- LLM05 Improper Output Handling: check that model output is encoded before it reaches a browser, and that a database operation with model output uses parameterized queries.
+- LLM06 Excessive Agency: check that each tool is needed for the task, and that authorization runs in the downstream system, not in the model.
+- LLM07 System Prompt Leakage: check that the prompt holds no key, database name, role or permission, and that no critical control depends on the model.
+- LLM08 Vector and Embedding Weaknesses: check that the vector and embedding store has fine-grained, permission-aware access control and accepts data only from trusted and verified sources.
+- LLM09 Misinformation: check that an important output has an automatic validation or a human review.
+- LLM10 Unbounded Consumption: check that the artifact has a budget, rate limits and timeouts for cost, latency and tokens.
