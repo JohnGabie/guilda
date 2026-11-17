@@ -258,3 +258,66 @@ test('no .guilda folder -> allow, no record', () => {
   assert.equal(JSON.parse(r.stdout).systemMessage, SETUP_NOTICE);
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
+
+// ARC4 (T28): the main session dispatches a guilda agent, never an untyped or general-purpose one. The hook input
+// has `agent_type` only inside a subagent.
+
+const GUILDA_AGENTS = /guilda:architect-executor[\s\S]*guilda:executor[\s\S]*guilda:reviewer[\s\S]*guilda:lab-researcher/;
+const arc4 = (dir) => records(dir).map(({ rule, level, source, action }) => ({ rule, level, source, action }));
+
+test('an Agent call with no subagent_type from the main session is refused, and the text names a guilda agent', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const reason = denyReason(runHook(HOOK, { tool_name: 'Agent', tool_input: { prompt: 'secret plan text' } }, dir));
+  assert.match(reason, /^ARC4: /);
+  assert.match(reason, GUILDA_AGENTS);
+  assert.deepEqual(arc4(dir), [{ rule: 'ARC4', level: 'law', source: 'pre-agent', action: 'untyped dispatch' }]);
+  const text = fs.readFileSync(path.join(dir, '.guilda', 'violations.jsonl'), 'utf8');
+  assert.ok(!text.includes('secret plan text'), 'a record never has the prompt');
+});
+
+test('a general-purpose Agent call from the main session is refused', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const reason = denyReason(runHook(HOOK, dispatch('general-purpose', 'write the spec'), dir));
+  assert.match(reason, /^ARC4: /);
+  assert.match(reason, /general-purpose/);
+  assert.match(reason, GUILDA_AGENTS);
+  assert.deepEqual(arc4(dir), [{ rule: 'ARC4', level: 'law', source: 'pre-agent', action: 'untyped dispatch' }]);
+});
+
+test('the same call from a subagent passes', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const tool_input of [{ subagent_type: 'general-purpose', prompt: 'x' }, { prompt: 'x' }]) {
+    const r = runHook(HOOK, { tool_name: 'Agent', agent_type: 'guilda:lab-experimenter', tool_input }, dir);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
+  assert.equal(records(dir).length, 0);
+});
+
+test('Explore passes', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const type of ['Explore', 'Plan']) {
+    const r = runHook(HOOK, dispatch(type, 'find the config'), dir);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
+  assert.equal(records(dir).length, 0);
+});
+
+test('a guilda:executor call passes', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r = runHook(HOOK, dispatch('guilda:executor', BRIEF), dir);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+  assert.equal(records(dir).length, 0);
+});
+
+test('no .guilda folder: nothing is refused', () => {
+  const dir = tempProject();
+  for (const tool_input of [{ prompt: 'x' }, { subagent_type: 'general-purpose', prompt: 'x' }]) {
+    const r = runHook(HOOK, { tool_name: 'Agent', tool_input }, dir);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
