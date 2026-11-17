@@ -179,6 +179,7 @@ test('hooks.json has the 0.3.0 entries of X6 and the 0.2.0 entries unchanged', (
     entry('Skill', 'pre-skill.mjs'),
     entry('*', 'agent-trace.mjs'),
     entry('Bash', 'pre-rm.mjs'),
+    entry('AskUserQuestion', 'pre-question.mjs'),
   ]);
   assert.deepEqual(hooks.PostToolUse, [
     entry('Write|Edit', 'post-tool-use.mjs'),
