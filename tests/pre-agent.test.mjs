@@ -347,6 +347,8 @@ test('ARC4: an agent type of another plugin or of the project is refused, and th
     assert.match(reason, /^ARC4: .*dispatch\.agentTypes/);
     assert.ok(!reason.includes(type), type);
   }
+  const actions = records(dir).filter((r) => r.rule === 'ARC4').map((r) => r.action);
+  assert.deepEqual(actions, ['agent type not allowed', 'agent type not allowed']);
 });
 
 test('ARC4: a type listed in dispatch.agentTypes passes, in any case or spacing', () => {

@@ -102,7 +102,10 @@ await runHookMain(async (input) => {
   const toolInput = input.tool_input ?? {};
   // ARC4 first: a Role: executor line does not let an untyped dispatch of the main session pass.
   const refused = untypedDispatch(input, toolInput, dispatchAgentTypes(project.config));
-  if (refused !== null) return deny(projectDir, 'ARC4', 'untyped dispatch', refused);
+  if (refused !== null) {
+    const action = refused.includes('not this agent type') ? 'agent type not allowed' : 'untyped dispatch';
+    return deny(projectDir, 'ARC4', action, refused);
+  }
   if (!isExecutorDispatch(toolInput)) return 0;
 
   // A live check on Claude Code 2.1.316 found the brief in tool_input.prompt. The docs do not state this field, so
