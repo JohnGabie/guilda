@@ -164,3 +164,13 @@ test('a rate_limit_event ends the run with reason limit', () => {
   assert.equal(failed.usage[0].input, 10);
   assert.equal(failed.usage[0].output, 7);
 });
+
+test('exit 0 with a rejected limit status ends the run with done', () => {
+  const { dir } = project();
+  const r = sig(dir, 'run', 'T5', '1', '--', NODE, STREAM, '0', 'limit');
+  assert.equal(r.code, 0);
+  const done = readSig(dir, 'done');
+  assert.equal(done.reason, 'finished');
+  assert.equal(done.usage[0].model, 'fake-model-a');
+  assert.equal(fs.readdirSync(sigDir(dir)).some((f) => f.startsWith('failed')), false);
+});

@@ -251,8 +251,9 @@ function runCommand(projectDir, owner, rest) {
       const usage = reader.list();
       let reason = null;
       if (timedOut) reason = 'timeout';
+      else if (exit === 0) reason = null;
       else if (reader.limit) reason = 'limit';
-      else if (exit !== 0) reason = 'error';
+      else reason = 'error';
       let writeFailed = false;
       try {
         if (reason === null) writeSignal(projectDir, owner, 'done', { at: iso(), reason: 'finished', usage });
