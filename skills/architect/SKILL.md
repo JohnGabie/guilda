@@ -172,6 +172,7 @@ Decisions: <the decision IDs that the task builds>
 Mutants: <for each new test, one change to the product code that makes it fail>
 Conflict cases: <each case where this task and another task touch the same state>
 Issue: #<N>
+Uses: D14@0a1b2c3d
 ```
 
 `Base commit:` is required in each new brief, inline or in a file.
