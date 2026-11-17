@@ -145,13 +145,17 @@ test('no .guilda folder or no queue folder writes nothing', () => {
 test('an agent ID ../z writes nothing', () => {
   const { dir, address } = dispatched();
   const parent = path.dirname(dir);
-  const outsideBefore = fs.readdirSync(parent).sort();
+  // The parent is the shared temp folder: parallel tests add and remove their own folders
+  // there, so a full listing is racy. Check the names an escaped write would create.
+  const escapes = ['z', 'x'.repeat(65)].map((n) => path.join(parent, n));
+  const outside = () => escapes.map((p) => fs.existsSync(p));
+  const outsideBefore = outside();
   const before = tree(dir);
   for (const agentId of ['../z', '..', '.', 'a/b', '', 'x'.repeat(65), 7]) {
     assertSilent(runHook(HOOK, agentInput(dir, `Address: ${address}\n`, agentId), dir));
   }
   assert.deepEqual(tree(dir), before);
-  assert.deepEqual(fs.readdirSync(parent).sort(), outsideBefore, 'no file outside the project');
+  assert.deepEqual(outside(), outsideBefore, 'no file outside the project');
 });
 
 test('a check run address binds its task', () => {

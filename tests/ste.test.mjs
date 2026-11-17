@@ -90,7 +90,8 @@ test('detail never longer than 60 characters', () => {
 test('parseGlossary reads the core/glossary.md format', () => {
   const text = fs.readFileSync(path.join(REPO_ROOT, 'core', 'glossary.md'), 'utf8');
   const glossary = parseGlossary(text);
-  assert.equal(glossary.length, 20);
+  // T13 added the eight 0.3.0 glossary terms (20 -> 28).
+  assert.equal(glossary.length, 28);
   assert.deepEqual(glossary[0], { term: 'brief', forbidden: ['ticket', 'assignment'] });
 });
 
@@ -113,13 +114,13 @@ test('checkScope: exception with a level other than full -> skipped with the rea
 
 test('CLI prints <file>:<line> <kind> <detail> and exits 1 on a finding', () => {
   const dir = tempProject();
-  fs.writeFileSync(path.join(dir, 'a.md'), 'We handle it.\n');
+  fs.writeFileSync(path.join(dir, 'a.md'), 'We adjust it.\n');
   const r = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'ste-check.mjs'), 'a.md'], {
     cwd: dir,
     encoding: 'utf8',
   });
   assert.equal(r.status, 1);
-  assert.equal(r.stdout.trim(), 'a.md:1 vague-word "handle"');
+  assert.equal(r.stdout.trim(), 'a.md:1 vague-word "adjust"');
 });
 
 test('CLI exits 0 when no finding', () => {

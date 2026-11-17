@@ -26,8 +26,9 @@ const AGENTS = {
   },
   'devops-advisor': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'DEV', group: ['engineering'] },
   'ai-lead': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'AIL', group: ['ai'] },
+  // T24: Bash removed from the tools of architect-executor.
   'architect-executor': {
-    tier: 'master', tools: 'Read, Grep, Glob, Write, Edit, Bash', prefix: 'AEX', group: ['architect'],
+    tier: 'master', tools: 'Read, Grep, Glob, Write, Edit', prefix: 'AEX', group: ['architect'],
   },
   'coherence-validator': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'COH', group: ['architect'] },
 };
