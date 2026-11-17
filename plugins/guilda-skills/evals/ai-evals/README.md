@@ -59,6 +59,8 @@ Suite (AIG3): 0.92 with the skill, 0.63 without it (0.96 with and 0.65 without a
 skill loaded first, before any read, in each with-arm run. No run ended in an API error, and no run had the plugin
 missing.
 
+Provisional (the user, 2026-11-17): the turn budgets written after the runs are provisional until lab #58 (turn budgets for eval cases and enforcing max_turns) sets the rule; they are not a final AIG6 pass.
+
 Budget (AIG6), first line, 2026-11-17, before the first run: 30 turns. The largest session had 89 turns
 (`write-suite`, with, first run, `num_turns` of the trace), so the turns were over it. The unit is the same: the trace
 field `turns` is the `num_turns` of the result event of the session, the count that `max_turns` is about (each tool
