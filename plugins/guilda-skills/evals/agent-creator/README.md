@@ -5,7 +5,8 @@ AI artifact (the gate of the Reviewer, part "AI artifact"). It has 3 real cases 
 
 Threshold: 0.8 (written 2026-11-17, before the first run)
 
-Provisional (the user, 2026-11-17): the turn budgets written after the runs are provisional until lab #58 (turn budgets for eval cases and enforcing max_turns) sets the rule; they are not a final AIG6 pass.
+Turn budget (lab #58, 2026-11-17, from 2 pilots): reviewer-agent 66, hook-limit 59. Report: `docs/labs/2026-11-17-eval-turn-budget.md`. Check each scored run with `node scripts/check-turn-budget.mjs <case>=<n> <trace.jsonl>`; exit 1 is a finding. The older turn lines below are history of what happened.
+Lesson (lab #58): a run needs `--allow-tools Write` (agent-creator) and a plugin copy without `dependencies`, or it is void.
 
 Budget line, turns (written 2026-11-17, after run 2, review round 1): `reviewer-agent` at most 50 turns and
 `hook-limit` at most 45 turns (the `max_turns` of their `prompt.md`). Reason: the first lines (20 and 15) were
