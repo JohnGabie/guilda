@@ -63,7 +63,7 @@ test('a brief with the 13 fields is valid', () => {
 });
 
 test('the optional fields are not required', () => {
-  assert.deepEqual(formats.OPTIONAL_BRIEF_FIELDS, ['Decisions', 'Mutants', 'Conflict cases', 'Skills']);
+  assert.deepEqual(formats.OPTIONAL_BRIEF_FIELDS, ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue']);
   for (const name of formats.OPTIONAL_BRIEF_FIELDS) assert.ok(!BRIEF.includes(`${name}:`), name);
   assert.deepEqual(validateBrief(BRIEF), []);
   const withOptional = `${BRIEF}\nDecisions: D1\nMutants: none\nConflict cases: none\nSkills: none`;
