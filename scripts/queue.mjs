@@ -7,6 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { projectState, projectHash, SETUP_NOTICE } from './lib/project.mjs';
 import { renderStatus } from './lib/status.mjs';
+import { renderHandoff, HANDOFF_FILE } from './lib/handoff.mjs';
 import {
   validId,
   makeAddress,
@@ -22,8 +23,8 @@ import {
   readState,
 } from './lib/queue.mjs';
 
-const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release> [args] [--session <id>] [--now <ISO>]';
-const VALUE_FLAGS = ['--session', '--now', '--slots', '--part', '--title', '--deps', '--role', '--tool', '--tier', '--brief', '--base'];
+const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release|handoff> [args] [--session <id>] [--now <ISO>]';
+const VALUE_FLAGS = ['--session', '--now', '--slots', '--part', '--title', '--deps', '--role', '--tool', '--tier', '--brief', '--base', '--note'];
 const BOOL_FLAGS = ['--external', '--check'];
 const TOOL = /^[a-z0-9]{1,24}$/;
 const TIER = /^[A-Za-z0-9_-]{1,32}$/;
@@ -37,11 +38,13 @@ const refuse = (message) => new QueueError(1, message);
 function parseArgs(argv) {
   const positional = [];
   const flags = {};
+  const notes = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (VALUE_FLAGS.includes(a)) {
       if (i + 1 >= argv.length) throw refuse(USAGE);
-      flags[a.slice(2)] = argv[++i];
+      if (a === '--note') notes.push(argv[++i]);
+      else flags[a.slice(2)] = argv[++i];
     } else if (BOOL_FLAGS.includes(a)) {
       flags[a.slice(2)] = true;
     } else if (a.startsWith('--')) {
@@ -52,7 +55,7 @@ function parseArgs(argv) {
   }
   if (positional.length < 2) throw refuse(USAGE);
   const [projectDir, command, ...args] = positional;
-  return { projectDir, command, args, flags };
+  return { projectDir, command, args, flags, notes };
 }
 
 const checkTask = (id) => {
@@ -374,6 +377,22 @@ function writeStatusFile(root, now) {
   }
 }
 
+/** Write .guilda/handoff.md by a temp file and a rename (T25). Unlike the status file, a failure is an error. */
+function writeHandoffFile(root, now, notes) {
+  const guilda = path.join(root, '.guilda');
+  const state = readState(root, { now });
+  const { events } = readJournal(root);
+  const text = renderHandoff(state, events, { now, notes });
+  const tmp = path.join(guilda, `${HANDOFF_FILE}.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`);
+  fs.writeFileSync(tmp, text, { flag: 'wx' });
+  try {
+    fs.renameSync(tmp, path.join(guilda, HANDOFF_FILE));
+  } catch (err) {
+    fs.unlinkSync(tmp);
+    throw err;
+  }
+}
+
 /** The end signals (done or failed) of the events after `before`, one for each run: [{ dispatch, signal, agentId }]. */
 function endRecords(events, before) {
   const dispatchOf = (e) =>
@@ -419,8 +438,9 @@ export function main(argv) {
     const parsed = parseArgs(argv);
     const root = path.resolve(parsed.projectDir);
     if (projectState(root).state === 'none') return { code: 1, lines: ['refused: guilda is not set up', SETUP_NOTICE] };
-    const make = COMMANDS[parsed.command];
-    if (!make) throw refuse(USAGE);
+    if (parsed.command === 'handoff' && parsed.args.length > 0) throw refuse(USAGE);
+    const make = parsed.command === 'handoff' ? null : COMMANDS[parsed.command];
+    if (!make && parsed.command !== 'handoff') throw refuse(USAGE);
     const session = parsed.flags.session ?? null;
     if (session !== null && !SESSION.test(session)) throw refuse('invalid ID');
     let now = new Date().toISOString();
@@ -428,6 +448,11 @@ export function main(argv) {
       const ms = Date.parse(parsed.flags.now);
       if (Number.isNaN(ms)) throw refuse(USAGE);
       now = new Date(ms).toISOString();
+    }
+    if (parsed.command === 'handoff') {
+      if (readJournal(root).events.length === 0) throw refuse('handoff: no queue yet');
+      writeHandoffFile(root, now, parsed.notes);
+      return { code: 0, lines: [`handoff: .guilda/${HANDOFF_FILE}`] };
     }
     const records = [];
     const work = make({ ...parsed, root, session, records });
