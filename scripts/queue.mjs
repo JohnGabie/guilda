@@ -1,0 +1,371 @@
+#!/usr/bin/env node
+// The queue script (D14, R32, section 4a): the one writer of .guilda/queue/journal.jsonl and state.json.
+// Usage: node scripts/queue.mjs <projectDir> <command> [args] [--session <id>] [--now <ISO>]
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { projectState, SETUP_NOTICE } from './lib/project.mjs';
+import {
+  validId,
+  makeAddress,
+  makeWorkId,
+  runWriter,
+  QueueError,
+  MAX_ATTEMPTS,
+  CHECK_ROLES,
+  BUSY_STATES,
+} from './lib/queue.mjs';
+
+const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release> [args] [--session <id>] [--now <ISO>]';
+const VALUE_FLAGS = ['--session', '--now', '--slots', '--part', '--title', '--deps', '--role', '--tool', '--tier', '--brief', '--base'];
+const BOOL_FLAGS = ['--external', '--check'];
+const TOOL = /^[a-z0-9]{1,24}$/;
+const TIER = /^[A-Za-z0-9_-]{1,32}$/;
+const COMMIT = /^[0-9a-f]{4,64}$/;
+const SESSION = /^[A-Za-z0-9._:-]{1,128}$/;
+const WRITER_ROLE = 'arc';
+const ARROW = '→';
+
+const refuse = (message) => new QueueError(1, message);
+
+function parseArgs(argv) {
+  const positional = [];
+  const flags = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (VALUE_FLAGS.includes(a)) {
+      if (i + 1 >= argv.length) throw refuse(USAGE);
+      flags[a.slice(2)] = argv[++i];
+    } else if (BOOL_FLAGS.includes(a)) {
+      flags[a.slice(2)] = true;
+    } else if (a.startsWith('--')) {
+      throw refuse(USAGE);
+    } else {
+      positional.push(a);
+    }
+  }
+  if (positional.length < 2) throw refuse(USAGE);
+  const [projectDir, command, ...args] = positional;
+  return { projectDir, command, args, flags };
+}
+
+const checkTask = (id) => {
+  if (!validId('task', id)) throw refuse('invalid ID');
+  return id;
+};
+
+function positiveInt(v, name) {
+  if (typeof v !== 'string' || !/^[1-9][0-9]{0,5}$/.test(v)) throw refuse(`queue: ${name} must be a positive number`);
+  return Number(v);
+}
+
+// ---- Plans ----
+
+const HEADING = /^(#{1,3}) /;
+const FENCE = /^\s*(```|~~~)/;
+const TASK_HEADING = /^### (T[0-9]+[A-Za-z]*) — (.*)$/;
+const PART_HEADING = /^## Plan: Part ([0-9]+)\b/;
+const PLAN_TASK_REF = /^T[0-9]+[A-Za-z]*$/;
+
+/** The headings of a text outside code fences: [{ line, level, text }]. */
+function headings(lines) {
+  const out = [];
+  let fence = false;
+  lines.forEach((line, i) => {
+    if (FENCE.test(line)) fence = !fence;
+    else if (!fence && HEADING.test(line)) out.push({ line: i, level: HEADING.exec(line)[1].length, text: line });
+  });
+  return out;
+}
+
+function field(body, name) {
+  const re = new RegExp(`^\\s*(?:[-*]\\s+)?${name}:\\s*(.*)$`);
+  for (const line of body) {
+    const m = re.exec(line);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+const list = (v) => (v === null ? [] : v.split(/[,;]/).map((x) => x.trim()).filter((x) => x !== '' && x.toLowerCase() !== 'none'));
+
+/**
+ * The tasks of a plan file: [{ id, planId, title, deps, uses, owns, key }]. With `part`, only the tasks of
+ * `## Plan: Part <part>`, with the prefix P<part>. A dependency that is not a task of the same plan or Part (a lab,
+ * a gate, a user decision) is not a queue dependency.
+ */
+export function parsePlan(text, stem, part) {
+  const lines = text.split(/\r?\n/);
+  const heads = headings(lines);
+  const parts = heads.filter((h) => h.level === 2 && PART_HEADING.test(h.text));
+  let from = 0;
+  let to = lines.length;
+  if (part === null) {
+    if (parts.length > 0) throw refuse('queue: the plan has Parts; use --part');
+  } else {
+    const start = parts.find((h) => Number(PART_HEADING.exec(h.text)[1]) === part);
+    if (!start) throw refuse(`queue: the plan has no Part ${part}`);
+    from = start.line;
+    const end = heads.find((h) => h.line > start.line && h.level <= 2);
+    to = end ? end.line : lines.length;
+  }
+  const inRange = heads.filter((h) => h.line >= from && h.line < to);
+  const tasks = [];
+  inRange.forEach((h) => {
+    const m = h.level === 3 ? TASK_HEADING.exec(h.text) : null;
+    if (!m) return;
+    const next = inRange.find((x) => x.line > h.line);
+    const body = lines.slice(h.line + 1, next ? next.line : to);
+    const prefix = part === null ? '' : `P${part}`;
+    tasks.push({
+      planId: m[1],
+      id: `${prefix}${m[1]}`,
+      title: m[2].trim(),
+      depsRaw: list(field(body, 'Dependencies')).filter((d) => PLAN_TASK_REF.test(d)),
+      uses: list(field(body, 'Uses')),
+      owns: list(field(body, 'Owns')),
+      key: part === null ? `${stem}#${m[1]}` : `${stem}#Part${part}.${m[1]}`,
+    });
+  });
+  const ids = new Set(tasks.map((t) => t.planId));
+  const prefix = part === null ? '' : `P${part}`;
+  for (const t of tasks) {
+    t.deps = [...new Set(t.depsRaw.filter((d) => ids.has(d)))].map((d) => `${prefix}${d}`);
+    delete t.depsRaw;
+  }
+  return tasks;
+}
+
+/** The first dependency cycle, as a list of IDs that ends with its first ID, or null (SC-G14). */
+export function findCycle(tasks) {
+  const deps = new Map(tasks.map((t) => [t.id, t.deps]));
+  const mark = new Map();
+  const stack = [];
+  const visit = (id) => {
+    mark.set(id, 'open');
+    stack.push(id);
+    for (const d of deps.get(id) ?? []) {
+      if (!deps.has(d)) continue;
+      if (mark.get(d) === 'open') return [...stack.slice(stack.indexOf(d)), d];
+      if (!mark.has(d)) {
+        const c = visit(d);
+        if (c) return c;
+      }
+    }
+    stack.pop();
+    mark.set(id, 'closed');
+    return null;
+  };
+  for (const t of tasks) {
+    if (!mark.has(t.id)) {
+      const c = visit(t.id);
+      if (c) return c;
+    }
+  }
+  return null;
+}
+
+// ---- Commands ----
+
+function cmdInit({ args, flags, root }) {
+  if (args.length !== 1 || flags.slots === undefined) throw refuse(USAGE);
+  const slots = positiveInt(flags.slots, '--slots');
+  const part = flags.part === undefined ? null : positiveInt(flags.part, '--part');
+  const file = path.resolve(root, args[0]);
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    throw refuse(`queue: cannot read ${args[0]}`);
+  }
+  const stem = path.basename(file).replace(/\.md$/, '');
+  const tasks = parsePlan(text, stem, part);
+  const seen = new Set();
+  for (const t of tasks) {
+    checkTask(t.id);
+    if (seen.has(t.id)) throw refuse(`queue: task ${t.id} exists`);
+    seen.add(t.id);
+  }
+  const cycle = findCycle(tasks);
+  if (cycle) throw refuse(`queue: dependency cycle ${cycle.join(' -> ')}`);
+  const rel = path.relative(root, file);
+  const planPath = rel.startsWith('..') || path.isAbsolute(rel) ? args[0] : rel.split(path.sep).join('/');
+  return ({ state, emit }) => {
+    for (const t of tasks) if (Object.hasOwn(state.tasks, t.id)) throw refuse(`queue: task ${t.id} exists`);
+    const work = makeWorkId(Object.keys(state.works));
+    emit({ type: 'plan', plan: planPath, part, work, slots });
+    for (const t of tasks) {
+      emit({ type: 'task', task: t.id, work, key: t.key, title: t.title, deps: t.deps, uses: t.uses, owns: t.owns });
+    }
+    return [`queue: ${tasks.length} tasks, work ${work}`];
+  };
+}
+
+function cmdAdd({ args, flags }) {
+  if (args.length !== 1) throw refuse(USAGE);
+  const id = checkTask(args[0]);
+  if (typeof flags.title !== 'string' || flags.title.trim() === '') throw refuse(USAGE);
+  const deps = flags.deps === undefined ? [] : flags.deps.split(',').map((d) => d.trim()).filter(Boolean);
+  deps.forEach(checkTask);
+  if (deps.includes(id)) throw refuse(`queue: dependency cycle ${id} -> ${id}`);
+  return ({ state, events, emit }) => {
+    if (Object.hasOwn(state.tasks, id)) throw refuse(`queue: task ${id} exists`);
+    for (const d of deps) if (!Object.hasOwn(state.tasks, d)) throw refuse(`queue: unknown task ${d}`);
+    const plan = events.filter((e) => e.type === 'plan').at(-1);
+    emit({ type: 'task', task: id, work: plan?.work ?? null, key: null, title: flags.title, deps: [...new Set(deps)], uses: [], owns: [] });
+    return [`queue: added ${id}`];
+  };
+}
+
+function readBriefUses(root, file) {
+  let text;
+  try {
+    text = fs.readFileSync(path.resolve(root, file), 'utf8');
+  } catch {
+    throw refuse(`queue: cannot read ${file}`);
+  }
+  const v = field(text.split(/\r?\n/), 'Uses');
+  return v === null ? null : list(v);
+}
+
+function cmdDispatch({ args, flags, root, session }) {
+  if (args.length !== 1 || !flags.role || !flags.tool || !flags.tier) throw refuse(USAGE);
+  const id = checkTask(args[0]);
+  if (!validId('role', flags.role)) throw refuse('invalid ID');
+  if (!TOOL.test(flags.tool) || !TIER.test(flags.tier)) throw refuse(USAGE);
+  if (flags.base !== undefined && !COMMIT.test(flags.base)) throw refuse(USAGE);
+  const check = flags.check === true;
+  if (check && !CHECK_ROLES.includes(flags.role)) throw refuse(`${id}: a check run needs the role rev, qa or sec`);
+  const briefUses = flags.brief === undefined ? null : readBriefUses(root, flags.brief);
+  return ({ state, events, emit }) => {
+    const t = state.tasks[id];
+    if (!Object.hasOwn(state.tasks, id)) throw refuse(`queue: unknown task ${id}`);
+    const allowed = check ? ['running', 'review', 'stalled'] : ['ready'];
+    if (!allowed.includes(t.state)) throw refuse(`${id}: dispatch not allowed in ${t.state}`);
+    if (!check) {
+      const busy = Object.values(state.tasks).filter((x) => BUSY_STATES.includes(x.state)).length;
+      if (busy >= state.slots) throw refuse(`${id}: no free slot`);
+    }
+    const known = new Set(events.filter((e) => typeof e.address === 'string').map((e) => e.address));
+    let address;
+    try {
+      address = makeAddress(id, flags.role, known);
+    } catch (err) {
+      throw refuse(err.message);
+    }
+    emit({
+      type: 'dispatch',
+      task: id,
+      attempt: t.attempt,
+      address,
+      role: flags.role,
+      tool: flags.tool,
+      inSession: flags.external !== true && flags.tool === 'claude',
+      check,
+      tier: flags.tier,
+      session,
+      briefFile: flags.brief ?? null,
+      baseCommit: flags.base ?? null,
+      uses: briefUses ?? t.uses,
+    });
+    if (!check) emit({ type: 'state', task: id, from: 'ready', to: 'dispatched', cause: 'dispatch' });
+    return [`dispatched ${id} attempt ${t.attempt} address ${address}`];
+  };
+}
+
+/** approve, reject and retry: one decision event and one state event. */
+function cmdDecide(decision) {
+  const from = { approve: ['review'], reject: ['review'], retry: ['failed', 'stalled'] }[decision];
+  return ({ args }) => {
+    if (args.length !== 1) throw refuse(USAGE);
+    const id = checkTask(args[0]);
+    return ({ state, emit }) => {
+      if (!Object.hasOwn(state.tasks, id)) throw refuse(`queue: unknown task ${id}`);
+      const t = state.tasks[id];
+      if (!from.includes(t.state)) throw refuse(`${id}: ${decision} not allowed in ${t.state}`);
+      let to = 'done';
+      let cause = 'approve';
+      if (decision !== 'approve') {
+        const last = t.attempt + 1 > MAX_ATTEMPTS;
+        to = last ? 'dead' : 'ready';
+        cause = last ? 'attempts-used' : decision;
+      }
+      emit({ type: 'decision', tasks: [id], decision, by: WRITER_ROLE });
+      emit({ type: 'state', task: id, from: t.state, to, cause });
+      return [`${id}: ${t.state} ${ARROW} ${to}`];
+    };
+  };
+}
+
+/** hold and release of one or more tasks: one decision event and one state event for each task (D48). */
+function cmdHoldRelease(decision) {
+  return ({ args }) => {
+    if (args.length < 1) throw refuse(USAGE);
+    const ids = [...new Set(args.map(checkTask))];
+    return ({ state, emit }) => {
+      const lines = [];
+      const moves = ids.map((id) => {
+        if (!Object.hasOwn(state.tasks, id)) throw refuse(`queue: unknown task ${id}`);
+        const s = state.tasks[id].state;
+        if (decision === 'hold' && !['pending', 'ready'].includes(s)) throw refuse(`${id}: cannot hold ${s}`);
+        if (decision === 'release' && s !== 'held') throw refuse(`${id}: release not allowed in ${s}`);
+        return { id, from: s, to: decision === 'hold' ? 'held' : 'pending' };
+      });
+      emit({ type: 'decision', tasks: ids, decision, by: WRITER_ROLE });
+      for (const m of moves) {
+        emit({ type: 'state', task: m.id, from: m.from, to: m.to, cause: decision });
+        lines.push(`${m.id}: ${m.from} ${ARROW} ${m.to}`);
+      }
+      return lines;
+    };
+  };
+}
+
+const COMMANDS = {
+  init: cmdInit,
+  add: cmdAdd,
+  sync: ({ args }) => {
+    if (args.length !== 0) throw refuse(USAGE);
+    return null;
+  },
+  dispatch: cmdDispatch,
+  approve: cmdDecide('approve'),
+  reject: cmdDecide('reject'),
+  retry: cmdDecide('retry'),
+  hold: cmdHoldRelease('hold'),
+  release: cmdHoldRelease('release'),
+};
+
+/** Run the script; return { code, lines }. It never calls process.exit. */
+export function main(argv) {
+  const out = [];
+  try {
+    const parsed = parseArgs(argv);
+    const root = path.resolve(parsed.projectDir);
+    if (projectState(root).state === 'none') return { code: 1, lines: ['refused: guilda is not set up', SETUP_NOTICE] };
+    const make = COMMANDS[parsed.command];
+    if (!make) throw refuse(USAGE);
+    const session = parsed.flags.session ?? null;
+    if (session !== null && !SESSION.test(session)) throw refuse('invalid ID');
+    let now = new Date().toISOString();
+    if (parsed.flags.now !== undefined) {
+      const ms = Date.parse(parsed.flags.now);
+      if (Number.isNaN(ms)) throw refuse(USAGE);
+      now = new Date(ms).toISOString();
+    }
+    const work = make({ ...parsed, root, session });
+    const r = runWriter(root, { now, session }, work);
+    out.push(...(r.result ?? [`queue: ${r.added} events`]));
+    for (const n of r.skipped) out.push(`queue: skipped bad line ${n}`);
+    return { code: 0, lines: out };
+  } catch (err) {
+    if (err instanceof QueueError) return { code: err.exitCode, lines: [err.message] };
+    return { code: 2, lines: [`io-error: ${String(err && err.message).split('\n')[0]}`] };
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const { code, lines } = main(process.argv.slice(2));
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+  process.exitCode = code;
+}
