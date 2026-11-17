@@ -144,7 +144,23 @@ Risk area: none | <area>
 Deletion rules: none | <copy of core/deletion-safety.md>
 Dependencies: none | <task IDs that must be done first>
 Base commit: <the SHA that the task starts from>
+# Optional fields. Write a line only when the task needs it.
+Skills: <each domain skill that the Executor and the Reviewer load>
+Decisions: <the decision IDs that the task builds>
+Mutants: <for each new test, one change to the product code that makes it fail>
+Conflict cases: <each case where this task and another task touch the same state>
 ```
+
+`Base commit:` is required in each new brief, inline or in a file.
+`Mutants:` is required at `full` (ARC9).
+`Skills:` names each domain skill that the Executor and the Reviewer load.
+
+Brief file. Run `bash <plugin root>/skills/architect/scripts/task-start <plan file> <task ID> [--part N]`.
+It prints the brief path and the base commit. Use `--part N` for a task ID that is in two parts of the plan.
+Then the dispatch prompt has the line `Brief file: <path>`. The path is inside the project.
+`review-package` saves the diff as a file for Security.
+Each dispatch states the reply language of `config.languages.replies`.
+Each brief asks for a timeout on each long command and a commit for each green item.
 
 ## Tier choice
 

@@ -143,7 +143,9 @@ test('architect skill has name and description frontmatter', () => {
 
 test('architect brief template has the 13 Ruling B fields, one line each', () => {
   const body = parse(SKILL).body;
-  const lines = fence(section(body, 'Brief format'));
+  const all = fence(section(body, 'Brief format'));
+  const marker = all.findIndex((l) => l.startsWith('# Optional'));
+  const lines = marker < 0 ? all : all.slice(0, marker);
   const names = lines.filter((l) => /^\S[^:]*:/.test(l)).map((l) => l.split(':')[0]);
   assert.deepEqual(names, ['ID / title', 'Goal', 'Context', 'Out of scope', 'Files it may touch',
     'Contract / interfaces', 'Tests that must pass', 'Acceptance', 'Suggested tier', 'Risk area', 'Deletion rules',
