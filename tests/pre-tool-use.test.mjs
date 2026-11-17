@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { tempProject, runHook, MINIMAL_CONFIG } from './helpers.mjs';
+import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
 const SCRIPT = 'scripts/hooks/pre-tool-use.mjs';
 // Fake secrets are built in code so this file holds no literal token.
@@ -637,4 +637,99 @@ test('S46: a quoted > in a commit message or an echo passes with no R4 record', 
     assertAllow(bash(dir, command));
   }
   assert.equal(violations(dir).length, 0);
+});
+
+// R32 (S16): the queue files and the queue script calls.
+const queueProject = () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  return dir;
+};
+const call = (dir, tool, toolInput, extra = {}) =>
+  runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: tool, tool_input: toolInput, cwd: dir, ...extra }, dir);
+const rawHook = (dir, text) =>
+  spawnSync(process.execPath, [path.join(REPO_ROOT, SCRIPT)], {
+    input: text,
+    encoding: 'utf8',
+    cwd: dir,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: dir, CLAUDE_PLUGIN_ROOT: REPO_ROOT },
+  });
+const queuePath = (dir, name) => path.join(dir, '.guilda', 'queue', name);
+
+// Each case of S16: a run of the hook, and the deny text (true for any R32 text) or null for a pass.
+const S16 = [
+  ['1 Write of journal.jsonl, no agent_id', (d) => call(d, 'Write', { file_path: queuePath(d, 'journal.jsonl'), content: 'x' }), true],
+  ['2 Edit of state.json', (d) => call(d, 'Edit', { file_path: queuePath(d, 'state.json') }), true],
+  ['3 echo >> journal.jsonl', (d) => call(d, 'Bash', { command: 'echo x >> .guilda/queue/journal.jsonl' }), true],
+  ['4 rm lock', (d) => call(d, 'Bash', { command: 'rm .guilda/queue/lock' }), true],
+  ['5 queue sync from a subagent', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync' }, { agent_id: 'a1', session_id: 's1' }), true],
+  ['6 queue sync with its own --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s1' }, { session_id: 's1' }), null],
+  ['7 signal call from a subagent', (d) => call(d, 'Bash', { command: 'node scripts/signal.mjs . started T1 1' }, { agent_id: 'a1', session_id: 's1' }), null],
+  ['8 cat journal.jsonl', (d) => call(d, 'Bash', { command: 'cat .guilda/queue/journal.jsonl' }), null],
+  ['9 a path from a variable (the stated limit)', (d) => call(d, 'Bash', { command: 'P=.guilda/queue/journal.jsonl; echo x >> "$P"' }), null],
+  ['10 --session of another session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s2' }, { session_id: 's1' }), true],
+  ['11 Write of writer.json', (d) => call(d, 'Write', { file_path: queuePath(d, 'writer.json'), content: '{}' }), true],
+  ['12 a hook input that is not JSON', (d) => {
+    const r = rawHook(d, '{ not json');
+    return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }, 'R32: cannot read the hook input'],
+  ['13 queue sync with no --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync' }, { session_id: 's1' }), 'R32: no --session'],
+];
+
+S16.forEach(([name, run, expected]) => {
+  test(`S16 case ${name}: ${expected ? 'refused with R32' : 'passes'}`, () => {
+    const dir = queueProject();
+    const r = run(dir);
+    if (expected === null) {
+      assertAllow(r);
+      assert.equal(violations(dir).length, 0);
+    } else if (expected === true) assert.match(assertDeny(r), /^R32: /);
+    else assert.equal(assertDeny(r), expected);
+  });
+});
+
+test('S16: each refusal adds one R32 record with no command text', () => {
+  const dir = queueProject();
+  let refused = 0;
+  for (const [name, run, expected] of S16) {
+    const r = run(dir);
+    if (expected === null) continue;
+    assertDeny(r);
+    refused += 1;
+    const v = violations(dir);
+    assert.equal(v.length, refused, name);
+    const last = v[v.length - 1];
+    assert.equal(last.rule, 'R32', name);
+    assert.equal(last.level, 'law', name);
+    assert.equal(last.source, 'pre-tool-use', name);
+    assert.equal(typeof last.action, 'string', name);
+    for (const text of ['echo', '.guilda/queue', 'scripts/queue.mjs', 'sync', 's2', 'not json']) {
+      assert.equal(last.action.includes(text), false, `${name}: the action holds ${text}`);
+    }
+  }
+  assert.equal(refused, 9);
+});
+
+test('S16: no .guilda folder: nothing refused', () => {
+  const dir = tempProject();
+  for (const [name, run] of S16) {
+    if (name.startsWith('12')) {
+      const r = rawHook(dir, '{ not json');
+      assert.equal(r.status, 0, name);
+      assert.equal(r.stdout, '', name);
+      continue;
+    }
+    assertAllow(run(dir));
+  }
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('S16: the R4 and R19 checks still run with the R32 check', () => {
+  const dir = specProject(MINIMAL_CONFIG, { git: true });
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  assert.equal(assertDeny(bash(dir, 'touch docs/superpowers/plans/x.md')), PLANS_TEXT);
+  assert.equal(assertDeny(file(dir, 'Write', path.join(dir, 'docs', 'superpowers', 'plans', 'new.md'))), PLANS_TEXT);
+  stage(dir, 'a.txt', GH);
+  assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19:/);
+  assert.deepEqual(violations(dir).map((r) => r.rule), ['R4', 'R4', 'R19']);
 });

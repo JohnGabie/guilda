@@ -3,10 +3,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { projectState } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
-import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
+import { resolveProjectDir } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
 import { findGitCommits, parseAddedLines, resolveDir } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
+import { queueFileWrites, queueScriptCall, isQueueFile } from '../lib/queue-guard.mjs';
 
 const PLANS_DIR = ['docs', 'superpowers', 'plans'];
 const PLAN_SUFFIX = '.plan.md';
@@ -20,6 +21,32 @@ const R4_PROBLEMS = {
     reason: 'R4: <name>.plan.md needs <name>.md in the same folder',
   },
 };
+
+// R32 (X2): the refusals and their records. A record never holds the command text.
+const R32 = {
+  input: { action: 'hook input refused: cannot read', reason: 'R32: cannot read the hook input' },
+  file: {
+    action: 'queue file write refused',
+    reason: 'R32: change the queue only through the queue script (node scripts/queue.mjs), never by hand',
+  },
+  agent: {
+    action: 'queue script call refused: not the writer role',
+    reason: 'R32: only the writer role calls the queue script; in 0.3.0 that is the Architect in the main session, not a subagent',
+  },
+  noSession: { action: 'queue script call refused: no --session', reason: 'R32: no --session' },
+  session: {
+    action: 'queue script call refused: --session is not this session',
+    reason: 'R32: the --session value is not the session of this call; use the ID of the line "guilda session: <id>"',
+  },
+};
+
+/** The R32 problem of a queue script call, or null. The 0.3.0 writer role: no agent_id (X2). */
+function queueCallProblem(input, call) {
+  if (input.agent_id !== undefined && input.agent_id !== null) return 'agent';
+  if (call.sessions.some((s) => s === null)) return 'noSession';
+  const own = typeof input.session_id === 'string' && input.session_id !== '' ? input.session_id : null;
+  return call.sessions.every((s) => own !== null && s === own) ? null : 'session';
+}
 
 function deny(reason) {
   process.stdout.write(
@@ -146,7 +173,7 @@ function commandPlanProblem(projectDir, command, startCwd) {
   return null;
 }
 
-await runHookMain(async (input) => {
+async function main(input) {
   const projectDir = resolveProjectDir(input);
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
   const project = projectState(projectDir);
@@ -155,11 +182,22 @@ await runHookMain(async (input) => {
   const toolInput = input.tool_input || {};
   const record = (rule, action) =>
     appendViolation(projectDir, { rule, level: 'law', source: 'pre-tool-use', action });
+  const refuse32 = (key) => {
+    record('R32', R32[key].action);
+    deny(R32[key].reason);
+    return 0;
+  };
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
     const startCwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : projectDir;
-    // R4 runs first: a command with no git commit returns early below.
+    if (queueFileWrites(command, startCwd, projectDir).length > 0) return refuse32('file');
+    const call = queueScriptCall(command);
+    if (call) {
+      const problem = queueCallProblem(input, call);
+      if (problem) return refuse32(problem);
+    }
+    // R4 runs before R19: a command with no git commit returns early below.
     const planProblem = commandPlanProblem(projectDir, command, startCwd);
     if (planProblem) {
       record('R4', R4_PROBLEMS[planProblem].action);
@@ -187,11 +225,43 @@ await runHookMain(async (input) => {
 
   if (input.tool_name === 'Write' || input.tool_name === 'Edit') {
     const filePath = typeof toolInput.file_path === 'string' ? toolInput.file_path : '';
-    const problem = filePath ? planFileProblem(projectDir, path.resolve(projectDir, filePath.replace(/\\/g, '/'))) : null;
+    const absPath = path.resolve(projectDir, filePath.replace(/\\/g, '/'));
+    if (filePath && isQueueFile(projectDir, absPath)) return refuse32('file');
+    const problem = filePath ? planFileProblem(projectDir, absPath) : null;
     if (problem) {
       record('R4', R4_PROBLEMS[problem].action);
       deny(R4_PROBLEMS[problem].reason);
     }
   }
   return 0;
-});
+}
+
+/** The parsed hook input, or null when stdin is not a JSON object. */
+async function readInput() {
+  let text = '';
+  try {
+    process.stdin.setEncoding('utf8');
+    for await (const chunk of process.stdin) text += chunk;
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+// A law fails closed (X9): an input that the hook cannot read is refused, in a project with a .guilda folder.
+try {
+  const input = await readInput();
+  if (input === null) {
+    const projectDir = resolveProjectDir(null);
+    if (projectState(projectDir).state !== 'none') {
+      appendViolation(projectDir, { rule: 'R32', level: 'law', source: 'pre-tool-use', action: R32.input.action });
+      deny(R32.input.reason);
+    }
+  } else {
+    await main(input);
+  }
+} catch (err) {
+  process.stderr.write(`guilda: ${String((err && err.message) || 'hook failed').split('\n')[0]}\n`);
+}
+process.exitCode = 0;
