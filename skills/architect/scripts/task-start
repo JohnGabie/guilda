@@ -4,26 +4,67 @@
 # task-brief of this folder, so all five scripts share one workspace) and record
 # BASE, the commit that the review range of the task is cut from.
 #
-# Usage: task-start PLAN_FILE TASK_ID [--part N]
+# Usage: task-start PLAN_FILE TASK_ID [--part N] [--worktree BRANCH]
 # Prints:
 #   brief: <path to the brief file of the task>
-#   base:  <full SHA of HEAD>
+#   base:  <full SHA of HEAD (of the worktree, with --worktree)>
+#   worktree: <path>   (only with --worktree)
 # --part N goes to task-brief, for a task ID that is in two parts of the plan.
+# --worktree BRANCH uses <parent of repo>/<repo>.worktrees/<BRANCH>: reuses it if it
+# is a worktree of this repository on BRANCH, creates it if it does not exist,
+# exits 1 and changes nothing otherwise. Nothing is deleted, moved or pruned.
 set -euo pipefail
 
-if [ $# -ne 2 ] && { [ $# -ne 4 ] || [ "$3" != "--part" ]; }; then
-  echo "usage: task-start PLAN_FILE TASK_ID [--part N]" >&2
-  exit 2
-fi
-
+usage() { echo "usage: task-start PLAN_FILE TASK_ID [--part N] [--worktree BRANCH]" >&2; exit 2; }
+[ $# -ge 2 ] || usage
 plan=$1
 id=$2
 shift 2
+part=()
+branch=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --part) [ $# -ge 2 ] || usage; part=(--part "$2"); shift 2 ;;
+    --worktree) [ $# -ge 2 ] && [ -n "$2" ] || usage; branch=$2; shift 2 ;;
+    *) usage ;;
+  esac
+done
 here="$(cd "$(dirname "$0")" && pwd)"
 
-out=$("${BASH:-bash}" "$here/task-brief" "$plan" "$id" "$@")
+wt=""
+if [ -n "$branch" ]; then
+  top=$(git rev-parse --show-toplevel)
+  top=$(cd "$top" && pwd -P)
+  wt="$(dirname "$top")/$(basename "$top").worktrees/$branch"
+  reuse=0
+  if [ -e "$wt" ]; then
+    real=$(cd "$wt" && pwd -P)
+    if git worktree list --porcelain | grep -Fxq "worktree $real" \
+      && [ "$(git -C "$wt" symbolic-ref --short -q HEAD || true)" = "$branch" ]; then
+      reuse=1
+    else
+      echo "task-start: $wt exists and is not a worktree of this repository on $branch" >&2
+      exit 1
+    fi
+  fi
+fi
+
+out=$("${BASH:-bash}" "$here/task-brief" "$plan" "$id" ${part[@]+"${part[@]}"})
 brief=$(printf '%s\n' "$out" | sed -n 's/^wrote \(.*\): [0-9][0-9]* lines$/\1/p')
 [ -n "$brief" ] || { echo "task-brief did not report a path: $out" >&2; exit 1; }
 
+if [ -n "$wt" ] && [ "$reuse" = 0 ]; then
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    git worktree add "$wt" "$branch" >&2
+  else
+    git worktree add -b "$branch" "$wt" HEAD >&2
+  fi
+fi
+
 echo "brief: $brief"
-echo "base: $(git rev-parse HEAD)"
+if [ -n "$wt" ]; then
+  echo "base: $(git -C "$wt" rev-parse HEAD)"
+  echo "worktree: $wt"
+else
+  echo "base: $(git rev-parse HEAD)"
+fi

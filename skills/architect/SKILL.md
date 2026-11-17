@@ -178,12 +178,20 @@ Issue: #<N>
 `Mutants:` is required at `full` (ARC9).
 `Skills:` names each domain skill that the Executor and the Reviewer load.
 
-Brief file. Run `bash <plugin root>/skills/architect/scripts/task-start <plan file> <task ID> [--part N]`.
+Brief file. Run `bash <plugin root>/skills/architect/scripts/task-start <plan file> <task ID> [--part N] [--worktree <branch>]`.
 It prints the brief path and the base commit. Use `--part N` for a task ID that is in two parts of the plan.
 Then the dispatch prompt has the line `Brief file: <path>`. The path is inside the project.
 `review-package` saves the diff as a file for Security.
 Each dispatch states the reply language of `config.languages.replies`.
 Each brief asks for a timeout on each long command and a commit for each green item.
+
+## Worktrees
+
+A task worktree lives in `../<repo>.worktrees/<branch>`, next to the repository. Never use a temporary folder for a worktree.
+`task-start <plan file> <task ID> --worktree <branch>` creates it, or reuses it when it is already a worktree on that branch.
+It prints a third line `worktree: <path>`; `base:` is the HEAD of that worktree. It never deletes, moves or prunes.
+Branches are durable and worktrees are rebuilt from them. After a restart, `git worktree prune` is the choice of the user or the controller.
+Then run `task-start ... --worktree <branch>` for each open task branch.
 
 ## Triage and leads
 

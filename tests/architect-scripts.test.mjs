@@ -153,6 +153,55 @@ test('task-start prints brief: and base: with the SHA of HEAD', opts, () => {
   assert.ok(fs.existsSync(lines[0].slice('brief: '.length)));
 });
 
+function wtPath(dir, branch) {
+  const top = fs.realpathSync(dir);
+  return path.join(path.dirname(top), `${path.basename(top)}.worktrees`, branch);
+}
+
+test('task-start --worktree creates ../<repo>.worktrees/<branch> and prints worktree:', opts, () => {
+  const dir = project();
+  const r = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
+  assert.equal(r.code, 0, r.err);
+  const lines = r.out.trim().split('\n');
+  const want = wtPath(dir, 'task/x-T2');
+  assert.equal(lines.length, 3);
+  assert.equal(lines[2], `worktree: ${want}`);
+  assert.equal(lines[1], `base: ${git(dir, 'rev-parse', 'HEAD')}`);
+  assert.equal(git(want, 'rev-parse', '--abbrev-ref', 'HEAD'), 'task/x-T2');
+});
+
+test('task-start --worktree reuses an existing worktree of the same branch', opts, () => {
+  const dir = project();
+  const a = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
+  assert.equal(a.code, 0, a.err);
+  const want = wtPath(dir, 'task/x-T2');
+  fs.writeFileSync(path.join(want, 'wip.txt'), 'keep\n');
+  const b = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
+  assert.equal(b.code, 0, b.err);
+  assert.equal(b.out.trim().split('\n')[2], `worktree: ${want}`);
+  assert.ok(fs.existsSync(path.join(want, 'wip.txt')));
+});
+
+test('task-start --worktree refuses a folder that is not a worktree of the branch and changes nothing', opts, () => {
+  const dir = project();
+  const want = wtPath(dir, 'task/x-T2');
+  fs.mkdirSync(want, { recursive: true });
+  fs.writeFileSync(path.join(want, 'mine.txt'), 'x\n');
+  const r = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
+  assert.equal(r.code, 1);
+  assert.ok(r.err.length > 0);
+  assert.deepEqual(fs.readdirSync(want), ['mine.txt']);
+  assert.equal(git(dir, 'branch', '--list', 'task/x-T2'), '');
+});
+
+test('task-start without --worktree prints the same two lines as before', opts, () => {
+  const dir = project();
+  const r = run('task-start', ['docs/login.md', 'T2'], dir);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.out.trim().split('\n').length, 2);
+  assert.ok(!fs.existsSync(wtPath(dir, 'x')));
+});
+
 test('review-package writes review-<base>..<head>.diff', opts, () => {
   const dir = project();
   const base = git(dir, 'rev-parse', 'HEAD');
