@@ -9,7 +9,7 @@ missed. You do not fix anything. You report.
 
 Inputs:
 - DRAFT: the path of the report file, from your dispatcher.
-- ANONYMIZE: `on` or `off`. With `off`, apply only the first seven categories of the policy.
+- ANONYMIZE: `on` or `off`. With `off`, apply the first seven categories and the `Proprietary terms` row of the policy.
 - PUBLIC_REPOS: repository names or URLs that the user said are public. It can be empty.
 - PROPRIETARY: terms that the user named as proprietary. It can be empty.
 
