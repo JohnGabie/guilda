@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { IGNORED } from '../scripts/lib/violations.mjs';
 import { tempProject, runHook, MINIMAL_CONFIG } from './helpers.mjs';
 
 const HOOK = 'scripts/hooks/subagent-stop.mjs';
@@ -154,7 +155,7 @@ test('an existing .gitignore with only violations.jsonl gets the new line append
   const dir = tempProject({ config: MINIMAL_CONFIG });
   fs.writeFileSync(path.join(dir, '.guilda', '.gitignore'), 'violations.jsonl\n');
   sendBack(dir, 'a1');
-  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\nformat-retries.json\n.hooks-live.json\n.extension-live.json\nreports/\nqueue/\naudit.jsonl\ntranscripts/\ntrace/\nstatus.md\nlogs/\n.doctor-last.json\n.init-progress.json\n');
+  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\n' + IGNORED.filter((name) => name !== 'violations.jsonl').map((name) => `${name}\n`).join(''));
 });
 
 test('a consultation line with a verdict in the answer is still checked', () => {
