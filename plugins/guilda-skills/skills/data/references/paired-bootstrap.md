@@ -42,7 +42,15 @@ pass^k for one arm, from the same rows: the share of questions whose k runs all 
 k runs is reported apart, not counted as a pass.
 
 ```python
-k = 3
-full = [v[arm] for v in cells.values() if len(v.get(arm, [])) >= k]
-pass_k = sum(all(x == 1 for x in runs[:k]) for runs in full) / len(full)
+def pass_k(cells, arm, k):
+    """Share of questions whose first k runs of `arm` all passed; None when no question has k runs."""
+    full = [v[arm] for v in cells.values() if len(v.get(arm, [])) >= k]
+    if not full:
+        return None
+    return sum(all(x == 1 for x in runs[:k]) for runs in full) / len(full)
+
+for arm in (arm_a, arm_b):
+    print(f"pass^3 {arm}: {pass_k(cells, arm, 3)}")
 ```
+
+Append it to the script above; it reuses `cells`, `arm_a` and `arm_b`.
