@@ -120,9 +120,9 @@ if (exists(REVIEW)) {
 test('the reviewer runs the trace check and cites R31', () => {
   const text = checklistText();
   assert.ok(text.includes('Each plan task and each brief has a `Uses:` line.'));
-  assert.ok(text.includes('Run `node <plugin root>/scripts/trace.mjs check <project>`.'));
+  assert.ok(text.includes('Run `node <plugin root>/scripts/trace.mjs <project> check`.'));
   assert.match(text, /A `LEGACY` task is not rejected for R31\./);
-  assert.ok(text.includes('Read a cited block with `node <plugin root>/scripts/trace.mjs show <key>`; never read the whole spec for one ID (D27).'));
+  assert.ok(text.includes('Read a cited block with `node <plugin root>/scripts/trace.mjs <project> show <key>`; never read the whole spec for one ID (D27).'));
 });
 
 test('a suspect link is read, and only a mismatch is rejected', () => {

@@ -56,10 +56,10 @@ Count the rejections of the review unit: the task at `full`, the integration at 
 - No model name appears outside the tiers file (R17).
 - The final answer states what was not verified (R6).
 - The change meets each item of the definition of done for its size (R23).
-- Each plan task and each brief has a `Uses:` line. Run `node <plugin root>/scripts/trace.mjs check <project>`. Read each suspect change; reject only a content mismatch (R31).
+- Each plan task and each brief has a `Uses:` line. Run `node <plugin root>/scripts/trace.mjs <project> check`. Read each suspect change; reject only a content mismatch (R31).
   - A `SUSPECT` line is not a defect. Read the block at the read commit and now. If the task still matches the block, approve, and write in `Evidence:` that you read the change. A `NO-USES`, `UNKNOWN` or `AMBIGUOUS` line is a rejection (R31). A missing `Uses:` line is a small rejection.
   - A `LEGACY` task is not rejected for R31. It comes from a plan of before the 0.3.0 install.
-  - Read a cited block with `node <plugin root>/scripts/trace.mjs show <key>`; never read the whole spec for one ID (D27).
+  - Read a cited block with `node <plugin root>/scripts/trace.mjs <project> show <key>`; never read the whole spec for one ID (D27).
   - `<plugin root>` is `${CLAUDE_PLUGIN_ROOT}`, the folder of the guilda plugin.
 
 ## AI artifact (a prompt, a skill, an agent)
