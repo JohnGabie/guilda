@@ -85,6 +85,21 @@ function splitSkill(skill) {
   return { plugin: skill.slice(0, sep).trim().toLowerCase(), name: skill.slice(sep + 1) };
 }
 
+/**
+ * A bare skill name (no plugin prefix) that names a guilda skill on disk gets its plugin prefix. Claude Code loads a
+ * plugin skill by its bare name and the hook sees the bare value (lab of 2026-11-17), so the name cannot skip R30.
+ * Each other value comes back as it is.
+ */
+export function qualifySkill(pluginRoot, skill) {
+  if (typeof skill !== 'string' || skill.includes(':')) return skill;
+  const name = skill.trim().toLowerCase();
+  if (!NAME.test(name)) return skill;
+  for (const [plugin, dirs] of Object.entries(SKILL_DIRS)) {
+    if (fs.existsSync(path.join(pluginRoot, ...dirs, name, 'SKILL.md'))) return `${plugin}:${name}`;
+  }
+  return skill;
+}
+
 /** True when the skill value names a skill of the core or of the extension plugin. A non-string is unknown: null. */
 export function isGuildaSkill(skill) {
   if (typeof skill !== 'string') return null;

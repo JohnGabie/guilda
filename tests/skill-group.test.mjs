@@ -77,7 +77,7 @@ test('an agent with no group field calls a guilda skill: refused, the reason has
 
 test('the same agent calls a skill of another plugin: passes', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  for (const skill of ['superpowers:brainstorming', 'init', 'guildaX:build', 'other:red-team']) {
+  for (const skill of ['superpowers:brainstorming', 'not-a-guilda-skill', 'guildaX:build', 'other:red-team']) {
     passes(run(call(skill, 'guilda:nogroup'), dir));
   }
   assert.deepEqual(records(dir), []);
@@ -219,4 +219,12 @@ test('each guilda agent and core skill of the repository has a group the hook ca
     if (!fs.existsSync(path.join(REPO_ROOT, 'skills', d, 'SKILL.md'))) continue;
     assert.notEqual(skillGroups(REPO_ROOT, `guilda:${d}`).groups, null, d);
   }
+});
+
+test('a bare name of a guilda skill does not skip the check (Claude Code loads it by the bare name)', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const reason = denyReason(run(call('red-team', 'guilda:executor'), dir));
+  assert.match(reason, /^R30: the skill guilda-skills:red-team is not for the agent guilda:executor\./);
+  assert.match(denyReason(run(call(' Init ', 'guilda:nogroup'), dir)), /has no group field/);
+  passes(run(call('ai-evals', 'guilda:executor'), dir));
 });

@@ -1,7 +1,7 @@
 import { projectState, SETUP_NOTICE } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
-import { agentGroups, skillGroups, isGuildaSkill, mayLoad } from '../lib/groups.mjs';
+import { agentGroups, skillGroups, isGuildaSkill, mayLoad, qualifySkill } from '../lib/groups.mjs';
 
 // The skill that sets guilda up: R28 prints no notice for it.
 const SETUP_SKILL = 'guilda:init';
@@ -29,12 +29,13 @@ function deny(projectDir, skillName, reason) {
 
 // PreToolUse on the Skill tool. R30: an agent loads a guilda skill only when the skill is shared or has a group of
 // the agent. R28: with no .guilda folder, a guilda skill call prints the set-up notice and is never refused.
-// The skill is tool_input.skill (`<plugin>:<name>`); the agent type is the top-level agent_type, absent in the main
+// The skill is tool_input.skill (`<plugin>:<name>`, or a bare name); the agent type is the top-level agent_type, absent in the main
 // session. A field inside tool_input never names the agent.
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const toolInput = input.tool_input !== null && typeof input.tool_input === 'object' ? input.tool_input : {};
-  const skill = toolInput.skill;
+  // A bare name of a guilda skill loads that skill, so it gets its prefix and does not skip the check.
+  const skill = qualifySkill(resolvePluginRoot(), toolInput.skill);
   const guilda = isGuildaSkill(skill);
 
   if (projectState(projectDir).state === 'none') {
