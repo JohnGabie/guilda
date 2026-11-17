@@ -95,7 +95,7 @@ function ansiC(text, open) {
     const next = text[i + 1];
     let m;
     if (next === undefined) break;
-    if (next in ANSI_C) {
+    if (Object.hasOwn(ANSI_C, next)) {
       out += ANSI_C[next];
       i += 1;
     } else if ((m = /^x([0-9a-fA-F]{1,2})/.exec(text.slice(i + 1)))) {
@@ -291,6 +291,7 @@ function skipWrapper(name, words, i) {
 
 /** True when one simple command (or a command that it runs) is rm with a force or recursive flag. */
 function refusedWords(words, depth) {
+  if (depth > MAX_DEPTH) return words.some((w) => RM_WORD.test(w));
   let i = 0;
   while (i < words.length) {
     const w = words[i];
@@ -302,7 +303,7 @@ function refusedWords(words, depth) {
     } else if (name === 'watch') {
       // watch joins its arguments and gives them to sh -c.
       return refusedText(words.slice(skipWrapper(name, words, i + 1)).join(' '), depth + 1);
-    } else if (name in WRAPPERS) {
+    } else if (Object.hasOwn(WRAPPERS, name)) {
       i = skipWrapper(name, words, i + 1);
     } else if (name === 'rm') {
       return hasForceOrRecursive(words.slice(i + 1));
@@ -320,7 +321,7 @@ function refusedWords(words, depth) {
         if (!['-exec', '-execdir', '-ok', '-okdir'].includes(words[j])) continue;
         let end = j + 1;
         while (end < words.length && words[end] !== ';' && words[end] !== '+') end += 1;
-        if (refusedWords(words.slice(j + 1, end), depth)) return true;
+        if (refusedWords(words.slice(j + 1, end), depth + 1)) return true;
         j = end;
       }
       return false;
@@ -370,7 +371,14 @@ await runHookMain(async (input) => {
   // As the other laws: a project with no .guilda folder is skipped (D40).
   if (projectState(projectDir).state === 'none') return 0;
   const command = input.tool_input && typeof input.tool_input.command === 'string' ? input.tool_input.command : '';
-  if (!refusedText(command)) return 0;
+  let refused;
+  try {
+    refused = refusedText(command);
+  } catch {
+    // Any error of the reader is unreadable text: fail closed, as in refusedText.
+    refused = RM_WORD.test(command);
+  }
+  if (!refused) return 0;
   appendViolation(projectDir, {
     rule: 'R20',
     level: 'law',

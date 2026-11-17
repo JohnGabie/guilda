@@ -180,6 +180,10 @@ test('refuses unparseable text that holds rm (fail closed)', () => {
     "bash -c 'rm out",
     "echo $'\\UFFFFFFFF'; rm -rf out",
     'echo ' + '"$('.repeat(20000) + ')"'.repeat(20000) + '; rm -rf out',
+    // A command word that is an inherited object key (constructor, toString) must not break the reader.
+    'constructor -x; rm -rf out',
+    'toString -x; rm -rf out',
+    'find . -exec '.repeat(10000) + 'rm -rf out \\;',
   ]) {
     assertDeny(sub(dir, c), c);
   }
