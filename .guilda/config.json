@@ -6,7 +6,8 @@
   },
   "writing": {
     "free": [
-      "core/knowledge/**"
+      "core/knowledge/**",
+      "THIRD-PARTY-NOTICES.md"
     ],
     "exceptions": []
   },
