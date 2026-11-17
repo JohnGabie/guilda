@@ -228,3 +228,15 @@ test('a bare name of a guilda skill does not skip the check (Claude Code loads i
   assert.match(denyReason(run(call(' Init ', 'guilda:nogroup'), dir)), /has no group field/);
   passes(run(call('ai-evals', 'guilda:executor'), dir));
 });
+
+test('a bare name with a leading slash is qualified too', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.match(denyReason(run(call('/red-team', 'guilda:executor'), dir)), /^R30: the skill guilda-skills:red-team /);
+});
+
+test('no skill name is in both the core and the extension (a bare name must name one skill)', () => {
+  const list = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir) : []);
+  const core = new Set(list(path.join(REPO_ROOT, 'skills')));
+  const both = list(path.join(REPO_ROOT, 'plugins', 'guilda-skills', 'skills')).filter((n) => core.has(n));
+  assert.deepEqual(both, []);
+});

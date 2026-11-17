@@ -92,7 +92,7 @@ function splitSkill(skill) {
  */
 export function qualifySkill(pluginRoot, skill) {
   if (typeof skill !== 'string' || skill.includes(':')) return skill;
-  const name = skill.trim().toLowerCase();
+  const name = skill.trim().replace(/^\//, '').toLowerCase();
   if (!NAME.test(name)) return skill;
   for (const [plugin, dirs] of Object.entries(SKILL_DIRS)) {
     if (fs.existsSync(path.join(pluginRoot, ...dirs, name, 'SKILL.md'))) return `${plugin}:${name}`;
