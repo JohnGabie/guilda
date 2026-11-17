@@ -217,6 +217,8 @@ Set the `subagent_type` of each dispatch to the guilda agent of the job:
 | Research | `guilda:lab-researcher` |
 
 Dispatch each role yourself. There is no intermediate agent that dispatches another agent.
+The hook of ARC4 refuses each other type from the main session. It lets `Explore` and `Plan` pass, and each type
+that the user lists in `dispatch.agentTypes` of `.guilda/config.json`.
 
 ## Tier choice
 

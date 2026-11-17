@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { projectState, SETUP_NOTICE } from '../lib/project.mjs';
+import { projectState, dispatchAgentTypes, SETUP_NOTICE } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { validateBrief, briefFileOf, isExecutorDispatch } from '../lib/formats.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
@@ -44,21 +44,31 @@ const DISPATCH_TYPES =
   'guilda:architect-executor for an MD file, guilda:executor for code, guilda:reviewer for a review, ' +
   'guilda:lab-researcher for research';
 
+// The built-in read-only types that the main session may dispatch (the user, 2026-11-17).
+const BUILT_IN_TYPES = ['explore', 'plan'];
+
 /**
  * The ARC4 refusal text for an Agent call of the main session, or null when the call passes. The hook input has
- * `agent_type` only inside a subagent, so a call with no `agent_type` comes from the main session.
+ * `agent_type` only inside a subagent, so a call with no `agent_type` comes from the main session. The main session
+ * may dispatch guilda:*, Explore, Plan and the types of dispatch.agentTypes (`allowed`); it refuses each other type.
+ * The text never echoes the type, because the model writes it.
  */
-function untypedDispatch(input, toolInput) {
+function untypedDispatch(input, toolInput, allowed) {
   if (typeof input.agent_type === 'string' && input.agent_type !== '') return null;
   const type = toolInput.subagent_type;
-  // Fail closed: a blank or non-string type counts as untyped, and case or spaces do not hide general-purpose.
+  // Fail closed: a blank or non-string type counts as untyped, and case or spaces do not hide a type.
   if (typeof type !== 'string' || type.trim() === '') {
     return `ARC4: the main session dispatches a guilda agent, not an untyped agent. Use ${DISPATCH_TYPES}.`;
   }
-  if (type.trim().toLowerCase() === 'general-purpose') {
+  const name = type.trim().toLowerCase();
+  if (name === 'general-purpose') {
     return `ARC4: the main session dispatches a guilda agent, not general-purpose. Use ${DISPATCH_TYPES}.`;
   }
-  return null;
+  if (name.startsWith('guilda:') || BUILT_IN_TYPES.includes(name) || allowed.includes(name)) return null;
+  return (
+    `ARC4: the main session dispatches a guilda agent, Explore, Plan or a type of dispatch.agentTypes in ` +
+    `.guilda/config.json, not this agent type. Use ${DISPATCH_TYPES}.`
+  );
 }
 
 function deny(projectDir, rule, action, reason) {
@@ -79,7 +89,8 @@ function deny(projectDir, rule, action, reason) {
 // (ARC6 of the Architect skill), and the main session dispatches a guilda agent (ARC4).
 await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
-  if (projectState(projectDir).state === 'none') {
+  const project = projectState(projectDir);
+  if (project.state === 'none') {
     // R28: tell the user at each dispatch of a guilda agent. Never refuse, never record.
     const type = (input.tool_input ?? {}).subagent_type;
     if (typeof type === 'string' && type.startsWith('guilda:')) {
@@ -90,7 +101,7 @@ await runHookMain(async (input) => {
 
   const toolInput = input.tool_input ?? {};
   // ARC4 first: a Role: executor line does not let an untyped dispatch of the main session pass.
-  const refused = untypedDispatch(input, toolInput);
+  const refused = untypedDispatch(input, toolInput, dispatchAgentTypes(project.config));
   if (refused !== null) return deny(projectDir, 'ARC4', 'untyped dispatch', refused);
   if (!isExecutorDispatch(toolInput)) return 0;
 

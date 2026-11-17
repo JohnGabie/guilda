@@ -240,3 +240,17 @@ test('the safe defaults are complete (S16)', () => {
   assert.ok(Object.isFrozen(SAFE_DEFAULTS.tiers));
   assert.ok(Object.isFrozen(SAFE_DEFAULTS.security.riskAreas));
 });
+
+test('checkStrict: dispatch.agentTypes is a list of non-empty strings', () => {
+  assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: { agentTypes: ['a', 'plugin:b'] } }), null);
+  assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: {} }), null);
+  for (const bad of [{ agentTypes: 'a' }, { agentTypes: [''] }, { agentTypes: [1] }, 'x']) {
+    assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: bad }), 'dispatch.agentTypes must be a list of agent type names');
+  }
+});
+
+test('dispatchAgentTypes reads a list in lower case and treats a bad value as empty', async () => {
+  const { dispatchAgentTypes } = await import('../scripts/lib/project.mjs');
+  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: [' A ', 'b', '', 3] } }), ['a', 'b']);
+  for (const c of [{}, { dispatch: 'x' }, { dispatch: { agentTypes: 'a' } }, null]) assert.deepEqual(dispatchAgentTypes(c), []);
+});

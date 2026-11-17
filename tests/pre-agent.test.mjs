@@ -337,3 +337,36 @@ test('ARC4: a blank, non-string or case variant of general-purpose from the main
     assert.match(denyReason(r), /^ARC4:/, String(subagent_type));
   }
 });
+
+// ARC4 (the user, 2026-11-17): guilda:*, Explore, Plan and the types of dispatch.agentTypes pass; each other type is
+// refused, and the text never echoes the type.
+test('ARC4: an agent type of another plugin or of the project is refused, and the text does not echo it', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const type of ['other-plugin:helper', 'my-project-agent']) {
+    const reason = denyReason(runHook(HOOK, dispatch(type, 'do it'), dir));
+    assert.match(reason, /^ARC4: .*dispatch\.agentTypes/);
+    assert.ok(!reason.includes(type), type);
+  }
+});
+
+test('ARC4: a type listed in dispatch.agentTypes passes, in any case or spacing', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, dispatch: { agentTypes: ['My-Project-Agent'] } } });
+  for (const type of ['my-project-agent', ' MY-PROJECT-AGENT ']) {
+    const r = runHook(HOOK, dispatch(type, 'do it'), dir);
+    assert.equal(r.code, 0);
+    assert.equal(r.stdout, '');
+  }
+  assert.equal(records(dir).length, 0);
+});
+
+test('ARC4: a bad dispatch.agentTypes value reads as empty, and the type is refused', () => {
+  for (const dispatchValue of [{ agentTypes: 'my-project-agent' }, 'my-project-agent', { agentTypes: [7] }]) {
+    const dir = tempProject({ config: { ...MINIMAL_CONFIG, dispatch: dispatchValue } });
+    assert.match(denyReason(runHook(HOOK, dispatch('my-project-agent', 'do it'), dir)), /^ARC4: /);
+  }
+});
+
+test('ARC4: a broken project layer reads no dispatch.agentTypes, and the type is refused', () => {
+  const dir = tempProject({ config: '{ not json' });
+  assert.match(denyReason(runHook(HOOK, dispatch('my-project-agent', 'do it'), dir)), /^ARC4: /);
+});
