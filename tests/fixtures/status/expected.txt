@@ -1,0 +1,12 @@
+guilda status — 2026-11-10T14:02:11Z
+Tasks: pending 2 · ready 1 · dispatched 0 · running 2 · review 1 · done 4 · failed 0 · stalled 1 · held 0 · dead 0
+Running:
+  T3  executor  T3-exe-7f2a  claude  12m  41,200 tokens
+  T5  executor  T5-exe-19cd  codex  31m  9,800 tokens  late: no heartbeat for 16m
+Stalled:
+  T4  executor  T4-exe-0b2e  claude  no-ack
+Last events:
+  13:59:40  T4  dispatched → stalled (no-ack)
+  13:50:02  T3  dispatched → running (started)
+  13:49:12  T3  ready → dispatched (dispatch)
+Agent work: 3.4 h

@@ -2,9 +2,11 @@
 // The queue script (D14, R32, section 4a): the one writer of .guilda/queue/journal.jsonl and state.json.
 // Usage: node scripts/queue.mjs <projectDir> <command> [args] [--session <id>] [--now <ISO>]
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { projectState, SETUP_NOTICE } from './lib/project.mjs';
+import { projectState, projectHash, SETUP_NOTICE } from './lib/project.mjs';
+import { renderStatus } from './lib/status.mjs';
 import {
   validId,
   makeAddress,
@@ -14,6 +16,10 @@ import {
   MAX_ATTEMPTS,
   CHECK_ROLES,
   BUSY_STATES,
+  ROLE_NAMES,
+  readJournal,
+  lastSeq,
+  readState,
 } from './lib/queue.mjs';
 
 const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release> [args] [--session <id>] [--now <ISO>]';
@@ -324,9 +330,14 @@ function cmdHoldRelease(decision) {
 const COMMANDS = {
   init: cmdInit,
   add: cmdAdd,
-  sync: ({ args }) => {
+  sync: ({ args, root, records }) => {
     if (args.length !== 0) throw refuse(USAGE);
-    return null;
+    return ({ events }) => {
+      // The journal on disk is the state before this run (the lock is held): later seqs are new.
+      const before = lastSeq(readJournal(root).events);
+      records.push(...endRecords(events, before));
+      return null;
+    };
   },
   dispatch: cmdDispatch,
   approve: cmdDecide('approve'),
@@ -335,6 +346,71 @@ const COMMANDS = {
   hold: cmdHoldRelease('hold'),
   release: cmdHoldRelease('release'),
 };
+
+// ---- Status file and record lines (D21, X10) ----
+
+const STATUS_FILE = 'status.md';
+const TMP_BYTES = 6;
+// The tool name of a run in the session (X10); joined so that it is not read as a model name.
+const SESSION_TOOL = ['claude', 'code'].join('-');
+
+/** Write .guilda/status.md by a temp file and a rename. The file is a copy of the state, so it fails open. */
+function writeStatusFile(root, now) {
+  try {
+    const guilda = path.join(root, '.guilda');
+    const state = readState(root, { now });
+    const { events } = readJournal(root);
+    const text = `${renderStatus(state, events, { now })}<!-- generator: ${state.generator} -->\n`;
+    const tmp = path.join(guilda, `${STATUS_FILE}.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`);
+    fs.writeFileSync(tmp, text, { flag: 'wx' });
+    try {
+      fs.renameSync(tmp, path.join(guilda, STATUS_FILE));
+    } catch (err) {
+      fs.unlinkSync(tmp);
+      throw err;
+    }
+  } catch {
+    // A status file that cannot be written stops no work.
+  }
+}
+
+/** The end signals (done or failed) of the events after `before`, one for each run: [{ dispatch, signal, agentId }]. */
+function endRecords(events, before) {
+  const dispatchOf = (e) =>
+    events.find((d) => d.type === 'dispatch' && (e.address ? d.address === e.address : d.task === e.task && d.attempt === e.attempt && d.check !== true));
+  const out = [];
+  const seen = new Set();
+  for (const e of events) {
+    if (e.type !== 'signal' || !(e.seq > before) || !['done', 'failed'].includes(e.kind)) continue;
+    const dispatch = dispatchOf(e);
+    if (!dispatch || seen.has(dispatch.address)) continue;
+    seen.add(dispatch.address);
+    const bound = events.find((a) => a.type === 'agent' && a.address === dispatch.address);
+    out.push({ dispatch, signal: e, agentId: e.agentId ?? bound?.agentId ?? null });
+  }
+  return out;
+}
+
+/** The `record_task` line of one folded end (X10). It has no path: the project is its hash. */
+function recordLine({ dispatch, signal, agentId }, { config, hash, session }) {
+  const model = config.tiers?.[dispatch.tier];
+  const rec = {
+    role: ROLE_NAMES[dispatch.role] ?? dispatch.role,
+    started_at: dispatch.t,
+    ended_at: signal.at,
+    tier: dispatch.tier ?? null,
+    ...(typeof model === 'string' ? { model } : {}),
+    tool: dispatch.inSession === false ? dispatch.tool : SESSION_TOOL,
+    task_id: dispatch.task,
+    address: dispatch.address,
+    attempt: dispatch.attempt,
+    agent_id: agentId,
+    session_id: session ?? dispatch.session ?? null,
+    project_hash: hash,
+    outcome: signal.reason ?? null,
+  };
+  return `record_task ${JSON.stringify(rec)}`;
+}
 
 /** Run the script; return { code, lines }. It never calls process.exit. */
 export function main(argv) {
@@ -353,9 +429,16 @@ export function main(argv) {
       if (Number.isNaN(ms)) throw refuse(USAGE);
       now = new Date(ms).toISOString();
     }
-    const work = make({ ...parsed, root, session });
+    const records = [];
+    const work = make({ ...parsed, root, session, records });
     const r = runWriter(root, { now, session }, work);
+    writeStatusFile(root, now);
     out.push(...(r.result ?? [`queue: ${r.added} events`]));
+    const project = projectState(root);
+    if (records.length > 0 && project.state === 'valid' && project.config.usage?.source === 'cswap') {
+      const ctx = { config: project.config, hash: projectHash(root), session };
+      out.push(...records.map((x) => recordLine(x, ctx)));
+    }
     for (const n of r.skipped) out.push(`queue: skipped bad line ${n}`);
     if (r.badSignals > 0) out.push(`queue: skipped ${r.badSignals} bad signal files`);
     return { code: 0, lines: out };

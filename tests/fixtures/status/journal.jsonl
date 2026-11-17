@@ -1,0 +1,15 @@
+{"seq":1,"t":"2026-11-10T12:00:00.000Z","type":"plan","plan":"p.plan.md","part":null,"work":"w-5c1e9a02","slots":3}
+{"seq":2,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T1","work":"w-5c1e9a02","key":null,"title":"T1","deps":[],"uses":[],"owns":[]}
+{"seq":3,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T2","work":"w-5c1e9a02","key":null,"title":"T2","deps":[],"uses":[],"owns":[]}
+{"seq":4,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T6","work":"w-5c1e9a02","key":null,"title":"T6","deps":[],"uses":[],"owns":[]}
+{"seq":5,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T7","work":"w-5c1e9a02","key":null,"title":"T7","deps":[],"uses":[],"owns":[]}
+{"seq":6,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T3","work":"w-5c1e9a02","key":null,"title":"T3","deps":[],"uses":[],"owns":[]}
+{"seq":7,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T5","work":"w-5c1e9a02","key":null,"title":"T5","deps":[],"uses":[],"owns":[]}
+{"seq":8,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T4","work":"w-5c1e9a02","key":null,"title":"T4","deps":[],"uses":[],"owns":[]}
+{"seq":9,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T11","work":"w-5c1e9a02","key":null,"title":"T11","deps":[],"uses":[],"owns":[]}
+{"seq":10,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T8","work":"w-5c1e9a02","key":null,"title":"T8","deps":[],"uses":[],"owns":[]}
+{"seq":11,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T9","work":"w-5c1e9a02","key":null,"title":"T9","deps":[],"uses":[],"owns":[]}
+{"seq":12,"t":"2026-11-10T12:00:00.000Z","type":"task","task":"T10","work":"w-5c1e9a02","key":null,"title":"T10","deps":[],"uses":[],"owns":[]}
+{"seq":13,"t":"2026-11-10T13:49:12.000Z","type":"state","task":"T3","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":14,"t":"2026-11-10T13:50:02.000Z","type":"state","task":"T3","from":"dispatched","to":"running","cause":"started"}
+{"seq":15,"t":"2026-11-10T13:59:40.000Z","type":"state","task":"T4","from":"dispatched","to":"stalled","cause":"no-ack"}
