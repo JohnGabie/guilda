@@ -28,11 +28,11 @@ User must decide: no
 Violations: SEC2, R7`;
 
 test('parses APPROVED with none', () => {
-  assert.deepEqual(parseVerdict(REVIEWER), { result: 'APPROVED', violations: [] });
+  assert.deepEqual(parseVerdict(REVIEWER), { result: 'APPROVED', violations: [], questions: [] });
 });
 
 test('parses two IDs', () => {
-  assert.deepEqual(parseVerdict(SECURITY), { result: 'REJECTED', violations: ['SEC2', 'R7'] });
+  assert.deepEqual(parseVerdict(SECURITY), { result: 'REJECTED', violations: ['SEC2', 'R7'], questions: [] });
 });
 
 test('parses a rejected reviewer verdict with a Stage line', () => {
@@ -43,6 +43,7 @@ test('parses a rejected reviewer verdict with a Stage line', () => {
   assert.deepEqual(parseVerdict(text), {
     result: 'REJECTED-SMALL',
     violations: ['REV1', 'P3', 'ARC4'],
+    questions: [],
   });
 });
 
@@ -55,12 +56,13 @@ test('no Violations line -> []', () => {
   assert.deepEqual(parseVerdict('Result: APPROVED\nProblems: R3'), {
     result: 'APPROVED',
     violations: [],
+    questions: [],
   });
 });
 
 test('uses the last Result and Violations lines', () => {
   const text = 'Result: REJECTED\nViolations: R1\nResult: APPROVED\nViolations: R9';
-  assert.deepEqual(parseVerdict(text), { result: 'APPROVED', violations: ['R9'] });
+  assert.deepEqual(parseVerdict(text), { result: 'APPROVED', violations: ['R9'], questions: [] });
 });
 
 test('drops tokens that are not rule IDs', () => {
@@ -69,9 +71,21 @@ test('drops tokens that are not rule IDs', () => {
 
 test('no Result line -> null; non-string input is safe', () => {
   assert.equal(parseVerdict('nothing here').result, null);
-  assert.deepEqual(parseVerdict(undefined), { result: null, violations: [] });
+  assert.deepEqual(parseVerdict(undefined), { result: null, violations: [], questions: [] });
 });
 
 test('Stage: spec is a valid stage (S25)', () => {
   assert.deepEqual(validateVerdict('Stage: spec\nResult: REJECTED-SMALL\nViolations: ARC7', 'reviewer'), []);
+});
+
+test('a verdict with questions (S19)', () => {
+  const text = `${REVIEWER}\nQuestions:\n- Why does the parser skip blank lines?\n- Is the set ordered?`;
+  assert.deepEqual(validateVerdict(text, 'reviewer'), []);
+  assert.deepEqual(parseVerdict(text).questions, ['Why does the parser skip blank lines?', 'Is the set ordered?']);
+});
+
+test('a verdict with no Questions section has no questions (S19)', () => {
+  assert.deepEqual(validateVerdict(REVIEWER, 'reviewer'), []);
+  assert.deepEqual(parseVerdict(REVIEWER).questions, []);
+  assert.deepEqual(parseVerdict(`${REVIEWER}\nQuestions:`).questions, []);
 });

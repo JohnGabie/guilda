@@ -17,7 +17,9 @@ export const BRIEF_FIELDS = [
   'Base commit',
 ];
 /** Brief fields that a brief can have. validateBrief does not need them. */
-export const OPTIONAL_BRIEF_FIELDS = ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue'];
+export const OPTIONAL_BRIEF_FIELDS = ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue', 'Uses'];
+/** A citation key of the `Uses:` field: `[spec#][PartN.]ID[letter]@<8 hex>`. */
+const USES_ITEM = /^(?:[A-Za-z0-9._-]+#)?(?:Part[0-9]+\.)?[A-Z][A-Z0-9-]*[0-9]+[a-z]?@[0-9a-f]{8}$/;
 const TIERS = ['master', 'journeyman', 'apprentice'];
 
 const RESULTS = {
@@ -51,6 +53,12 @@ export function validateBrief(text) {
     if (value === null) errors.push(name);
     else if (name === 'Suggested tier' && !TIERS.includes(value)) {
       errors.push(`Suggested tier (must be ${TIERS.join(', ')})`);
+    }
+  }
+  const uses = fieldValue(all, 'Uses');
+  if (uses !== null) {
+    for (const item of uses.split(',').map((i) => i.trim()).filter(Boolean)) {
+      if (!USES_ITEM.test(item)) errors.push(`Uses: ${item} is not <key>@<8 hex>`);
     }
   }
   return errors;

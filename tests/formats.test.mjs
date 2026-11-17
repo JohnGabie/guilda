@@ -63,7 +63,7 @@ test('a brief with the 13 fields is valid', () => {
 });
 
 test('the optional fields are not required', () => {
-  assert.deepEqual(formats.OPTIONAL_BRIEF_FIELDS, ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue']);
+  assert.deepEqual(formats.OPTIONAL_BRIEF_FIELDS, ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue', 'Uses']);
   for (const name of formats.OPTIONAL_BRIEF_FIELDS) assert.ok(!BRIEF.includes(`${name}:`), name);
   assert.deepEqual(validateBrief(BRIEF), []);
   const withOptional = `${BRIEF}\nDecisions: D1\nMutants: none\nConflict cases: none\nSkills: none`;
@@ -156,4 +156,31 @@ test('each QA label ends the section, a label word without its colon does not', 
     assert.deepEqual(validateQaReport('Scenarios:\n1. A ->\n' + label + ' PASSED — x'), [SCENARIO_1_ERROR], label);
   }
   assert.deepEqual(validateQaReport('Scenarios:\n1. A ->\nLogs are clean: PASSED — x'), []);
+});
+
+test('a brief with a valid Uses field', () => {
+  assert.deepEqual(validateBrief(`${BRIEF}\nUses: D14@1a2b3c4d, SC-G6@0123abcd`), []);
+});
+
+test('a brief with Uses: D14@xyz is refused with the exact text', () => {
+  assert.deepEqual(validateBrief(`${BRIEF}\nUses: D14@xyz`), ['Uses: D14@xyz is not <key>@<8 hex>']);
+});
+
+test('a brief with a qualified key and a Part key is valid', () => {
+  assert.deepEqual(validateBrief(`${BRIEF}\nUses: spec-0.3.0#D14@1a2b3c4d, Part2.S19@deadbeef`), []);
+});
+
+test('a Uses key with a letter suffix (T21b) is valid', () => {
+  assert.deepEqual(validateBrief(`${BRIEF}\nUses: T21b@1a2b3c4d`), []);
+});
+
+test('a 0.2.0 brief with no Uses field stays valid', () => {
+  assert.ok(!BRIEF.includes('Uses:'));
+  assert.deepEqual(validateBrief(BRIEF), []);
+});
+
+test('a verdict with or without a Questions section is valid', () => {
+  const base = 'Result: APPROVED\nStage: code\nViolations: none';
+  assert.deepEqual(validateVerdict(base, 'reviewer'), []);
+  assert.deepEqual(validateVerdict(`${base}\nQuestions:\n- Why a set?`, 'reviewer'), []);
 });
