@@ -14,7 +14,7 @@ const LEVELS = {
   R1: 'gate', R2: 'gate', R3: 'gate', R4: 'law', R5: 'gate', R6: 'gate', R7: 'gate', R8: 'gate', R9: 'gate',
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'gate', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
-  R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law',
+  R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -35,8 +35,10 @@ test('R15 mechanism names the ste-check report', () => {
   assert.match(blocks(read('core/rules.md')).R15.text, /Check: gate — .*ste-check/);
 });
 
-test('core/rules.md + core/writing.md have 142 lines or fewer', () => {
-  assert.ok(nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md')) <= 142);
+test('the full files have 150 lines or fewer', () => {
+  // core/rules.md + core/writing.md; the limit of 0.3.0 (spec X1).
+  const n = nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md'));
+  assert.ok(n <= 150, `got ${n} lines`);
 });
 
 test('R28 has the level law', () => {
@@ -45,6 +47,14 @@ test('R28 has the level law', () => {
 
 test('R30 has the level law', () => {
   assert.equal(blocks(read('core/rules.md')).R30.level, 'law');
+});
+
+test('R31 has the level gate', () => {
+  assert.equal(blocks(read('core/rules.md')).R31?.level, 'gate');
+});
+
+test('R32 has the level law', () => {
+  assert.equal(blocks(read('core/rules.md')).R32?.level, 'law');
 });
 
 test('R28 Check line names the Skill part (S41)', () => {
@@ -79,7 +89,8 @@ test('tiers.json has the three tier keys', () => {
 test('glossary has the process terms in the fixed line format', () => {
   const terms = ['brief', 'spec', 'plan', 'executor', 'reviewer', 'QA', 'security', 'architect', 'controller', 'lab',
     'verdict', 'process level', 'security zone', 'review unit', 'domain skill', 'triage', 'mutant', 'field report',
-    'lab report', 'Lab group'];
+    'lab report', 'Lab group', 'block', 'agent ID', 'address', 'queue journal', 'signal', 'audit log', 'block index',
+    'cost record'];
   const lines = read('core/glossary.md').split(/\r?\n/).filter((l) => l.startsWith('- **'));
   const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
   for (const line of lines) assert.match(line, re);

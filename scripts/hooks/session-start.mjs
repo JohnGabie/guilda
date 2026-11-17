@@ -13,6 +13,8 @@ const MARKER_FILE = '.hooks-live.json';
 const EXTENSION_MARKER_FILE = '.extension-live.json';
 const EXTENSION_WAIT_MS = 300;
 const EXTENSION_POLL_MS = 20;
+// X2: the session line gives the queue script its --session value. Only a safe ID is printed.
+const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,128}$/;
 export const EXTENSION_NOTICE =
   'guilda: the extension plugin guilda-skills did not load. Its skills are off; the core laws are on. ' +
   'Check its two dependencies, skill-creator and superpowers, and their marketplaces.';
@@ -148,6 +150,9 @@ await runHookMain(async (input) => {
   if (input.source === 'resume' || input.source === 'compact') {
     const diary = newestDiary(projectDir);
     if (diary) parts.push(diary);
+  }
+  if (typeof input.session_id === 'string' && SESSION_ID_RE.test(input.session_id)) {
+    parts.push(`guilda session: ${input.session_id}`);
   }
   emit(parts.filter(Boolean).join('\n\n'), extensionNotice);
   if (ignored) writeMarker(projectDir, input.session_id, installed);

@@ -84,9 +84,9 @@ Why:   One term for one thing removes doubt about what a text refers to.
 Check: gate — The Reviewer rejects a forbidden word, and the automatic ste-check report lists each one.
 
 ### R17 — Model names only in the tiers file
-Rule:  Write model names only in `core/tiers.json` and in the `model:` frontmatter line of an agent.
-Why:   Model names change often, and one file makes each change one edit.
-Check: gate — The Reviewer rejects a model name in any other place, and `scripts/lint-rules.mjs` lists each one.
+Rule:  Write model names only in `core/tiers.json`, in the `model:` line of an agent, and in dated records.
+Why:   Model names change often, and one file makes each change one edit, while a dated record keeps the names of its date.
+Check: gate — The Reviewer rejects a model name in any other place, and `scripts/lint-rules.mjs` lists each one. Research files (`docs/research/`) and lab files (`docs/labs/`) may quote model names and prices as dated records, and the lint does not scan them.
 
 ### R18 — Context diary before compaction
 Rule:  Fill the context diary before you compact the context.
@@ -147,3 +147,13 @@ Check: law — SessionStart, and PreToolUse on a guilda skill or a `guilda:*` ag
 Rule:  Load a guilda skill only when its `groups` list has your role group or the value `shared`.
 Why:   A skill of another group gives an agent methods that its role must not use, such as `red-team` in an Engineering Executor.
 Check: law — PreToolUse refuses a `Skill` call of a guilda skill from an agent that has no role group, or no group of the skill.
+
+### R31 — Cite each block that a task uses
+Rule:  Give each plan task and each brief a `Uses:` line that cites each block it uses with its hash.
+Why:   A change to a cited block then reaches each task that used it, with no full read of the spec again.
+Check: gate — The Reviewer runs the trace check. It rejects a task or brief with no `Uses:` line, an unknown or ambiguous ID, or an unread suspect link.
+
+### R32 — One writer for the queue
+Rule:  Change the queue only through the queue script, as the writer role, and never edit its files by hand.
+Why:   A second writer or a hand edit breaks the journal, and then the state of the flow is a guess.
+Check: law — PreToolUse refuses a Write, an Edit or a common shell write to the queue files. It also refuses a queue script call from a caller that is not the writer role.

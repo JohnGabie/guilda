@@ -30,6 +30,14 @@ Source: guilda design, sections 6 and 7.
 - **field report**: the output of guilda:report, a report from a project to the guilda repository, apart from the reports of the Executor and of QA. Forbidden: feedback, bug report.
 - **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.
 - **Lab group**: the role group that researches, runs experiments and studies data for the other groups (D25, D45); one run of it is a lab. Forbidden: research team, lab team.
+- **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.
+- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.
+- **address**: the name of one dispatch, one joined agent or one fixed role on the bus, that stays the same when the agent behind it changes. Forbidden: mailbox name, agent handle.
+- **queue journal**: the append-only file .guilda/queue/journal.jsonl that records each task, dispatch, signal and state change, with one writer. Forbidden: job log, task list.
+- **signal**: a file that a worker writes under .guilda/queue/signals/ to say that it started, that it is alive, or that it ended. Forbidden: ping, beacon.
+- **audit log**: the file .guilda/audit.jsonl with one line for each tool call of a subagent, with no command text and no file content. Forbidden: activity log, tool log.
+- **block index**: the generated file .guilda/trace/index.json that maps each block ID to its file, its line range, its hash and its citers. Forbidden: spec map, ID table.
+- **cost record**: the file that the cost script writes at the end of a build, with the tokens and the cost of each task, block and build. Forbidden: bill, invoice.
 
 ## Approval of the terms
 

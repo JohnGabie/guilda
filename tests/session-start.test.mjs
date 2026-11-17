@@ -289,13 +289,37 @@ test('the context has the Full rule blocks: line with the path of core/rules.md'
   assert.ok(lines.includes('Full rule blocks: ' + REPO_ROOT.split(path.sep).join('/') + '/core/rules.md'));
 });
 
-test('context has 110 non-blank lines or fewer with a 20-line project rules file and a version notice', () => {
+// The S47 fixture with session_id 's-1': the version notice, the extension notice and the session line show.
+const s47Context = () => {
   const rules = Array.from({ length: 20 }, (_, i) => `P${i + 1}. Rule number ${i + 1}.`).join('\n');
   const dir = tempProject({ config: { ...MINIMAL_CONFIG, guildaVersion: '0.0.1' }, rules });
-  const ctx = context(run(dir));
+  return context(runHook(SCRIPT, { hook_event_name: 'SessionStart', source: 'startup', cwd: dir, session_id: 's-1' }, dir));
+};
+
+test('context has 107 non-blank lines or fewer with a 20-line project rules file and a version notice', () => {
+  const ctx = s47Context();
   assert.match(ctx, /guilda updated/);
   const n = ctx.split('\n').filter((l) => l.trim() !== '').length;
-  assert.ok(n <= 110, `got ${n} lines`);
+  assert.ok(n <= 107, `got ${n} lines`);
+});
+
+test('S9: the context has the short forms of R31 and R32 and the session line', () => {
+  const lines = s47Context().split('\n');
+  assert.ok(lines.includes('### R32 — One writer for the queue (law — enforced by a hook)'));
+  const r32 = RULE_BLOCKS.find((b) => b.id === 'R32');
+  assert.ok(r32);
+  assert.ok(!lines.includes(r32.rule));
+  const i = lines.indexOf('### R31 — Cite each block that a task uses (gate)');
+  assert.ok(i >= 0);
+  assert.equal(lines[i + 1], RULE_BLOCKS.find((b) => b.id === 'R31').rule);
+  assert.equal(lines.filter((l) => l === 'guilda session: s-1').length, 1);
+  assert.equal(lines.filter((l) => l.trim() !== '').at(-1), 'guilda session: s-1');
+});
+
+test('a session_id with a space gives no session line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const ctx = context(runHook(SCRIPT, { hook_event_name: 'SessionStart', source: 'startup', cwd: dir, session_id: 's 1' }, dir));
+  assert.doesNotMatch(ctx, /guilda session:/);
 });
 
 // S13: the extension plugin did not load (section 3c, method of L4: the marker file).
