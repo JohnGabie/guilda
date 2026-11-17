@@ -116,3 +116,27 @@ if (exists(REVIEW)) {
     assert.ok(read(AGENT).includes('core/knowledge/review.md'));
   });
 }
+
+test('the reviewer runs the trace check and cites R31', () => {
+  const text = checklistText();
+  assert.ok(text.includes('Each plan task and each brief has a `Uses:` line.'));
+  assert.ok(text.includes('Run `node <plugin root>/scripts/trace.mjs check <project>`.'));
+  assert.match(text, /A `LEGACY` task is not rejected for R31\./);
+  assert.ok(text.includes('Read a cited block with `node <plugin root>/scripts/trace.mjs show <key>`; never read the whole spec for one ID (D27).'));
+});
+
+test('a suspect link is read, and only a mismatch is rejected', () => {
+  const text = checklistText();
+  assert.ok(text.includes('Read each suspect change; reject only a content mismatch (R31).'));
+  assert.doesNotMatch(text, /reject each suspect/i);
+});
+
+test('the output format has the optional Questions section', () => {
+  const format = section(body(), 'Output format');
+  const lines = format.split('\n');
+  const violations = lines.findIndex((l) => l.startsWith('Violations: '));
+  assert.ok(violations >= 0);
+  assert.equal(lines[violations + 1], 'Questions:');
+  assert.equal(lines[violations + 2], '- <question to the Executor>');
+  assert.match(body(), /optional `Questions:` section/);
+});

@@ -56,6 +56,11 @@ Count the rejections of the review unit: the task at `full`, the integration at 
 - No model name appears outside the tiers file (R17).
 - The final answer states what was not verified (R6).
 - The change meets each item of the definition of done for its size (R23).
+- Each plan task and each brief has a `Uses:` line. Run `node <plugin root>/scripts/trace.mjs check <project>`. Read each suspect change; reject only a content mismatch (R31).
+  - A `SUSPECT` line is not a defect. Read the block at the read commit and now. If the task still matches the block, approve, and write in `Evidence:` that you read the change. A `NO-USES`, `UNKNOWN` or `AMBIGUOUS` line is a rejection (R31). A missing `Uses:` line is a small rejection.
+  - A `LEGACY` task is not rejected for R31. It comes from a plan of before the 0.3.0 install.
+  - Read a cited block with `node <plugin root>/scripts/trace.mjs show <key>`; never read the whole spec for one ID (D27).
+  - `<plugin root>` is `${CLAUDE_PLUGIN_ROOT}`, the folder of the guilda plugin.
 
 ## AI artifact (a prompt, a skill, an agent)
 
@@ -96,6 +101,7 @@ Use it when the controller gives a spec and a plan and no diff. Write the verdic
 ## Questions
 
 The Reviewer can ask the Architect a question about the spec. The answer has facts only. The verdict stays with the Reviewer (R7).
+To ask the Executor about its work, write the optional `Questions:` section after the `Violations:` line, one `- <question>` item for each question. The Architect sends each question to the Executor and adds the answer to the review (D12). Omit the section when you have no question.
 
 ## Definition of done
 
@@ -146,4 +152,6 @@ QA: <report received: yes | no | not yet> — <evidence supports the results: ye
 Not verified: <item — reason, or "none">
 User must look: no | yes — <what and why>
 Violations: <comma-separated rule IDs | none>
+Questions:
+- <question to the Executor>
 ```

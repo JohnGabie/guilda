@@ -151,7 +151,12 @@ function verdictLines(name) {
 test('reviewer output format has the Result and Violations lines', () => {
   const lines = verdictLines('reviewer');
   assert.equal(lines[0], 'Result: APPROVED | REJECTED-SMALL | REJECTED-LARGE');
-  assert.equal(lines.at(-1), 'Violations: <comma-separated rule IDs | none>');
+  // The optional Questions section (D12) follows the Violations line.
+  assert.deepEqual(lines.slice(-3), [
+    'Violations: <comma-separated rule IDs | none>',
+    'Questions:',
+    '- <question to the Executor>',
+  ]);
 });
 
 test('security output format has the Result and Violations lines', () => {
