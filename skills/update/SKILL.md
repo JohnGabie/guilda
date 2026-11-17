@@ -14,7 +14,7 @@ This skill finds the newest guilda version, shows what changed, and updates the 
 
 1. Run `claude plugin update guilda@guilda` only after the user says yes in a message after you showed the changes.
 2. Never guess a version. If you cannot read the newest version, say so and stop.
-3. Never edit a project file, with one exception. After the user says yes to the last step, run `config-write.mjs --migrate`. It writes `.guilda/config.json` only.
+3. Never edit a project file, with two exceptions. Both write `.guilda/config.json` only, and each one waits for its own yes in the last step. The first is `config-write.mjs --migrate`. The second is the `usage.source` key.
 
 ## Procedure
 
@@ -43,3 +43,6 @@ This skill finds the newest guilda version, shows what changed, and updates the 
    - On a yes, run: `node "${CLAUDE_PLUGIN_ROOT}/scripts/config-write.mjs" <project> --migrate`. Run it alone in the Bash call. Show its output line.
    - If the output starts with `migrate refused:`, show that line to the user with its next step. Do not retry.
    - On a no, change nothing. Tell the user that the config is unchanged.
+   - Then offer the usage source in a second decision in the question tool: "Set usage.source to "cswap" in .guilda/config.json? With it, the Architect reads the budget and records each run through the cswap tools. With "off" no agent calls cswap." Do not offer it if the config already has `"cswap"`. Wait for the answer. Ask it as its own question.
+   - On a yes to usage.source, use the Edit tool to set `usage.source` to `"cswap"` in `.guilda/config.json`. Write it only after that yes. Change nothing else. If the file has no `usage` key, add `"usage": { "source": "cswap" }`.
+   - On a no to usage.source, change nothing. The file keeps the same bytes. Tell the user that `usage.source` is unchanged.

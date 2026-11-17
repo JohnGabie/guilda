@@ -10,5 +10,6 @@
   "writing": { "free": [], "exceptions": [] },
   "security": { "enabled": false, "riskAreas": [] },
   "checks": [{ "name": "<test>", "command": "<a command that you ran in this project>" }],
-  "scan": { "ignore": [] }
+  "scan": { "ignore": [] },
+  "usage": { "source": "off" }
 }

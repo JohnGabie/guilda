@@ -29,3 +29,16 @@ test('the last step names config-write.mjs --migrate and the yes of the user', (
   assert.match(last, /\byes\b/);
   assert.match(last, /migrate refused:/);
 });
+
+test('update offers usage.source cswap and writes it only after a yes', () => {
+  const steps = text.split(/^\d+\. \*\*/m);
+  const last = steps[steps.length - 1];
+  assert.match(last, /usage\.source/);
+  assert.match(last, /"cswap"/);
+  const ask = last.search(/question tool[^\n]*usage\.source|usage\.source[^\n]*question tool/);
+  assert.ok(ask >= 0, 'the offer goes through the question tool');
+  const write = last.search(/On a yes[^\n]*usage\.source|usage\.source[^\n]*only after a yes/i);
+  assert.ok(write > ask, 'the write comes after the question');
+  assert.match(last, /same bytes/);
+  assert.doesNotMatch(text, /AGENTS\.md/);
+});

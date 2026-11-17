@@ -116,3 +116,25 @@ test('rules-template has 20 non-blank lines or fewer', () => {
   const lines = readRef('rules-template.md').split(/\r?\n/).filter((l) => l.trim() !== '');
   assert.ok(lines.length <= 20, `${lines.length} lines`);
 });
+
+const initText = () => fs.readFileSync(path.join(REPO_ROOT, 'skills', 'init', 'SKILL.md'), 'utf8');
+
+test('init runs init-progress at each step', () => {
+  const text = initText();
+  assert.match(text, /scripts\/init-progress\.mjs" "<project>" start /);
+  assert.match(text, /init-progress\.mjs" "<project>" set <n> doing/);
+  assert.match(text, /init-progress\.mjs" "<project>" set <n> done/);
+  assert.match(text, /usage\.source/);
+  assert.match(text, /"cswap"/);
+  assert.match(text, /cswap MCP tools/);
+  assert.match(text, /"off"/);
+});
+
+test('the template has usage.source off', () => {
+  const parsed = JSON.parse(readRef('config-template.json'));
+  assert.deepEqual(parsed.usage, { source: 'off' });
+});
+
+test('init writes no AGENTS.md line', () => {
+  assert.doesNotMatch(initText(), /AGENTS\.md/);
+});
