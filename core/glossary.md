@@ -31,7 +31,7 @@ Source: guilda design, sections 6 and 7.
 - **lab report**: the fixed output of a lab, in the form of D34, with the agent ID of the agent that ran it. Forbidden: findings doc, spike notes.
 - **Lab group**: the role group that researches, runs experiments and studies data for the other groups (D25, D45); one run of it is a lab. Forbidden: research team, lab team.
 - **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.
-- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, handle.
+- **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, agent handle.
 - **address**: the name of one dispatch, one joined agent or one fixed role on the bus, that stays the same when the agent behind it changes. Forbidden: mailbox name, agent handle.
 - **queue journal**: the append-only file .guilda/queue/journal.jsonl that records each task, dispatch, signal and state change, with one writer. Forbidden: job log, task list.
 - **signal**: a file that a worker writes under .guilda/queue/signals/ to say that it started, that it is alive, or that it ended. Forbidden: ping, beacon.

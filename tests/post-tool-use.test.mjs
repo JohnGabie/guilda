@@ -49,7 +49,7 @@ test('.md with a 30-word sentence -> additionalContext names R15 and one record'
 
 test('at most 15 findings listed', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  const text = Array.from({ length: 20 }, (_, i) => `Line ${i} must adjust it.`).join('\n') + '\n';
+  const text = Array.from({ length: 20 }, (_, i) => `Line ${i} must handle it.`).join('\n') + '\n';
   const r = post(dir, write(dir, 'b.md', text));
   const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
   assert.equal((ctx.match(/vague-word/g) || []).length, 15);

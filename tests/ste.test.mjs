@@ -114,13 +114,26 @@ test('checkScope: exception with a level other than full -> skipped with the rea
 
 test('CLI prints <file>:<line> <kind> <detail> and exits 1 on a finding', () => {
   const dir = tempProject();
-  fs.writeFileSync(path.join(dir, 'a.md'), 'We adjust it.\n');
+  fs.writeFileSync(path.join(dir, 'a.md'), 'We handle it.\n');
   const r = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'ste-check.mjs'), 'a.md'], {
     cwd: dir,
     encoding: 'utf8',
   });
   assert.equal(r.status, 1);
-  assert.equal(r.stdout.trim(), 'a.md:1 vague-word "adjust"');
+  assert.equal(r.stdout.trim(), 'a.md:1 vague-word "handle"');
+});
+
+test('CLI: "agent handle" -> forbidden-word from the core glossary; "handle the error" -> no forbidden-word', () => {
+  const dir = tempProject();
+  fs.writeFileSync(path.join(dir, 'a.md'), 'Write the agent handle.\nThe hook must handle the error.\n');
+  const r = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'ste-check.mjs'), 'a.md'], {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 1);
+  const lines = r.stdout.trim().split('\n');
+  assert.ok(lines.some((l) => l.startsWith('a.md:1 forbidden-word "agent handle"')), r.stdout);
+  assert.deepEqual(lines.filter((l) => l.includes('forbidden-word "handle"')), [], r.stdout);
 });
 
 test('CLI exits 0 when no finding', () => {

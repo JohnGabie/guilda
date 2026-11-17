@@ -84,7 +84,7 @@ Why:   One term for one thing removes doubt about what a text refers to.
 Check: gate — The Reviewer rejects a forbidden word, and the automatic ste-check report lists each one.
 
 ### R17 — Model names only in the tiers file
-Rule:  Write model names only in `core/tiers.json`, in the `model:` line of an agent, and in dated records.
+Rule:  Write model names only in `core/tiers.json`, in the `model:` line of an agent, and in research and lab files.
 Why:   Model names change often, and one file makes each change one edit, while a dated record keeps the names of its date.
 Check: gate — The Reviewer rejects a model name in any other place, and `scripts/lint-rules.mjs` lists each one. Research files (`docs/research/`) and lab files (`docs/labs/`) may quote model names and prices as dated records, and the lint does not scan them.
 
