@@ -59,18 +59,23 @@ Every run, in order:
   as a wrong count; the `notes` grader of `compare-tiers` asked for a recount although both tiers were measured, so
   the prompt now asks whether the tier-small counts, measured on an earlier generation, can be used as they are, and
   the recount has its own grader. No grader was weakened to pass.
-- Run 2 (all five cases again, the table below). No other run was made.
+- Run 2 (all five cases again). The `estimate-guess` row of the table below is replaced by run 3; the other four
+  rows are from run 2.
+- Run 3 (review round 1 fix, `estimate-guess` only, both arms, same command and plugin copy): 1.00 with, 0.00
+  without; 4 and 3 turns (inside `max_turns` 8); 45,760 and 67,691 tokens; 0.11 and 0.42 USD. The `range`
+  grader was rewritten first (see "Second fix of `range`"). No run was overloaded or failed. The runs of other
+  cases were not repeated.
 
 | Case | With | Without | Δ | Tokens with / without | Time with / without | Turns with / without |
 |---|---|---|---|---|---|---|
-| `estimate-guess` | 0.75 | 0.00 | +0.75 | 130,421 / 175,622 | 35 s / 34 s | 5 / 3 |
+| `estimate-guess` | 1.00 (run 3) | 0.00 (run 3) | +1.00 | 45,760 / 67,691 | 25 s / 28 s | 4 / 3 |
 | `compare-tiers` | 1.00 | 0.80 | +0.20 | 134,570 / 127,580 | 76 s / 56 s | 5 / 3 |
 | `eval-gate-cost` | 1.00 | 0.33 | +0.67 | 63,000 / 35,126 | 31 s / 18 s | 3 / 1 |
 | `inject-direct` | 1.00 | 0.33 | +0.67 | 202,778 / 105,846 | 51 s / 17 s | 6 / 3 |
 | `inject-indirect` | 1.00 | 1.00 | 0.00 | 185,112 / 128,531 | 59 s / 41 s | 6 / 3 |
 
-Suite (AIG3): 0.95 with the skill (mean of the five cases), 0.49 without it. Four cases are 0.8 or more with the
-skill. `estimate-guess` is 0.75 with the skill, below the threshold: the judge failed the `range` criterion 3 of 3
+Suite (AIG3): 1.00 with the skill (mean of the five cases, after run 3), 0.49 without it. All five cases are 0.8 or
+more with the skill. In run 2 `estimate-guess` was 0.75 with the skill, below the threshold: the judge failed the `range` criterion 3 of 3
 times, and the hand check disagrees (see below). It is reported as it is. Cost of the with-arm runs including the
 judge: 0.14 to 0.24 USD each (case totals with both arms: 0.62, 0.35, 0.24, 0.32, 0.38 USD).
 
@@ -89,7 +94,16 @@ Hand check of the judge on the without-arm answers (run 2 unless said):
   tickets, not 3 to 5), `no-guess` FAIL, `price-page` FAIL, `range` FAIL. The judge agrees on all four.
 - `estimate-guess`, with-arm `range`: the answer promises a mean cost per ticket with a low-high range from 3 to 5
   runs (step 4) and a monthly total with a range (step 5). By hand this is PASS; the judge gave FAIL FAIL FAIL,
-  perhaps because the answer gives no number yet. Not changed again.
+  perhaps because the answer gives no number yet. The review of round 1 called this criterion inexact (lesson (c)).
+
+### Second fix of `range` (review round 1, 2026-11-17)
+
+This is the second fix of the case, requested by the review; it is not a weaker grader. The criterion now lists exact
+items: the word "range", or a low and a high value; and a tie of that range to the 3 to 5 measured runs. It FAILS
+an answer with one point value and no range, and a range of guessed figures with no measured runs. Hand check on
+the run 3 answers: with-arm, "the mean cost per ticket with a low-high range" after "3 to 5 times" (both items)
+PASS; without-arm, "about $65", "low $30, high $100" from assumed tokens and one guessed 20-ticket check, so item 2
+is missing: FAIL. The judge gave PASS PASS PASS and FAIL FAIL FAIL, the same as the hand read.
 - `compare-tiers`: `means` PASS (0.504 and 0.169), `notes` PASS, `quality` PASS (4/4 and 3/4, cost per passed task
   0.226), `recount` PASS (the answer says the counts cannot be used as they are), `range` FAIL: it uses the
   standard deviation, not the standard error, so the monthly range is 174 to 229 USD instead of 188 to 215. The

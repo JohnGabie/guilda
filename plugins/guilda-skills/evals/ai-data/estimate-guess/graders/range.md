@@ -3,4 +3,9 @@ type: llm
 weight: 1
 ---
 
-The answer says that the estimate will be a range with a low and a high value that come from the spread of the measured sample (the mean and the standard error of the runs, or the lowest and highest run), not one figure. FAIL if it promises or gives only a single value, or no low and high at all. A range between two guessed figures, with no sample behind it, also FAILS.
+Check these items in the answer. PASS needs both.
+
+1. It uses the word "range", or it gives a low value and a high value, for the estimate (per ticket or per month).
+2. It ties that range to the 3 to 5 measured runs (the spread of the sample: mean and standard error, or the lowest and highest run).
+
+FAIL only if the answer gives a single point value with no range at all, or if the range is between two guessed figures with no measured runs behind it. An answer that says the estimate will be a range from 3 to 5 measured runs, and has no figures yet, PASSES.
