@@ -8,6 +8,9 @@ import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 
 const REASON = 'R20: a subagent may not run rm with a force or recursive flag; leave temp files in mktemp -d and list them';
 const MAX_DEPTH = 8;
+// The deepest "$( nesting that closeParen reads; deeper text is unreadable.
+const MAX_PAREN_DEPTH = 64;
+const MAX_CODE_POINT = 0x10ffff;
 const RM_WORD = /(^|[^\w.-])rm($|[^\w.-])/;
 
 class Unreadable extends Error {}
@@ -40,8 +43,9 @@ const WRAPPERS = {
 // Wrappers whose first operand is a value and not the command (timeout DURATION, taskset MASK, chrt PRIO, flock FILE).
 const LEADING_OPERAND = new Set(['timeout', 'taskset', 'chrt', 'flock']);
 
-/** The index after the `)` that closes the `(` at `open`, read with quotes, or -1. */
-function closeParen(text, open) {
+/** The index after the `)` that closes the `(` at `open`, read with quotes, or -1. Throws Unreadable when nested too deep. */
+function closeParen(text, open, nesting = 0) {
+  if (nesting > MAX_PAREN_DEPTH) throw new Unreadable();
   let depth = 0;
   let quote = null;
   for (let i = open; i < text.length; i += 1) {
@@ -53,7 +57,7 @@ function closeParen(text, open) {
     } else if (quote === '"') {
       if (ch === '"') quote = null;
       else if (ch === '$' && text[i + 1] === '(') {
-        const end = closeParen(text, i + 1);
+        const end = closeParen(text, i + 1, nesting + 1);
         if (end < 0) return -1;
         i = end - 1;
       }
@@ -98,7 +102,9 @@ function ansiC(text, open) {
       out += String.fromCharCode(parseInt(m[1], 16));
       i += m[0].length;
     } else if ((m = /^(?:u([0-9a-fA-F]{1,4})|U([0-9a-fA-F]{1,8}))/.exec(text.slice(i + 1)))) {
-      out += String.fromCodePoint(parseInt(m[1] ?? m[2], 16));
+      const code = parseInt(m[1] ?? m[2], 16);
+      if (code > MAX_CODE_POINT) throw new Unreadable();
+      out += String.fromCodePoint(code);
       i += m[0].length;
     } else if ((m = /^[0-7]{1,3}/.exec(text.slice(i + 1)))) {
       out += String.fromCharCode(parseInt(m[0], 8));
@@ -349,9 +355,9 @@ function refusedText(text, depth = 0) {
   let commands;
   try {
     commands = split(text, inner);
-  } catch (error) {
-    if (error instanceof Unreadable) return RM_WORD.test(text);
-    throw error;
+  } catch {
+    // Any error of the reader (Unreadable, a RangeError, a full stack) is unreadable text: fail closed.
+    return RM_WORD.test(text);
   }
   if (commands.some((words) => refusedWords(words, depth))) return true;
   return inner.some((t) => refusedText(t, depth + 1));

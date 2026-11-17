@@ -178,6 +178,8 @@ test('refuses unparseable text that holds rm (fail closed)', () => {
     'echo `rm out',
     'bash <<EOF\nrm out\n',
     "bash -c 'rm out",
+    "echo $'\\UFFFFFFFF'; rm -rf out",
+    'echo ' + '"$('.repeat(20000) + ')"'.repeat(20000) + '; rm -rf out',
   ]) {
     assertDeny(sub(dir, c), c);
   }
