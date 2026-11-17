@@ -5,8 +5,8 @@
 This repository has three plugins. They share one version.
 
 - `guilda`: the core. It has the rules, the hooks, the agents, `guilda:init` and the Architect. It has no dependency.
-- `guilda-skills`: the extension. It has no domain skill yet. The domain skills and the agent creator come in a
-  later release, after the curation of their sources. It needs `superpowers` and `skill-creator`.
+- `guilda-skills`: the extension, with eight skills: `data`, `ai-engineering`, `ai-evals`, `lab-experiment`,
+  `devops`, `ai-data`, `agent-creator` and `security-zones`. It needs `superpowers` and `skill-creator`.
 - `ios-on-linux`: control a real iPhone from a Linux PC.
 
 ## Install

@@ -22,8 +22,15 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - `guilda:lab` and the lab roles: `lab-researcher`, `lab-experimenter` and `lab-reader`, with a lab report
   template (R26).
 - `scripts/doctor.mjs`: an activation check of the installed plugins and of the project layer.
-- The extension plugin `guilda-skills`, with `superpowers` and `skill-creator` as dependencies. It has no domain
-  skill yet.
+- The extension plugin `guilda-skills`, with `superpowers` and `skill-creator` as dependencies. It has eight skills:
+  - `data`: turn raw data and lab results into a verdict.
+  - `ai-engineering`: design, write and review a prompt, an LLM call or an agent.
+  - `ai-evals`: write, run and grade the eval suite of an AI artifact.
+  - `lab-experiment`: run an experiment or a spike and give a verdict.
+  - `devops`: CI/CD, infrastructure code, deploy and rollback plans.
+  - `ai-data`: estimate and report the tokens and the cost of an AI feature.
+  - `agent-creator`: create, change and review a subagent definition.
+  - `security-zones`: decide which spec blocks are security zones.
 - The plugin `ios-on-linux`: control a real iPhone from a Linux PC.
 - Four new agents: `architect-executor`, `ai-lead`, `coherence-validator` and `devops-advisor`.
 - Role groups, and the R30 hook: a `Skill` call is checked against the role group of the agent (R30).
@@ -44,7 +51,11 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - EXE2: the new test fails against the old code first.
 - The task brief format: `Base commit:` is a required field.
 - The version notice sends the user to `guilda:update`.
-- ARC4 is a law: a dispatch from the main session names its guilda agent.
+- ARC4 is a law. The main session may dispatch `guilda:*`, `Explore` and `Plan`. It may also dispatch the types
+  that the user lists in the new config key `dispatch.agentTypes`. Each other type is refused.
+- R20 is a law. In a project with `.guilda`, a hook refuses `rm` with a force or recursive flag in the Bash call
+  of a subagent. `scripts/lab-env.mjs` makes a safe temporary folder for a lab.
+- Task worktrees are durable. They live in `../<repo>.worktrees/`, and `task-start --worktree` makes one.
 - A rule changes in place, so no project runs `guilda:init` again. `guilda:update` saves the new version and the
   0.2.0 config form (`schemaVersion` 2).
 - The CHANGELOG uses the Keep a Changelog form. `scripts/changelog.mjs` reads the new headings and the old ones.
@@ -58,7 +69,11 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 ### Not in this release
 
 - R29 (production commands need the user's approval) moved to 0.3.0. The ID R29 stays reserved.
-- The domain skills SK1 to SK8 of the extension plugin wait for the curation of their sources.
+
+### Known gaps
+
+- The R20 hook does not see an `rm` hidden in a variable, in a script file that `bash` runs, or in a remote command.
+- The turn budgets of two skill eval suites are provisional until lab #58.
 
 ## [0.1.1] - 2026-11-10
 
