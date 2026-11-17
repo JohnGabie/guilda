@@ -94,6 +94,7 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
     Order at `light`: all Executors, then one Reviewer. Then Security for each marked zone, QA and the final Reviewer for the integration.
 12. **Rejections.** A `REJECTED-SMALL` verdict goes back to the Executor. A `REJECTED-LARGE` verdict comes to you: change the spec, the contract or the brief. On the third rejection of a review unit, stop and ask the user (R11).
     For a Reviewer question and the count of rejections, see Review verdicts.
+    After an Architect executor reports, run the checks of the task yourself: the commands of the `checks` key and `node --test` on the test files that git tracks (R6).
 13. **Findings.** Sort each out-of-scope finding of QA and the Executor. Each finding becomes a new `@open` scenario, a decision for the user, or a backlog item.
 
 ## Writing a spec
@@ -212,7 +213,7 @@ Set the `subagent_type` of each dispatch to the guilda agent of the job:
 
 | Job | `subagent_type` |
 | --- | --- |
-| An MD file (a spec, a plan, a brief) | `guilda:architect-executor` |
+| An MD file (a spec, a plan, a brief) | `guilda:architect-executor` (no Bash; a hook lets it write only `.md` files of the project) |
 | Code | `guilda:executor` |
 | A review | `guilda:reviewer` |
 | Research | `guilda:lab-researcher` |

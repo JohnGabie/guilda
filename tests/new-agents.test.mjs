@@ -16,7 +16,7 @@ const AGENTS = {
   'devops-advisor': { group: 'engineering', tools: 'Read, Grep, Glob', prefix: 'DEV', lead: true },
   'ai-lead': { group: 'ai', tools: 'Read, Grep, Glob', prefix: 'AIL', lead: true },
   'architect-executor': {
-    group: 'architect', tools: 'Read, Grep, Glob, Write, Edit, Bash', prefix: 'AEX', lead: false,
+    group: 'architect', tools: 'Read, Grep, Glob, Write, Edit', prefix: 'AEX', lead: false,
   },
   'coherence-validator': { group: 'architect', tools: 'Read, Grep, Glob', prefix: 'COH', lead: false },
 };
@@ -113,4 +113,14 @@ test('evals/agents has a case folder for each agent, and the README has the thre
       assert.ok(graders.length >= 1, `${c} has graders`);
     }
   }
+});
+
+test('architect-executor has no Bash', () => {
+  const rel = 'agents/architect-executor.md';
+  const { fields, body } = parse(rel);
+  const tools = fields.tools.split(/,\s*/);
+  assert.deepEqual(tools, ['Read', 'Grep', 'Glob', 'Write', 'Edit']);
+  assert.ok(!tools.includes('Bash'));
+  assert.match(body, /runs? no command/i, 'its text says it runs no command');
+  assert.match(section(body, 'Output format'), /^Checks: not run; the Architect runs them$/m);
 });
