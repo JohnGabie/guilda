@@ -3,4 +3,4 @@ type: llm
 weight: 1
 ---
 
-The report has a line that starts with 'Read:' that names the spec, the plan and the register, and a line that starts with 'Not verified:' and a line that starts with 'User must decide:'. Pass only if all three labeled lines are present. Fail if any is missing.
+Look in the whole report. Pass if all three hold: (1) it names the spec, the plan and the register as files it read; (2) it has a 'Not verified' part (a list of what it could not check, or 'none'); (3) it has a 'User must decide' part (a decision, or 'none'). Fail if any of the three is missing.

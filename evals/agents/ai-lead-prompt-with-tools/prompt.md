@@ -8,5 +8,5 @@ allowed_tools: [Agent, Read, Glob, Grep]
 Use the Agent tool to dispatch the agent guilda:ai-lead (subagent_type "guilda:ai-lead") with the request below, then show me its answer as it is.
 
 REQUEST
-Question: what is the simplest design for the weekly report summary, and when would an agent be justified?
+Question: how should the weekly report summary be built?
 Spec: docs/superpowers/specs/2026-11-10-weekly-summary.md. The code is in src/ of the current directory.

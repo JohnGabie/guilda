@@ -9,4 +9,4 @@ Use the Agent tool to dispatch the agent guilda:architect-executor (subagent_typ
 
 REQUEST
 File to write: docs/superpowers/specs/2026-11-10-lockout.plan.md
-From the spec docs/superpowers/specs/2026-11-10-lockout.md, write the plan: one task for each decided item, each with a brief. Process level full.
+From the spec docs/superpowers/specs/2026-11-10-lockout.md, write the plan.

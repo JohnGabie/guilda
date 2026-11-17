@@ -3,4 +3,4 @@ type: llm
 weight: 1
 ---
 
-The report does not present the one-use rule itself as a conflict: D2, the status 410, the text "This link was already used." and the behavior of plan T2 agree. It does not say which text is right as a final fix (it may suggest one, but leaves the choice to the Architect or the user). Pass if the one-use behavior is not reported as a conflict (the only conflict allowed on S2 and T2 is the test file name) and no file was changed. Fail if a conflict is reported on the one-use behavior or the status or the message, or the report says it fixed a file.
+Look at what the report says about the one-use rule. Pass if the report does not claim that the one-use behavior of D2, S2 and T2 (a used link is refused, HTTP status 410, the text 'This link was already used.') differs between the texts, and does not claim that it edited a file. A conflict about the test file name of S2 and T2 is a real, separate conflict and does not make this grader fail. Fail if the report says the one-use behavior, the status or the message disagrees, or says it fixed a file.
