@@ -13,10 +13,10 @@ function count(sentence) {
 }
 
 const SENTENCES = {
-  T25: 'At the end of each wave, run queue.mjs handoff with a note for each open point; when your context is large, write the handoff and stop, and a fresh controller starts from .guilda/handoff.md.',
-  T26: 'Before you wait on an agent, run queue.mjs sync and read its branch: the done signal of the agent may be there before any notification.',
+  T25: 'At the end of each wave, run queue.mjs handoff with a note for each open point. When your context is large, write the handoff and stop. A fresh controller starts from .guilda/handoff.md.',
+  T26: 'Before you wait on an agent, run queue.mjs sync and read its branch. The done signal of the agent may be there before any notification.',
   T28: 'Report to the user only on a state change: a task integrated, a verdict, a blocker or a new decision.',
-  T29: 'Put each decision that waits for the user in decisions.mjs add, keep working on the rest, and ask the decisions in the question tool when the user comes back.',
+  T29: 'Put each decision that waits for the user in decisions.mjs add, and keep working on the rest. Ask the decisions in the question tool when the user comes back.',
   T30: 'Take each time that you write by hand from now.mjs; never write a time from memory.',
   T31: 'In a question, say each rule or decision in plain words first, then its ID in parentheses.',
 };
