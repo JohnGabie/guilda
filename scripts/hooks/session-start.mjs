@@ -3,6 +3,7 @@ import path from 'node:path';
 import { projectState, readProjectRules, SETUP_NOTICE } from '../lib/project.mjs';
 import { contextRules } from '../lib/rules-context.mjs';
 import { countViolations, ensureIgnored } from '../lib/violations.mjs';
+import { countPending } from '../lib/decisions.mjs';
 import { compareSemver, installedVersion } from '../lib/version.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
 
@@ -154,6 +155,8 @@ await runHookMain(async (input) => {
   if (typeof input.session_id === 'string' && SESSION_ID_RE.test(input.session_id)) {
     parts.push(`guilda session: ${input.session_id}`);
   }
-  emit(parts.filter(Boolean).join('\n\n'), extensionNotice);
+  const pending = countPending(projectDir);
+  const pendingLine = pending > 0 ? `guilda: ${pending} pending decisions in .guilda/decisions-pending.md` : '';
+  emit(parts.filter(Boolean).join('\n\n'), [extensionNotice, pendingLine].filter(Boolean).join('\n'));
   if (ignored) writeMarker(projectDir, input.session_id, installed);
 });

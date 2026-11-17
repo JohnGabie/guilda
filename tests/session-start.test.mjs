@@ -407,3 +407,24 @@ test('the session start writes .extension-live.json into .gitignore', () => {
   run(dir);
   assert.ok(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').split('\n').includes('.extension-live.json'));
 });
+
+test('pending decisions: the systemMessage names the file', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const before = context(run(dir, 'compact'));
+  fs.writeFileSync(path.join(dir, '.guilda', 'decisions-pending.md'), '# Pending decisions\n\n## D1\nasked: x\n\n## D2\nasked: y\n');
+  writeLive(dir, 's1');
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  assert.equal(out.systemMessage, 'guilda: 2 pending decisions in .guilda/decisions-pending.md');
+  assert.equal(context(run(dir, 'compact')), before);
+  // Joined to another systemMessage with a newline.
+  const other = JSON.parse(runWithSession(dir, 'startup', 's2').stdout);
+  assert.equal(other.systemMessage, `${EXT_NOTICE}\nguilda: 2 pending decisions in .guilda/decisions-pending.md`);
+  assert.doesNotMatch(other.hookSpecificOutput.additionalContext, /pending decisions in/);
+});
+
+test('no pending file: no line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  writeLive(dir, 's1');
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  assert.equal(out.systemMessage, undefined);
+});

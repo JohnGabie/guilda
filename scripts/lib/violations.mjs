@@ -18,7 +18,7 @@ function currentBranch(projectDir) {
 
 /** The hook state files and folders that .guilda/.gitignore lists. */
 export const IGNORED = ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/',
-  'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md'];
+  'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md', 'decisions-pending.md'];
 
 /** Make .guilda/.gitignore list the hook state files. Adds missing lines, keeps the rest. Throws on I/O error. */
 export function ensureIgnored(guildaDir) {
