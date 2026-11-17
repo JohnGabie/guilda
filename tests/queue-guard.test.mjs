@@ -68,3 +68,79 @@ test('a script named queue.mjs counts in any folder, and when it runs with no no
   assert.equal(queueScriptCall('./scripts/queue.mjs . sync --session s1').session, 's1');
   assert.equal(queueScriptCall('node --test tests/queue.test.mjs'), null);
 });
+
+const ALL = ['journal.jsonl', 'state.json', 'lock', 'writer.json'];
+
+test('a quoted heredoc body with x => { writes no queue file', () => {
+  const dir = project();
+  for (const open of ["<<'EOF'", '<<"EOF"', '<<\\EOF', "<< 'EOF'"]) {
+    const command = `cat > tests/greeting.test.mjs ${open}\nconst greet = (x) => x;\n[1].map(x => {\n  return x;\n});\nEOF`;
+    assert.deepEqual(queueFileWrites(command, dir, dir), [], command);
+  }
+});
+
+test('a quoted heredoc body that names a queue file is text', () => {
+  const dir = project();
+  const command = "cat > notes.md <<'EOF'\necho x > .guilda/queue/state.json\nrm -rf .guilda\nEOF";
+  assert.deepEqual(queueFileWrites(command, dir, dir), []);
+  // A queue write after the end line is still read.
+  assert.deepEqual(queueFileWrites(`${command}\necho x > .guilda/queue/lock`, dir, dir), ['lock']);
+});
+
+test('an unquoted heredoc body is still read', () => {
+  const dir = project();
+  const command = 'cat > notes.md <<EOF\n$(echo x > .guilda/queue/state.json)\nEOF';
+  assert.ok(queueFileWrites(command, dir, dir).includes('state.json'));
+  assert.ok(queueFileWrites('cat > notes.md <<EOF\nx => {\nEOF', dir, dir).length > 0);
+});
+
+test('bash <<quoted heredoc body is still read', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const head of ["bash <<'EOF'", "sh <<'EOF'", "/bin/zsh -s <<'EOF'", "cat <<'EOF' | bash", "eval \"$(cat)\" <<'EOF'",
+    "source /dev/stdin <<'EOF'", ". /dev/stdin <<'EOF'", "cat <<'EOF' |\nbash", "bash \\\n<<'EOF'", '"$SH" <<\'EOF\'']) {
+    const command = head.includes('\n') ? `${head.split('\n')[0]}${body}\n${head.split('\n')[1]}` : `${head}${body}`;
+    assert.ok(queueFileWrites(command, dir, dir).includes('state.json'), command);
+  }
+});
+
+test('<<- with tabs ends the body', () => {
+  const dir = project();
+  const command = "cat > a.txt <<-'EOF'\n\tx => {\n\tEOF\necho x > .guilda/queue/writer.json";
+  assert.deepEqual(queueFileWrites(command, dir, dir), ['writer.json']);
+  // Without the dash, a tab before the delimiter does not end the body: the rest is body.
+  assert.deepEqual(queueFileWrites("cat > a.txt <<'EOF'\n\tEOF\necho x > .guilda/queue/writer.json", dir, dir), []);
+});
+
+test('a quoted heredoc with no end line', () => {
+  const dir = project();
+  assert.deepEqual(queueFileWrites("cat > a.txt <<'EOF'\nx => {\necho x > .guilda/queue/lock", dir, dir), []);
+});
+
+test('the redirect of the heredoc command line still counts', () => {
+  const dir = project();
+  assert.deepEqual(queueFileWrites("cat > .guilda/queue/state.json <<'EOF'\n{}\nEOF", dir, dir), ['state.json']);
+  assert.deepEqual(queueFileWrites("cat <<'EOF' > .guilda/queue/lock\nx\nEOF", dir, dir), ['lock']);
+});
+
+test('two heredocs on one line are read in order', () => {
+  const dir = project();
+  const quotedThenOpen = "cat <<'A' - <<B > out.txt\nx => {\nA\n$(rm .guilda/queue/lock)\nB";
+  assert.ok(queueFileWrites(quotedThenOpen, dir, dir).includes('lock'));
+  const bothQuoted = "cat <<'A' - <<'B' > out.txt\nx => {\nA\ny => {\nB\ntouch .guilda/queue/journal.jsonl";
+  assert.deepEqual(queueFileWrites(bothQuoted, dir, dir), ['journal.jsonl']);
+});
+
+test('a heredoc mark inside quotes, a comment or arithmetic is not a heredoc', () => {
+  const dir = project();
+  for (const command of [
+    "echo \"<<'EOF'\"\nrm .guilda/queue/lock\nEOF",
+    "echo x # <<'EOF'\nrm .guilda/queue/lock\nEOF",
+    "x=$((1<<'EOF'))\nrm .guilda/queue/lock\nEOF",
+    "echo \"a\nb\" <<'EOF'\nrm .guilda/queue/lock\nEOF",
+  ]) {
+    assert.ok(queueFileWrites(command, dir, dir).includes('lock'), command);
+  }
+  assert.deepEqual(queueFileWrites('echo x > .guilda/queue/lock', dir, dir), ['lock']);
+  assert.ok(ALL.length === 4);
+});

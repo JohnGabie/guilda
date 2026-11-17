@@ -2,6 +2,8 @@
 // This is a small reader, not a full shell parser. It fails closed: it reads each command twice, once with the shell
 // quotes and once with the quotes, the comments and the heredoc marks taken out. A write that either reading finds
 // counts. A path from a variable or a command substitution passes (the stated limit of R32).
+// For a write, the body of a quoted heredoc is text and is taken out first, unless a shell word, eval, source or `.`
+// on its line can run it, or the line is one that this reader does not follow.
 // A queue script call is any word whose base name is queue.mjs after a program `node` (or a program from a variable),
 // or a command word with that base name, in any folder; so no cd needs to be followed for a call.
 // Stated limits, which this reader does not see: a write through sed -i, dd, truncate, ln, find -delete, xargs, or
@@ -28,6 +30,134 @@ const GLOB = /[*?[{]/;
 /** The text with each quote, comment mark and heredoc mark taken out, so that each word in it is read as shell. */
 function flatten(command) {
   return command.replace(/\\\n/g, ' ').replace(/<</g, '< <').replace(/[`'"#\\]/g, ' ');
+}
+
+// The command words that run the text they read: a heredoc body given to one of them is read as shell.
+const BODY_RUNNERS = new Set([...SHELLS, 'eval', 'source', '.']);
+
+/**
+ * The quote state of a line that starts outside quotes, and the quoted heredoc marks in it, in order. `clean` is
+ * false when the line can go on to the next line (open quote, open `$(`/`(`/backtick, end `\` or `|`) or has a mark
+ * that this reader does not follow (arithmetic, `[[`): then no body of the line is dropped (fail closed).
+ */
+function scanHeredocLine(line) {
+  const marks = [];
+  let quote = null;
+  let depth = 0;
+  let backticks = 0;
+  let clean = !/\(\(|\$\[|\[\[/.test(line);
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+    } else if (quote === '"') {
+      if (ch === '\\') i += 1;
+      else if (ch === '"') quote = null;
+      else if (ch === '`' || (ch === '$' && line[i + 1] === '(')) clean = false;
+    } else if (ch === '\\') {
+      i += 1;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (ch === '#' && (i === 0 || /[\s;&|()]/.test(line[i - 1]))) {
+      break;
+    } else if (ch === '(') depth += 1;
+    else if (ch === ')') depth -= 1;
+    else if (ch === '`') backticks += 1;
+    else if (ch === '<' && line[i + 1] === '<' && line[i + 2] !== '<') {
+      const mark = readMark(line, i + 2);
+      if (mark === null) clean = false;
+      else if (mark.quoted !== null) {
+        marks.push(mark);
+        i = mark.next - 1;
+      } else i += 1;
+    }
+  }
+  const tail = line.replace(/\s+$/, '');
+  if (quote !== null || depth !== 0 || backticks % 2 !== 0 || tail.endsWith('\\') || tail.endsWith('|')
+    || tail.endsWith('|&')) {
+    clean = false;
+  }
+  return { clean, marks };
+}
+
+/**
+ * The heredoc delimiter word after `<<` at `start`: { strip, delimiter, quoted, next }, `quoted` true when any part of
+ * the word is quoted. { quoted: null } when there is no word; null when the word has an open quote.
+ */
+function readMark(line, start) {
+  let i = start;
+  const strip = line[i] === '-';
+  if (strip) i += 1;
+  while (line[i] === ' ' || line[i] === '\t') i += 1;
+  let delimiter = '';
+  let quoted = false;
+  while (i < line.length && !/[\s;&|()<>]/.test(line[i])) {
+    const ch = line[i];
+    if (ch === "'" || ch === '"') {
+      const end = line.indexOf(ch, i + 1);
+      if (end < 0) return null;
+      delimiter += line.slice(i + 1, end);
+      quoted = true;
+      i = end + 1;
+    } else if (ch === '\\') {
+      if (i + 1 >= line.length) return null;
+      delimiter += line[i + 1];
+      quoted = true;
+      i += 2;
+    } else {
+      delimiter += ch;
+      i += 1;
+    }
+  }
+  if (delimiter === '' && !quoted) return { quoted: null };
+  return { strip, delimiter, quoted, next: i };
+}
+
+/** True when a command word of the line can run a heredoc body: a shell, eval, source, `.`, or a variable. */
+function runsBody(line) {
+  return splitCommands(line).some((words) => {
+    const { rest } = stripPrefix(words);
+    return (rest.length > 0 && isVariable(rest[0])) || rest.some((w) => BODY_RUNNERS.has(path.basename(w)));
+  });
+}
+
+/**
+ * The text with the body lines of each quoted heredoc taken out: bash reads such a body as text, with no expansion.
+ * The heredoc line and the end line stay. A body is kept when its line can run it (a shell word, eval, source, `.`)
+ * or when this reader cannot follow the line; an unquoted body is kept (it can run `$(...)`). A quoted heredoc with
+ * no end line takes the rest of the text, as in bash.
+ */
+function dropQuotedBodies(command) {
+  const lines = command.split('\n');
+  const out = [];
+  let lineStartClean = true;
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    out.push(line);
+    i += 1;
+    const scan = lineStartClean ? scanHeredocLine(line) : { clean: false, marks: [] };
+    if (!lineStartClean || !scan.clean) {
+      // From a line that this reader cannot follow, the rest of the text is read as shell.
+      lineStartClean = false;
+      continue;
+    }
+    if (scan.marks.length === 0) continue;
+    const drop = scan.marks.some((m) => m.quoted) && !runsBody(line);
+    for (const mark of scan.marks) {
+      for (;;) {
+        if (i >= lines.length) break;
+        const body = lines[i];
+        i += 1;
+        if ((mark.strip ? body.replace(/^\t+/, '') : body) === mark.delimiter) {
+          out.push(body);
+          break;
+        }
+        if (!drop || !mark.quoted) out.push(body);
+      }
+    }
+  }
+  return out.join('\n');
 }
 
 /** The simple commands of the text, or null when the text ends inside an open quote. */
@@ -186,6 +316,7 @@ export function queueFileWrites(command, cwd, projectDir) {
   try {
     if (typeof command !== 'string' || command === '') return [];
     const targets = queueTargets(projectDir);
+    command = dropQuotedBodies(command);
     const entries = [
       ...findCreatedFiles(command, cwd),
       ...findCreatedFiles(flatten(command), cwd),
