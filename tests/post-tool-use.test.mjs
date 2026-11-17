@@ -109,3 +109,50 @@ test('hooks.json runs post-tool-use on Write|Edit', () => {
     args: ['${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-tool-use.mjs'],
   });
 });
+
+const SPEC_REL = 'docs/superpowers/specs/a.md';
+const SPEC_TEXT = '### D14 — Rule\n\nThe hook returns 404.\n\n### D15 — Other\n\nThe hook returns 500.\n';
+const PLAN_REL = 'docs/superpowers/specs/a.plan.md';
+const planUses = (uses) => `# Plan\n\n### T2 — Build\n\nOwns: D15\nUses: ${uses}\n`;
+
+test('trace warning', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  write(dir, PLAN_REL, planUses('D14@3f2a9c1b'));
+  const r = post(dir, write(dir, SPEC_REL, SPEC_TEXT), 'Edit');
+  assert.equal(r.code, 0);
+  const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+  const suspect = ctx.split('\n').filter((l) => l.startsWith('SUSPECT'));
+  assert.equal(suspect.length, 1, ctx);
+  assert.match(suspect[0], /T2/);
+  assert.match(suspect[0], /D14/);
+  const other = post(dir, write(dir, 'src/a.js', 'const a = 1;\n'), 'Edit');
+  assert.equal(other.code, 0);
+  assert.equal(other.stdout, '');
+});
+
+test('the ste findings still show', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  write(dir, PLAN_REL, planUses('D14@3f2a9c1b'));
+  const r = post(dir, write(dir, SPEC_REL, SPEC_TEXT + LONG), 'Edit');
+  const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /R15: fix these lines:/);
+  assert.match(ctx, /long-sentence 30 words/);
+});
+
+test('at most 15 lines in all, trace and ste together', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const uses = Array.from({ length: 10 }, (_, i) => `X${i + 1}`).join(', ');
+  write(dir, PLAN_REL, planUses(`${uses}, D14@3f2a9c1b`));
+  const vague = Array.from({ length: 20 }, (_, i) => `Line ${i} must handle it.`).join('\n') + '\n';
+  const r = post(dir, write(dir, SPEC_REL, SPEC_TEXT + vague), 'Edit');
+  const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+  assert.ok(ctx.split('\n').filter((l) => /^(SUSPECT|UNKNOWN)|vague-word/.test(l)).length <= 15, ctx);
+});
+
+test('a check error adds no line and exits 0', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(path.join(dir, 'docs/superpowers/specs/bad.md'), { recursive: true });
+  const r = post(dir, write(dir, SPEC_REL, SPEC_TEXT), 'Edit');
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+});
