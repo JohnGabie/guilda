@@ -53,7 +53,7 @@ Why:   An Architect executor that changes code skips the brief, the tests and th
 Check: judgment — The Architect reads the changed files before the spec review, and no hook checks it yet.
 
 ### AEX2 — Only decided items are decided
-Rule:  Tag an item `@decided` only when the request says that the user approved it, and tag each guess `@open`.
+Rule:  Tag an item `@decided` only when the user approved it, and tag each guess `@proposed` under "Guesses".
 Why:   A guess written as a decision builds a feature that the user never approved (R12).
 Check: judgment — The cold review of the spec compares each `@decided` item with the register.
 
