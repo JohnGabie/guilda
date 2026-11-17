@@ -81,10 +81,19 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
    If no known tool fits, research one and propose it. Tell the user: "This is the moment to set up the tools that QA needs." Setup that installs software or leaves the machine is the decision of the user.
 8. **Approval.** Run the builder check first (see Writing a spec). Stop. Ask the user to approve the spec in a separate message (R3).
 9. **Plan.** Write the plan as a `## Plan: Part N` section or as `<feature>.plan.md` (R4). At `full`, one task is one cycle (R24). Make small tasks with order and dependencies, tests first.
+   Give each plan task its `Uses:` and `Owns:` lines (R31). Give each plan one `Covers:` line with the spec items that it builds.
+   Read a block with `node <plugin root>/scripts/trace.mjs <project> show <key>`. Never read the whole spec for one ID.
+   Budget. Read it only when `config.usage.source` is `cswap` and the session has the `cswap` tools.
+   Then call `get_budget`, `estimate_task` and `fits` in this step and before each wave (X10).
+   The budget limits the planned work and never creates work.
+   `slow_down` lowers the number of agents at the same time and keeps at least 1.
+   `unknown` is not zero: the plan pace applies.
 10. **Briefs.** Write one brief for each task in the brief format (ARC6). Pick the tier (see Tier choice).
     Before each brief, sort each item to its group and call the leads (see Triage and leads).
+    The `Context:` line of each brief names `trace.mjs <project> show <key>` for each block that the brief cites.
 11. **Dispatch.** Before the first dispatch of a session, run `node <plugin root>/scripts/doctor.mjs <project> --session <id> --agents <the guilda:* agent types of the Agent tool>`.
     Show the user each line that is not PASS (D2).
+    Before each dispatch, run `trace.mjs <project> check` and `queue.mjs sync` (D14, D27). See Queue and trace.
     State the reply language (`config.languages.replies`) in each dispatch.
     If the model of a tier is not available, use one tier lower and tell the user (ARC4).
     Set the `subagent_type` of each dispatch (see Dispatch types).
@@ -173,8 +182,10 @@ Decisions: <the decision IDs that the task builds>
 Mutants: <for each new test, one change to the product code that makes it fail>
 Conflict cases: <each case where this task and another task touch the same state>
 Issue: #<N>
-Uses: D14@0a1b2c3d
+Uses: D14@0a1b2c3d, D27@1a2b3c4d
 ```
+
+`Uses:` has the form `Uses: <key>@<hash>, ...`: each block that the task cites, with its 8-hex hash (R31).
 
 `Base commit:` is required in each new brief, inline or in a file.
 `Mutants:` is required at `full` (ARC9).
@@ -209,10 +220,47 @@ A lesson changes the triage table of `.guilda/rules.md`.
 
 Leads: call the lead of each area to decide with it. They are `guilda:security`, `guilda:devops-advisor` and `guilda:ai-lead`.
 
+## Queue and trace
+
+Only you write the queue, through `queue.mjs` (R32). Each `queue.mjs` command takes `--session <id>`.
+
+Start of a build. Run `node <plugin root>/scripts/queue.mjs <project> init <plan file> --slots <n> [--part <N>] --session <id>`.
+The `<id>` is the ID of the context line `guilda session: <id>`.
+
+Before each dispatch, run `trace.mjs <project> check` and `queue.mjs sync` (D14, D27).
+The commands are `node <plugin root>/scripts/trace.mjs <project> check` and `node <plugin root>/scripts/queue.mjs <project> sync --session <id>`.
+Read each `SUSPECT` change before the dispatch. The task can still match the block (R31).
+Dispatch only a `ready` task. First run
+`queue.mjs <project> dispatch <task> --role <code> --tool <tool> --tier <tier> --session <id>`.
+Put the line `Address: <address>` of its output in the dispatch prompt.
+A check run of the Reviewer, QA or Security also gets `--check`.
+
+Record each run. After each `sync` that prints `record_task` lines, call `record_task` one time for each line, with the JSON of the line as the input.
+Call it only when the session has the `cswap` tools (X10). A failed call stops no work.
+
+End of a build. Read the official price page of each model provider and the PTAX rate of the Banco Central do Brasil on the record day.
+Never write a price from memory (ARC5). Anthropic: https://platform.claude.com/docs/en/about-claude/pricing.
+OpenAI: https://developers.openai.com/api/docs/pricing. Each price is in US dollars for one million tokens.
+`input` is the base input, `cacheRead` the cache hits, and `cacheCreation` the 5-minute cache writes (0 when the page has none).
+A model ID is the exact model string of the transcript, with no alias.
+`rateDate` is the date of the last PTAX rate on or before the record day. Write the prices file in this form:
+`{ "priceDate": "<day>", "priceSource": "<URL>", "models": { "<model id>": { "input": 0, "output": 0, "cacheRead": 0, "cacheCreation": 0 } }, "usdPerMTok": true, "brlPerUsd": 0, "rateDate": "<day>", "rateSource": "<URL>" }`.
+Then run `node <plugin root>/scripts/cost.mjs <project> --prices <file> [--work <work ID>] [--session <transcript> --analyzer <path>]`.
+The analyzer is `analyze-token-usage.py` of the installed `superpowers` plugin. Give the records of `.guilda/costs/` to the data skill.
+
+A named agent. The user names an agent by its role and task (`executor T3`), its address or its agent ID.
+Run `node <plugin root>/scripts/status.mjs <project> --agent <name>`.
+Then dispatch a `guilda:lab-reader` with the session analysts of `superpowers` on the transcript paths of the facts.
+The analysts are `stumbles`, `quality-evidence`, `request-conflicts`, `skill-timeline`, `cost-and-time` and `similar-session`.
+Propose the fix with the owner of each step. A rule change goes to the Architect. A user decision goes to the user (R12).
+
 ## Review verdicts
 
 The Reviewer can ask a question about the spec. Answer with facts: the line of the spec, the decision ID or the command output. Never argue for a verdict.
 The ledger records each question and each answer.
+Send each question of a `Questions:` section to the Executor with `SendMessage` and the agent ID of the attempt.
+Add each question and each answer to the ledger.
+If the user stopped the agent, answer from the transcript and the diff, with the mark `answered by the Architect`.
 The count of rejections for R11 is for each review unit. A verdict with `Stage: spec` does not count.
 
 ## Dispatch types
