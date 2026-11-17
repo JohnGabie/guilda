@@ -75,3 +75,76 @@ test('the three manifests have one version, and .version-bump.json lists each of
   const listed = readJson('.version-bump.json').files.map((f) => f.path);
   for (const p of [CORE, EXT, IOS]) assert.ok(listed.includes(p), `${p} is listed`);
 });
+
+// S44: THIRD-PARTY-NOTICES.md and the 16 copies of section 3f.
+const NOTICES = 'THIRD-PARTY-NOTICES.md';
+const COPIES = [
+  'skills/report/references/redaction-policy.md',
+  'skills/report/prompts/scrub.md',
+  'skills/report/prompts/scrub-audit.md',
+  'skills/report/templates/issue.md',
+  '.github/ISSUE_TEMPLATE/report-improvement.md',
+  '.github/ISSUE_TEMPLATE/report-bug.md',
+  '.github/ISSUE_TEMPLATE/report-feature.md',
+  '.github/ISSUE_TEMPLATE/report-other.md',
+  'skills/report/templates/case.md',
+  'skills/lab/templates/report.md',
+  'skills/architect/scripts/task-brief',
+  'skills/architect/scripts/review-package',
+  'skills/architect/scripts/sdd-workspace',
+  'skills/architect/scripts/task-start',
+  'skills/architect/scripts/task-done',
+  'scripts/bump-version.mjs',
+];
+const readText = (p) => fs.readFileSync(new URL(p, root), 'utf8').replace(/\r\n/g, '\n');
+
+/** The paths of the "Files copied or adapted" list: one path in backquotes on each list line. */
+function listedPaths() {
+  const text = readText(NOTICES);
+  const start = text.indexOf('Files copied or adapted');
+  assert.ok(start >= 0, 'the notices file has the list');
+  return [...text.slice(start).matchAll(/^- `([^`]+)`\s*$/gm)].map((m) => m[1]);
+}
+
+test('S44: the notices file has the MIT text and the copyright line', () => {
+  const text = readText(NOTICES);
+  assert.match(text, /^## superpowers/m);
+  assert.match(text, /https:\/\/github\.com\/obra\/superpowers/);
+  assert.match(text, /7\.0\.0/);
+  assert.match(text, /^MIT License$/m);
+  assert.match(text, /^Copyright \(c\) 2025 Jesse Vincent$/m);
+  assert.match(text, /Permission is hereby granted, free of charge/);
+  assert.match(text, /THE SOFTWARE IS PROVIDED "AS IS"/);
+});
+
+test('S44: its list is equal to the 16 paths of section 3f', () => {
+  assert.equal(COPIES.length, 16);
+  assert.deepEqual([...listedPaths()].sort(), [...COPIES].sort());
+});
+
+test('S44: each listed file exists', () => {
+  for (const p of listedPaths()) assert.ok(fs.existsSync(new URL(p, root)), p);
+});
+
+test('S44: each listed file names superpowers in a credit line', () => {
+  for (const p of listedPaths()) assert.match(readText(p), /superpowers/i, p);
+});
+
+// S31: the user skills. P3: a skill is hidden from the user menu by `user-invocable: false`.
+const hidden = (file) => /^user-invocable:\s*false\s*$/m.test(readText(file).match(/^---\n([\s\S]*?)\n---/)[1]);
+
+test('S31: the user skills of the core are architect, init, update and report', () => {
+  const dir = new URL('skills/', root);
+  const names = fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  const user = names.filter((n) => !hidden(`skills/${n}/SKILL.md`)).sort();
+  assert.deepEqual(user, ['architect', 'init', 'report', 'update']);
+});
+
+test('S31: the extension has no user skill', () => {
+  // plugins/guilda-skills/skills/ may be absent (no domain skill exists yet): then the loop runs over none.
+  const dir = new URL('plugins/guilda-skills/skills/', root);
+  const names = fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+    : [];
+  for (const n of names) assert.ok(hidden(`plugins/guilda-skills/skills/${n}/SKILL.md`), n);
+});
