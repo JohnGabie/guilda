@@ -51,10 +51,11 @@ const DISPATCH_TYPES =
 function untypedDispatch(input, toolInput) {
   if (typeof input.agent_type === 'string' && input.agent_type !== '') return null;
   const type = toolInput.subagent_type;
-  if (type === undefined || type === null || type === '') {
+  // Fail closed: a blank or non-string type counts as untyped, and case or spaces do not hide general-purpose.
+  if (typeof type !== 'string' || type.trim() === '') {
     return `ARC4: the main session dispatches a guilda agent, not an untyped agent. Use ${DISPATCH_TYPES}.`;
   }
-  if (type === 'general-purpose') {
+  if (type.trim().toLowerCase() === 'general-purpose') {
     return `ARC4: the main session dispatches a guilda agent, not general-purpose. Use ${DISPATCH_TYPES}.`;
   }
   return null;

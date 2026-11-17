@@ -329,3 +329,11 @@ test('no .guilda folder: nothing is refused', () => {
   }
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });
+
+test('ARC4: a blank, non-string or case variant of general-purpose from the main session is refused', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const subagent_type of ['   ', 123, {}, 'General-Purpose', ' general-purpose ']) {
+    const r = runHook(HOOK, { tool_name: 'Agent', tool_input: { subagent_type, prompt: 'x' } }, dir);
+    assert.match(denyReason(r), /^ARC4:/, String(subagent_type));
+  }
+});
