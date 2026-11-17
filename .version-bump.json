@@ -11,6 +11,10 @@
     {
       "path": "plugins/ios-on-linux/.claude-plugin/plugin.json",
       "field": "version"
+    },
+    {
+      "path": "plugins/guilda-panel/.claude-plugin/plugin.json",
+      "field": "version"
     }
   ],
   "audit": {

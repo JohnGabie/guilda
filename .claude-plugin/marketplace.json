@@ -1,6 +1,6 @@
 {
   "name": "guilda",
-  "description": "Marketplace for guilda, guilda-skills and ios-on-linux.",
+  "description": "Marketplace for guilda, guilda-skills, ios-on-linux and guilda-panel.",
   "owner": {
     "name": "USER"
   },
@@ -19,6 +19,11 @@
     {
       "name": "ios-on-linux",
       "source": "./plugins/ios-on-linux"
+    },
+    {
+      "name": "guilda-panel",
+      "source": "./plugins/guilda-panel",
+      "description": "A mod panel beside the chat. Needs host version 2.1.321 or later, the lowest seen with mod support."
     }
   ]
 }

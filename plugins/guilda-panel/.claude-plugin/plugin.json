@@ -1,0 +1,10 @@
+{
+  "name": "guilda-panel",
+  "version": "0.1.1",
+  "description": "A panel beside the Claude Code chat that shows the guilda queue and the agents of the project.",
+  "author": {
+    "name": "USER"
+  },
+  "repository": "https://github.com/JohnGabie/guilda",
+  "license": "MIT"
+}

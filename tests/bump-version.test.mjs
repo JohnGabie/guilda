@@ -144,3 +144,15 @@ test('the repository list: --check exits 0 and --audit exits 0 in the repository
   const audit = spawnSync(process.execPath, [script, '--audit'], { cwd: REPO_ROOT, encoding: 'utf8' });
   assert.equal(audit.status, 0, audit.stdout + audit.stderr);
 });
+
+test('bump-version lists four manifests (S33)', () => {
+  const list = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '.version-bump.json'), 'utf8'));
+  const paths = list.files.map((f) => f.path);
+  assert.equal(paths.length, 4, paths.join(', '));
+  assert.deepEqual(paths, [
+    '.claude-plugin/plugin.json',
+    'plugins/guilda-skills/.claude-plugin/plugin.json',
+    'plugins/ios-on-linux/.claude-plugin/plugin.json',
+    'plugins/guilda-panel/.claude-plugin/plugin.json',
+  ]);
+});

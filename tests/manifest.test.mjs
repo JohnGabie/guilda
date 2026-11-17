@@ -31,6 +31,7 @@ test('CHANGELOG top released entry equals plugin version', () => {
 const CORE = '.claude-plugin/plugin.json';
 const EXT = 'plugins/guilda-skills/.claude-plugin/plugin.json';
 const IOS = 'plugins/ios-on-linux/.claude-plugin/plugin.json';
+const PANEL = 'plugins/guilda-panel/.claude-plugin/plugin.json';
 
 test('the core manifest has no dependencies field (S17)', () => {
   assert.equal('dependencies' in readJson(CORE), false);
@@ -51,12 +52,19 @@ test('the ios-on-linux manifest has no dependencies field (S17)', () => {
   assert.equal('dependencies' in ios, false);
 });
 
-test('the marketplace lists three plugins with their sources (S17)', () => {
+test('the guilda-panel manifest has no dependencies field (S33)', () => {
+  const panel = readJson(PANEL);
+  assert.equal(panel.name, 'guilda-panel');
+  assert.equal('dependencies' in panel, false);
+});
+
+test('the marketplace lists four plugins with their sources (S33)', () => {
   const got = readJson('.claude-plugin/marketplace.json').plugins.map((p) => [p.name, p.source]);
   assert.deepEqual(got, [
     ['guilda', './'],
     ['guilda-skills', './plugins/guilda-skills'],
     ['ios-on-linux', './plugins/ios-on-linux'],
+    ['guilda-panel', './plugins/guilda-panel'],
   ]);
 });
 
@@ -68,12 +76,13 @@ test('allowCrossMarketplaceDependenciesOn has the marketplace of each dependency
   }
 });
 
-test('the three manifests have one version, and .version-bump.json lists each of them (S45)', () => {
+test('four manifests have one version, and .version-bump.json lists each of them (S45, S33)', () => {
   const version = readJson(CORE).version;
   assert.equal(readJson(EXT).version, version);
   assert.equal(readJson(IOS).version, version);
+  assert.equal(readJson(PANEL).version, version);
   const listed = readJson('.version-bump.json').files.map((f) => f.path);
-  for (const p of [CORE, EXT, IOS]) assert.ok(listed.includes(p), `${p} is listed`);
+  for (const p of [CORE, EXT, IOS, PANEL]) assert.ok(listed.includes(p), `${p} is listed`);
 });
 
 // S44: THIRD-PARTY-NOTICES.md and the 16 copies of section 3f.

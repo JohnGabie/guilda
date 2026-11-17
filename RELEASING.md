@@ -5,7 +5,8 @@ Do these steps for every merge to `main`.
 1. Raise the version. The plugins of this repository share one version. They bump together in each release, also
    when only one of them changed.
    - Until 0.2.0 the only plugin is the core `guilda`. Raise `version` in `.claude-plugin/plugin.json`.
-   - From 0.2.0 the plugins are the core `guilda`, the extension `guilda-skills` and `ios-on-linux`. Run
+   - From 0.2.0 the plugins are the core `guilda`, the extension `guilda-skills`, `ios-on-linux` and, from 0.3.0,
+     `guilda-panel`. Run
      `node scripts/bump-version.mjs <version>`. It writes the version in each plugin manifest. Then
      `node scripts/bump-version.mjs --check` must exit 0.
 
@@ -25,7 +26,7 @@ Do these steps for every merge to `main`.
    - Update the link references at the end of the file: `[unreleased]` compares the new tag with `HEAD`, and
      `[<version>]` compares the earlier tag with the new tag.
    - `scripts/changelog.mjs` reads these headings for `guilda:update`. Do not change their form.
-3. Run `npm test`. It must exit 0.
+3. Run `npm test`. It must exit 0. From 0.3.0, run also `claude plugin test plugins/guilda-panel`.
 4. Run `claude plugin validate --strict .`. It must print `Validation passed`. From 0.2.0, run it also for
    `plugins/guilda-skills` and `plugins/ios-on-linux`.
    - A smoke test of a release uses your normal login and config, and never changes it. Run
