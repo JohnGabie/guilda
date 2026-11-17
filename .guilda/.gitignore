@@ -1,2 +1,13 @@
 violations.jsonl
 format-retries.json
+.hooks-live.json
+.extension-live.json
+reports/
+queue/
+audit.jsonl
+transcripts/
+trace/
+status.md
+logs/
+.doctor-last.json
+.init-progress.json
