@@ -235,5 +235,6 @@ test('hooks.json has the PostToolUse Agent entry, and the Write|Edit entry is un
       },
     ],
   );
-  assert.equal(post.length, 2);
+  // T7 added a third PostToolUse entry (matcher *), per spec X6.
+  assert.equal(post.length, 3);
 });
