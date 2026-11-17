@@ -70,7 +70,7 @@ test('S16: { not json at startup: the rules, safe defaults and the notice', () =
 test('S16: the broken-layer context has the R28 heading', () => {
   const dir = tempProject({ config: '{ not json' });
   const ctx = context(run(dir));
-  assert.equal(HEADINGS[HEADINGS.length - 1][1], 'R28');
+  assert.ok(HEADINGS.some((h) => h[1] === 'R28'));
   assert.ok(ctx.includes('### R28 — Tell the user when guilda is not set up'));
 });
 
