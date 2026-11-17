@@ -88,10 +88,10 @@ await runHookMain(async (input) => {
   }
 
   const toolInput = input.tool_input ?? {};
-  if (!isExecutorDispatch(toolInput)) {
-    const refused = untypedDispatch(input, toolInput);
-    return refused === null ? 0 : deny(projectDir, 'ARC4', 'untyped dispatch', refused);
-  }
+  // ARC4 first: a Role: executor line does not let an untyped dispatch of the main session pass.
+  const refused = untypedDispatch(input, toolInput);
+  if (refused !== null) return deny(projectDir, 'ARC4', 'untyped dispatch', refused);
+  if (!isExecutorDispatch(toolInput)) return 0;
 
   // A live check on Claude Code 2.1.316 found the brief in tool_input.prompt. The docs do not state this field, so
   // fail open when it is absent.

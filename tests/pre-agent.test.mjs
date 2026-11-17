@@ -154,17 +154,25 @@ test('the same brief file with the field -> allow', () => {
   assert.equal(records(dir).length, 0);
 });
 
-test('another agent type with a Role: executor line -> the same check', () => {
+test('a subagent dispatch of another agent type with a Role: executor line -> the same check', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
+  const sub = (prompt) => ({ ...dispatch('general-purpose', prompt), agent_type: 'guilda:executor' });
   writeFile(dir, 'briefs/T1.md', BRIEF_NO_BASE);
-  const prompt = 'Role: executor\nBrief file: briefs/T1.md\n';
-  const reason = denyReason(runHook(HOOK, dispatch('general-purpose', prompt), dir));
+  const reason = denyReason(runHook(HOOK, sub('Role: executor\nBrief file: briefs/T1.md\n'), dir));
   assert.equal(reason, 'ARC6: brief incomplete: Base commit');
   writeFile(dir, 'briefs/T2.md', BRIEF);
-  const r = runHook(HOOK, dispatch('general-purpose', 'Role: executor\nBrief file: briefs/T2.md\n'), dir);
+  const r = runHook(HOOK, sub('Role: executor\nBrief file: briefs/T2.md\n'), dir);
   assert.equal(r.stdout, '');
-  const inline = denyReason(runHook(HOOK, dispatch('general-purpose', `Role: executor\n${BRIEF_NO_BASE}`), dir));
+  const inline = denyReason(runHook(HOOK, sub(`Role: executor\n${BRIEF_NO_BASE}`), dir));
   assert.equal(inline, 'ARC6: brief incomplete: Base commit');
+});
+
+test('a general-purpose dispatch of the main session with a Role: executor line and a full brief is refused (ARC4)', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  writeFile(dir, 'briefs/T2.md', BRIEF);
+  const reason = denyReason(runHook(HOOK, dispatch('general-purpose', 'Role: executor\nBrief file: briefs/T2.md\n'), dir));
+  assert.match(reason, /^ARC4:/);
+  assert.match(reason, /guilda:executor/);
 });
 
 test('a relative Brief file resolves from the project root', () => {
