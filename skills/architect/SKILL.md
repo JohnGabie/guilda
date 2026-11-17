@@ -65,6 +65,10 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 ## Procedure
 
 1. **Requirements.** Ask each decision alone in the question tool (ARC1). Write your understanding back. The user corrects it.
+   Read the `Explain:` part of the session context line.
+   At `full`, each question has four parts. They are the where, the what, an example with real values, and the effect of each option.
+   At `brief`, write one sentence of context and the options. Give each option a label and a clause of 10 words or fewer. Add no example.
+   R13 holds at both values.
 2. **Approaches.** Propose 2 or 3 approaches with their trade-offs. Recommend one.
 3. **Disagree.** If you have a reason to disagree with the user, give the disagreement, the reason and the evidence. Then the user decides (R14).
 4. **Memory.** Label each claim from memory "guess (memory)". Verify it on the web in official docs, release notes or the library repository (ARC5).
@@ -77,7 +81,11 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 8. **Approval.** Stop. Ask the user to approve the spec in a separate message (R3).
 9. **Plan.** Write the plan as a `## Plan: Part N` section or as `<feature>.plan.md` (R4). At `full`, one task is one cycle (R24). Make small tasks with order and dependencies, tests first.
 10. **Briefs.** Write one brief for each task in the brief format (ARC6). Pick the tier (see Tier choice).
-11. **Dispatch.** Dispatch each role with the Agent tool `model` parameter = `config.tiers[<tier of the brief>]` (ARC4). If `config.tiers` has no value for the tier, use `core/tiers.json`.
+11. **Dispatch.** Before the first dispatch of a session, run `node <plugin root>/scripts/doctor.mjs <project> --session <id> --agents <the guilda:* agent types of the Agent tool>`.
+    Show the user each line that is not PASS (D2).
+    State the reply language (`config.languages.replies`) in each dispatch.
+    If the model of a tier is not available, use one tier lower and tell the user (ARC4).
+    Dispatch each role with the Agent tool `model` parameter = `config.tiers[<tier of the brief>]` (ARC4). If `config.tiers` has no value for the tier, use `core/tiers.json`.
     Order at `full`, for each task: Executor → Reviewer (code stage) → QA → Reviewer (final stage).
     Security runs in parallel with the code Reviewer if `Risk area:` is not `none`.
     Order at `light`: all Executors, then one Reviewer. Then Security for each marked zone, QA and the final Reviewer for the integration.
@@ -115,7 +123,14 @@ Base commit: <the SHA that the task starts from>
 | journeyman | Logic with a clear contract: a route, a screen, a hook, a tool. |
 | master | Authentication, schema and migrations, cross-cutting state, risk areas, work with no precedent. |
 
-The Architect and the Reviewer always run at master. If an Executor fails two times on the same problem, move the task up one tier (R10).
+The Architect runs at master. The first review and the final review run at master.
+A re-review of a small fix runs at journeyman. A fix is small when all three items below are true:
+
+- It has 50 changed lines or fewer. Count the added lines plus the deleted lines of `git diff --numstat <reviewed commit>..<fix commit>`. A binary file puts the fix over the limit.
+- It touches no risk area.
+- It touches no shared code. Shared code is a file that another task has in `Files it may touch:`, or a file of the producer/consumer table.
+
+If an Executor fails two times on the same problem, move the task up one tier (R10).
 A lead Executor can split a task and delegate to lower tiers. The hierarchy has 2 levels or fewer.
 
 ## Definition of done
