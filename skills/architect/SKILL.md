@@ -66,6 +66,7 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 ## Procedure
 
 1. **Requirements.** Ask each decision alone in the question tool (ARC1). Write your understanding back. The user corrects it.
+   In a question, say each rule or decision in plain words first, then its ID in parentheses.
    Read the `Explain:` part of the session context line.
    At `full`, each question has four parts. They are the where, the what, an example with real values, and the effect of each option.
    At `brief`, write one sentence of context and the options. Give each option a label and a clause of 10 words or fewer. Add no example.
@@ -94,6 +95,7 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 11. **Dispatch.** Before the first dispatch of a session, run `node <plugin root>/scripts/doctor.mjs <project> --session <id> --agents <the guilda:* agent types of the Agent tool>`.
     Show the user each line that is not PASS (D2).
     Before each dispatch, run `trace.mjs <project> check` and `queue.mjs sync` (D14, D27). See Queue and trace.
+    Before you wait on an agent, run queue.mjs sync and read its branch: the done signal of the agent may be there before any notification.
     State the reply language (`config.languages.replies`) in each dispatch.
     If the model of a tier is not available, use one tier lower and tell the user (ARC4).
     Set the `subagent_type` of each dispatch (see Dispatch types).
@@ -105,6 +107,9 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
     For a Reviewer question and the count of rejections, see Review verdicts.
     After an Architect executor reports, run the checks of the task yourself: the commands of the `checks` key and `node --test` on the test files that git tracks (R6).
 13. **Findings.** Sort each out-of-scope finding of QA and the Executor. Each finding becomes a new `@open` scenario, a decision for the user, or a backlog item.
+    Put each decision that waits for the user in decisions.mjs add, keep working on the rest, and ask the decisions in the question tool when the user comes back.
+    Run it as `node <plugin root>/scripts/decisions.mjs <project> add --id <ID> --context <text> --option <text>... --recommended <n> --blocks <text>`.
+14. **Reports.** Report to the user only on a state change: a task integrated, a verdict, a blocker or a new decision.
 
 ## Writing a spec
 
@@ -154,6 +159,8 @@ A later task finds the copies with grep. The marker is not a command.
 Foundation task. It adds the ignore entries of each tool that it adds.
 
 Waves. No two tasks of one wave touch one file (R8). Each wave names its base commit.
+At the end of each wave, run queue.mjs handoff with a note for each open point; when your context is large, write the handoff and stop, and a fresh controller starts from .guilda/handoff.md.
+Run it as `node <plugin root>/scripts/queue.mjs <project> handoff [--note <text>]... --session <id>`.
 
 ## Brief format
 
@@ -247,6 +254,9 @@ A model ID is the exact model string of the transcript, with no alias.
 `{ "priceDate": "<day>", "priceSource": "<URL>", "models": { "<model id>": { "input": 0, "output": 0, "cacheRead": 0, "cacheCreation": 0 } }, "usdPerMTok": true, "brlPerUsd": 0, "rateDate": "<day>", "rateSource": "<URL>" }`.
 Then run `node <plugin root>/scripts/cost.mjs <project> --prices <file> [--work <work ID>] [--session <transcript> --analyzer <path>]`.
 The analyzer is `analyze-token-usage.py` of the installed `superpowers` plugin. Give the records of `.guilda/costs/` to the data skill.
+
+Times. Take each time that you write by hand from now.mjs; never write a time from memory.
+Run it as `node <plugin root>/scripts/now.mjs`.
 
 A named agent. The user names an agent by its role and task (`executor T3`), its address or its agent ID.
 Run `node <plugin root>/scripts/status.mjs <project> --agent <name>`.
