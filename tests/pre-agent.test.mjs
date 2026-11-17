@@ -372,3 +372,10 @@ test('ARC4: a broken project layer reads no dispatch.agentTypes, and the type is
   const dir = tempProject({ config: '{ not json' });
   assert.match(denyReason(runHook(HOOK, dispatch('my-project-agent', 'do it'), dir)), /^ARC4: /);
 });
+
+test('ARC6: a case or space variant of guilda:executor still gets the brief check', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const type of ['GUILDA:EXECUTOR', ' guilda:Executor ']) {
+    assert.equal(denyReason(runHook(HOOK, dispatch(type, BRIEF_NO_BASE), dir)), 'ARC6: brief incomplete: Base commit');
+  }
+});

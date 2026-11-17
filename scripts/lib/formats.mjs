@@ -67,7 +67,9 @@ export function briefFileOf(prompt) {
 /** True for a dispatch of the guilda Executor, or a dispatch whose prompt has a `Role: executor` line. */
 export function isExecutorDispatch(toolInput) {
   if (!toolInput || typeof toolInput !== 'object') return false;
-  if (toolInput.subagent_type === 'guilda:executor') return true;
+  const type = toolInput.subagent_type;
+  // Case and spaces do not hide the Executor from the brief check (ARC4 also reads the type this way).
+  if (typeof type === 'string' && type.trim().toLowerCase() === 'guilda:executor') return true;
   return typeof toolInput.prompt === 'string' && /^Role:\s*executor\s*$/im.test(toolInput.prompt);
 }
 
