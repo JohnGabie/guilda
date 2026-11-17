@@ -1,0 +1,8 @@
+agent: T3-exe-7f2a (executor, claude, in session, agent a1b2c3)
+task: T3 — Login form; attempt 1; state done
+brief: .guilda/work/login/T3-brief.md; base commit <base>
+blocks: D14@<d14> (now <d14>), D27@0b1c2d3e (now <d27now>, SUSPECT)
+commits: <base>..<head>, 2 commits
+reviews: T3-rev-a9f0 REJECTED-SMALL code; T3-rev-b7c1 APPROVED final
+audit: 3 tool calls; files: src/login.js, tests/login.test.js
+transcript: <transcript> (copy: .guilda/transcripts/T3/a1b2c3.jsonl)

@@ -1,0 +1,6 @@
+{"kind":"tool","t":"2026-11-17T10:01:00.000Z","session":"s1","agentId":"a1b2c3","agentType":"guilda:executor","task":"T3","tool":"Write","target":"src/login.js"}
+{"kind":"tool","t":"2026-11-17T10:02:00.000Z","session":"s1","agentId":"a1b2c3","agentType":"guilda:executor","task":"T3","tool":"Edit","target":"tests/login.test.js"}
+{"kind":"tool","t":"2026-11-17T10:03:00.000Z","session":"s1","agentId":"a1b2c3","agentType":"guilda:executor","task":"T3","tool":"Bash","target":"node"}
+{"kind":"end","t":"2026-11-17T10:05:00.000Z","agentId":"a1b2c3","agentType":"guilda:executor","task":"T3","transcript":"<transcript>","copy":".guilda/transcripts/T3/a1b2c3.jsonl"}
+{"kind":"verdict","t":"2026-11-17T10:06:30.000Z","agentId":"r1","task":"T3","result":"REJECTED-SMALL","stage":"code"}
+{"kind":"verdict","t":"2026-11-17T10:07:30.000Z","agentId":"r2","task":"T3","result":"APPROVED","stage":"final"}

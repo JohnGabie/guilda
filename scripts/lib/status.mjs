@@ -70,3 +70,76 @@ export function renderStatus(state, events, { now, count = DEFAULT_EVENTS } = {}
   out.push(`Agent work: ${(o.agentSeconds / SECONDS_PER_HOUR).toFixed(1)} h`);
   return `${out.join('\n')}\n`;
 }
+
+// ---- --agent (D32, section 4f) ----
+
+const SHORT_HASH = 7;
+const FILE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
+const COMMIT_ID = /^[0-9a-f]{7,64}$/;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const short = (hash) => String(hash).slice(0, SHORT_HASH);
+const roleCodeOf = (name) => Object.keys(ROLE_NAMES).find((c) => ROLE_NAMES[c] === name) ?? null;
+
+/** The runs (dispatch events) that a name picks: an address, an agent ID, or `<role name> <task ID>`. */
+function pickRuns(events, name) {
+  const dispatches = events.filter((e) => e && e.type === 'dispatch' && typeof e.address === 'string');
+  const byAddress = dispatches.filter((d) => d.address === name);
+  if (byAddress.length > 0) return byAddress;
+  const bound = events.filter((e) => e && e.type === 'agent' && e.agentId === name).map((e) => e.address);
+  const byAgent = dispatches.filter((d) => bound.includes(d.address));
+  if (byAgent.length > 0) return byAgent.slice(-1);
+  const m = /^(\S+)\s+(\S+)$/.exec(name);
+  const code = m ? roleCodeOf(m[1]) : null;
+  return code ? dispatches.filter((d) => d.role === code && d.task === m[2]) : [];
+}
+
+/**
+ * The text of `status --agent` (section 4f). Pure: the caller gives `blockNow(key)` ({ hash } or { finding })
+ * and `countCommits(base, head)` (a number or null).
+ */
+export function renderAgent(name, state, events, audit, { blockNow, countCommits }) {
+  const runs = pickRuns(events, name);
+  if (runs.length === 0) return null;
+  const blocks = runs.map((run) => {
+    const task = state.tasks?.[run.task] ?? {};
+    const agent = events.filter((e) => e && e.type === 'agent' && e.address === run.address).at(-1);
+    const agentId = agent?.agentId ?? null;
+    const mine = audit.filter((l) => agentId !== null && l && l.agentId === agentId);
+    const tools = mine.filter((l) => l.kind === 'tool');
+    const files = [...new Set(tools.filter((l) => FILE_TOOLS.has(l.tool) && typeof l.target === 'string').map((l) => l.target))];
+    const end = mine.filter((l) => l.kind === 'end').at(-1);
+    const done = events.filter((e) => e && e.type === 'signal' && e.kind === 'done' && e.task === run.task && e.attempt === run.attempt).at(-1);
+    const head = done?.head ?? null;
+    const n = run.baseCommit && head ? countCommits(run.baseCommit, head) : null;
+    const uses = Array.isArray(run.uses) ? run.uses : [];
+    const blockText = uses.map((u) => {
+      const at = String(u).lastIndexOf('@');
+      const key = at < 0 ? String(u) : String(u).slice(0, at);
+      const hash = at < 0 ? null : String(u).slice(at + 1);
+      const now = blockNow(key);
+      if (!now.hash) return `${u} (${now.finding ?? 'UNKNOWN'})`;
+      return `${u} (now ${now.hash}${now.hash === hash ? '' : ', SUSPECT'})`;
+    });
+    const checks = run.check === true
+      ? [run]
+      : events.filter((e) => e && e.type === 'dispatch' && e.check === true && e.task === run.task && e.attempt === run.attempt);
+    const reviews = checks.map((c) => {
+      const id = events.filter((e) => e && e.type === 'agent' && e.address === c.address).at(-1)?.agentId;
+      const v = audit.filter((l) => l && l.kind === 'verdict' && id !== undefined && l.agentId === id).at(-1);
+      return v ? `${c.address} ${[v.result ?? 'no result', v.stage].filter(Boolean).join(' ')}` : `${c.address} no verdict`;
+    });
+    const where = run.inSession === false ? 'outside' : 'in session';
+    const transcript = end ? `transcript: ${end.transcript ?? 'none'}${end.copy ? ` (copy: ${end.copy})` : ''}` : 'transcript: none';
+    return [
+      `agent: ${run.address} (${roleName(run.role)}, ${run.tool ?? '-'}, ${where}, ${agentId === null ? 'no agent ID' : `agent ${agentId}`})`,
+      `task: ${run.task} ${'—'} ${task.title ?? run.task}; attempt ${run.attempt}; state ${task.state ?? '-'}`,
+      `brief: ${run.briefFile ?? 'none'}; base commit ${run.baseCommit ? short(run.baseCommit) : 'none'}`,
+      `blocks: ${blockText.length > 0 ? blockText.join(', ') : 'none'}`,
+      n === null ? 'commits: not measured' : `commits: ${short(run.baseCommit)}..${short(head)}, ${plural(n, 'commit')}`,
+      `reviews: ${reviews.length > 0 ? reviews.join('; ') : 'none'}`,
+      `audit: ${plural(tools.length, 'tool call')}; files: ${files.length > 0 ? files.join(', ') : 'none'}`,
+      transcript,
+    ].join('\n');
+  });
+  return `${blocks.join('\n\n')}\n`;
+}

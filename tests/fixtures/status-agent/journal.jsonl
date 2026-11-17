@@ -1,0 +1,14 @@
+{"seq":1,"t":"2026-11-17T10:00:00.000Z","type":"plan","plan":"p.plan.md","part":null,"work":"w-5c1e9a02","slots":3}
+{"seq":2,"t":"2026-11-17T10:00:00.000Z","type":"task","task":"T3","work":"w-5c1e9a02","key":null,"title":"Login form","deps":[],"uses":[],"owns":[]}
+{"seq":3,"t":"2026-11-17T10:00:01.000Z","type":"state","task":"T3","from":"pending","to":"ready","cause":"deps"}
+{"seq":4,"t":"2026-11-17T10:00:02.000Z","type":"dispatch","task":"T3","attempt":1,"address":"T3-exe-7f2a","role":"exe","tool":"claude","inSession":true,"check":false,"tier":"journeyman","session":"s1","briefFile":".guilda/work/login/T3-brief.md","baseCommit":"<base>","uses":["D14@<d14>","D27@0b1c2d3e"]}
+{"seq":5,"t":"2026-11-17T10:00:02.000Z","type":"state","task":"T3","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":6,"t":"2026-11-17T10:00:03.000Z","type":"agent","address":"T3-exe-7f2a","task":"T3","attempt":1,"agentId":"a1b2c3"}
+{"seq":7,"t":"2026-11-17T10:00:04.000Z","type":"state","task":"T3","from":"dispatched","to":"running","cause":"started"}
+{"seq":8,"t":"2026-11-17T10:05:00.000Z","type":"signal","address":"T3-exe-7f2a","task":"T3","attempt":1,"kind":"done","at":"2026-11-17T10:05:00.000Z","reason":"finished","usage":null,"tokens":null,"busyUntil":null,"agentId":"a1b2c3","head":"<head>"}
+{"seq":9,"t":"2026-11-17T10:05:01.000Z","type":"state","task":"T3","from":"running","to":"review","cause":"done"}
+{"seq":10,"t":"2026-11-17T10:06:00.000Z","type":"dispatch","task":"T3","attempt":1,"address":"T3-rev-a9f0","role":"rev","tool":"claude","inSession":true,"check":true,"tier":"master","session":"s1","briefFile":null,"baseCommit":null,"uses":[]}
+{"seq":11,"t":"2026-11-17T10:06:01.000Z","type":"agent","address":"T3-rev-a9f0","task":"T3","attempt":1,"agentId":"r1"}
+{"seq":12,"t":"2026-11-17T10:07:00.000Z","type":"dispatch","task":"T3","attempt":1,"address":"T3-rev-b7c1","role":"rev","tool":"claude","inSession":true,"check":true,"tier":"master","session":"s1","briefFile":null,"baseCommit":null,"uses":[]}
+{"seq":13,"t":"2026-11-17T10:07:01.000Z","type":"agent","address":"T3-rev-b7c1","task":"T3","attempt":1,"agentId":"r2"}
+{"seq":14,"t":"2026-11-17T10:08:00.000Z","type":"state","task":"T3","from":"review","to":"done","cause":"approve"}
