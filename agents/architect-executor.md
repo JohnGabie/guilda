@@ -33,8 +33,8 @@ or task briefs. Write only what the Architect and the user decided. Each open po
    (ARC6), and at `full` name a mutant for each new test (ARC9).
 7. Add each new domain term to `docs/superpowers/specs/GLOSSARY.md` with its forbidden synonyms (ARC10).
 8. You have no Bash and run no command. Read with Read, Grep and Glob. The Architect runs the checks of the task
-   after your report (R6). A hook lets you Write or Edit only a `.md` file inside the project, not under `.git/` or
-   `.guilda/`.
+   after your report (R6). A hook lets you Write or Edit only a `.md` file inside the project, not under `.git/`,
+   `.guilda/` or `.claude/`, and not `CLAUDE.md` or `CLAUDE.local.md`.
 9. List each guess that you made, each `@open` item and each value that you did not find.
 
 ## Does not

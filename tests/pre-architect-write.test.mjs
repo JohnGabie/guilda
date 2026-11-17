@@ -8,7 +8,8 @@ import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 // T24: guilda:architect-executor writes only Markdown files inside the project, not under .git or .guilda (AEX).
 const HOOK = 'scripts/hooks/pre-architect-write.mjs';
 const AEX = 'guilda:architect-executor';
-const REASON = 'AEX: guilda:architect-executor writes only Markdown files inside the project, not under .git or .guilda.';
+const REASON =
+  'AEX: guilda:architect-executor writes only Markdown files inside the project, not under .git, .guilda or .claude, and not CLAUDE.md or CLAUDE.local.md.';
 
 // MAIN: the main session, whose hook input has no agent_type.
 const MAIN = null;
@@ -80,6 +81,31 @@ test('a symlinked folder that points out is refused', () => {
   assertDeny(runHook(HOOK, write(path.join(dir, 'f.md')), dir));
   fs.symlinkSync(path.join(dir, '.guilda'), path.join(dir, 'g'));
   assertDeny(runHook(HOOK, write(path.join(dir, 'g', 'a.md')), dir));
+});
+
+test('a file under .claude/ and a CLAUDE.md or CLAUDE.local.md file are refused', () => {
+  const dir = project();
+  for (const p of ['.claude/agents/x.md', '.claude/commands/y.md', 'sub/.Claude/a.md', 'CLAUDE.md', 'sub/claude.local.md', 'docs/Claude.md']) {
+    assertDeny(runHook(HOOK, write(path.join(dir, p)), dir));
+  }
+  assertPass(runHook(HOOK, write(path.join(dir, 'docs', 'notes.md')), dir));
+});
+
+test('a dangling symlinked folder is refused', () => {
+  const dir = project();
+  const missing = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guilda out ')), 'missing');
+  fs.mkdirSync(path.join(dir, 'docs'));
+  fs.symlinkSync(missing, path.join(dir, 'docs', 'link'));
+  assertDeny(runHook(HOOK, write(path.join(dir, 'docs', 'link', 'a.md')), dir));
+  assertDeny(runHook(HOOK, write(path.join(dir, 'docs', 'link', 'deep', 'a.md')), dir));
+});
+
+test('the agent type without the plugin prefix is checked too', () => {
+  const dir = project();
+  for (const t of ['architect-executor', '  Architect-Executor ']) {
+    assertDeny(runHook(HOOK, write(path.join(dir, 'src', 'a.js'), t), dir));
+    assertPass(runHook(HOOK, write(path.join(dir, 'a.md'), t), dir));
+  }
 });
 
 test('a hard link is refused', () => {

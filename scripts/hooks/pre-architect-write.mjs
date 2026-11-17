@@ -6,11 +6,14 @@ import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 
 // AEX: the Architect executor has no Bash, and writes only Markdown files inside the project (LLM06: the check is in
 // code, not in the model). It fails closed: a missing or odd input is refused.
-const AGENT = 'guilda:architect-executor';
+// The agent type with or without the plugin prefix.
+const AGENTS = Object.freeze(['guilda:architect-executor', 'architect-executor']);
 const REASON =
-  'AEX: guilda:architect-executor writes only Markdown files inside the project, not under .git or .guilda.';
+  'AEX: guilda:architect-executor writes only Markdown files inside the project, not under .git, .guilda or .claude, and not CLAUDE.md or CLAUDE.local.md.';
 const CHECKED_TOOLS = Object.freeze(['Write', 'Edit']);
-const CLOSED_FOLDERS = Object.freeze(['.git', '.guilda']);
+const CLOSED_FOLDERS = Object.freeze(['.git', '.guilda', '.claude']);
+// Instructions loaded into the main session (LLM06), at any level.
+const CLOSED_FILES = Object.freeze(['claude.md', 'claude.local.md']);
 
 /** The parts of `target` below `root`, or null when `target` is not below it. */
 function partsBelow(root, target) {
@@ -21,8 +24,9 @@ function partsBelow(root, target) {
   return parts;
 }
 
-/** True when no part is .git or .guilda, in any case. */
-function noClosedFolder(parts) {
+/** True when no folder is .git, .guilda or .claude and the file is not CLAUDE.md or CLAUDE.local.md, in any case. */
+function noClosedPart(parts) {
+  if (CLOSED_FILES.includes(parts.at(-1).toLowerCase())) return false;
   return !parts.some((p) => CLOSED_FOLDERS.includes(p.toLowerCase()));
 }
 
@@ -36,6 +40,14 @@ function realTarget(file) {
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
     }
+    // A folder that is a dangling symbolic link: its target is unknown, so the path is refused.
+    let st = null;
+    try {
+      st = fs.lstatSync(dir);
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    if (st !== null && st.isSymbolicLink()) throw new Error('dangling link');
     const up = path.dirname(dir);
     if (up === dir) throw new Error('no folder');
     rest.unshift(path.basename(dir));
@@ -52,11 +64,11 @@ function allowedPath(projectDir, filePath) {
   const lexical = path.resolve(root, filePath);
   // The path as written: inside the project root, as given or as its real path, with no closed folder.
   const written = partsBelow(root, lexical) ?? partsBelow(rootReal, lexical);
-  if (written === null || !noClosedFolder(written)) return false;
+  if (written === null || !noClosedPart(written)) return false;
   // The real path: each folder that exists resolves inside the real root (no link out, no link to a closed folder).
   const real = realTarget(lexical);
   const parts = partsBelow(rootReal, real);
-  if (parts === null || !noClosedFolder(parts)) return false;
+  if (parts === null || !noClosedPart(parts)) return false;
   let st;
   try {
     st = fs.lstatSync(lexical);
@@ -83,7 +95,7 @@ await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   if (projectState(projectDir).state === 'none') return 0;
   const type = typeof input.agent_type === 'string' ? input.agent_type.trim().toLowerCase() : '';
-  if (type !== AGENT) return 0;
+  if (!AGENTS.includes(type)) return 0;
   let ok = false;
   try {
     const toolInput = input.tool_input;
