@@ -141,4 +141,9 @@ Check: judgment — No check can see truth yet, so a Lab study (D39, D46) refine
 ### R28 — Tell the user when guilda is not set up
 Rule:  With no `.guilda/` folder, tell the user that guilda is not set up, and run no other law.
 Why:   A plugin that loads and does nothing looks like it works, so the user trusts checks that never ran (#2, #11).
-Check: law — SessionStart, and PreToolUse on the dispatch of a `guilda:*` agent, print the set-up notice.
+Check: law — SessionStart, and PreToolUse on a guilda skill or a `guilda:*` agent, print the set-up notice.
+
+### R30 — Skills by role group
+Rule:  Load a guilda skill only when its `groups` list has your role group or the value `shared`.
+Why:   A skill of another group gives an agent methods that its role must not use, such as `red-team` in an Engineering Executor.
+Check: law — PreToolUse refuses a `Skill` call of a guilda skill from an agent that has no role group, or no group of the skill.
