@@ -696,3 +696,14 @@ test('a task named __proto__ in the journal touches no prototype', () => {
   assert.equal(Object.hasOwn(s.tasks, '__proto__'), true);
   assert.equal(s.tasks.__proto__.state, 'ready');
 });
+
+test('a journal that is a hard link to another file is refused, and the other file does not change', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const outside = path.join(tempProject(), 'outside.txt');
+  fs.writeFileSync(outside, 'keep\n');
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  fs.linkSync(outside, path.join(dir, '.guilda', 'queue', 'journal.jsonl'));
+  const r = spawnSync(process.execPath, [SCRIPT, dir, 'sync'], { encoding: 'utf8' });
+  assert.equal(r.status, 2);
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'keep\n');
+});

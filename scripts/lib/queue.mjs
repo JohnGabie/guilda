@@ -833,14 +833,17 @@ export function openQueue(projectDir) {
 function openPlain(file, flags) {
   let fd;
   try {
-    fd = fs.openSync(file, flags | fs.constants.O_NOFOLLOW, 0o644);
+    // O_NONBLOCK: a planted FIFO cannot block the run while it holds the lock.
+    fd = fs.openSync(file, flags | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o644);
   } catch (err) {
     if (err.code === 'ENOENT') return null;
     throw ioError(file);
   }
   let ok = false;
   try {
-    ok = fs.fstatSync(fd).isFile();
+    // A plain file with one link: a hard link to a file outside the queue is refused too.
+    const st = fs.fstatSync(fd);
+    ok = st.isFile() && st.nlink === 1;
   } finally {
     if (!ok) fs.closeSync(fd);
   }
