@@ -1,6 +1,6 @@
 ---
 description: The skill ai-evals writes an eval suite for a skill with real cases, a dated threshold, a budget and injection cases.
-max_turns: 30
+max_turns: 100
 timeout_seconds: 540
 allowed_tools: [Skill, Read, Glob, Grep, Write]
 ---
