@@ -37,3 +37,45 @@ test('with config: context has R5, the docs language and the glossary path', () 
   const n = out.additionalContext.split('\n').filter((l) => l.trim()).length;
   assert.ok(n <= 60 + 3, `got ${n}`);
 });
+
+const agentsDir = (dir) => path.join(dir, '.guilda', 'queue', 'signals', 'agents');
+const withQueue = () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'));
+  return dir;
+};
+const start = (dir, extra) =>
+  runHook(SCRIPT, { session_id: 's1', hook_event_name: 'SubagentStart', cwd: dir, agent_type: 'guilda:executor', ...extra }, dir);
+
+test('started signal (S42)', () => {
+  const dir = withQueue();
+  const before = Date.now();
+  const r = start(dir, { agent_id: 'a1' });
+  assert.equal(r.code, 0);
+  const body = JSON.parse(fs.readFileSync(path.join(agentsDir(dir), 'a1', 'started'), 'utf8'));
+  assert.deepEqual(Object.keys(body), ['at']);
+  assert.ok(Date.parse(body.at) >= before - 1 && Date.parse(body.at) <= Date.now() + 1);
+  assert.deepEqual(fs.readdirSync(path.join(dir, '.guilda', 'queue')), ['signals']);
+
+  assert.equal(start(dir, {}).code, 0);
+  assert.equal(start(dir, { agent_id: '../x' }).code, 0);
+  assert.deepEqual(fs.readdirSync(agentsDir(dir)), ['a1']);
+
+  const noQueue = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(start(noQueue, { agent_id: 'a1' }).code, 0);
+  assert.equal(fs.existsSync(path.join(noQueue, '.guilda', 'queue')), false);
+});
+
+test('the context output does not change', () => {
+  const plain = tempProject({ config: MINIMAL_CONFIG });
+  const queued = withQueue();
+  const a = run(plain);
+  const b = start(queued, { agent_id: 'a1' });
+  const c = start(queued, { agent_id: 'a1' });
+  assert.equal(b.code, 0);
+  assert.equal(c.code, 0);
+  assert.equal(c.stderr, '');
+  assert.ok(a.stdout.length > 0);
+  assert.equal(b.stdout, a.stdout);
+  assert.equal(c.stdout, a.stdout);
+});

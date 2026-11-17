@@ -39,6 +39,12 @@
         "hooks": [
           { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-skill.mjs"] }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-trace.mjs"] }
+        ]
       }
     ],
     "PostToolUse": [
@@ -52,6 +58,12 @@
         "matcher": "Agent",
         "hooks": [
           { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-agent.mjs"] }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-trace.mjs"] }
         ]
       }
     ],
@@ -68,6 +80,11 @@
         "matcher": "^guilda:(reviewer|security|qa)$",
         "hooks": [
           { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/subagent-stop.mjs"] }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-end.mjs"] }
         ]
       }
     ]
