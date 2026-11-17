@@ -131,6 +131,18 @@ test('run writes the log of the address, and cuts a message at 500 characters', 
   assert.equal(fs.existsSync(path.join(lone, '.guilda', 'logs')), false);
 });
 
+test('run writes no log into a log file that is a hard link, and still runs and signals', () => {
+  const { dir, address } = project();
+  const other = path.join(dir, 'other.txt');
+  fs.writeFileSync(other, 'keep');
+  fs.mkdirSync(path.join(dir, '.guilda', 'logs'));
+  fs.linkSync(other, path.join(dir, '.guilda', 'logs', `${address}.jsonl`));
+  const r = sig(dir, 'run', 'T5', '1', '--', NODE, '-e', "console.log('secret line')");
+  assert.equal(r.code, 0);
+  assert.equal(fs.existsSync(path.join(sigDir(dir), 'done')), true);
+  assert.equal(fs.readFileSync(other, 'utf8'), 'keep');
+});
+
 test('an ID with a slash exits 1 and writes nothing', () => {
   const { dir } = project();
   for (const args of [['started', 'T5/../x', '1'], ['started', 'T5', '1/2'], ['run', 'a/b', '1', '--', NODE, '-e', '0']]) {

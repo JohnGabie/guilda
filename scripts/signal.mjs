@@ -154,7 +154,16 @@ function openLog(projectDir, address) {
     if (st === null) fs.mkdirSync(dir);
     else if (st.isSymbolicLink() || !st.isDirectory()) return null;
     const flags = fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW;
-    return fs.openSync(path.join(dir, `${address}.jsonl`), flags, 0o600);
+    const fd = fs.openSync(path.join(dir, `${address}.jsonl`), flags, 0o600);
+    // A plain file with one link: a hard link to a file elsewhere gets no log text.
+    let ok = false;
+    try {
+      const fst = fs.fstatSync(fd);
+      ok = fst.isFile() && fst.nlink === 1;
+    } finally {
+      if (!ok) fs.closeSync(fd);
+    }
+    return ok ? fd : null;
   } catch {
     return null;
   }
