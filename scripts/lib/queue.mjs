@@ -446,6 +446,7 @@ export function checkRemovable(rootReal, file, names) {
 // ---- The writer: lock, recovery and one run (X2, section 4a). Only the queue script calls these. ----
 
 const LOCK_TRIES = 3;
+const LOCK_TMP_BYTES = 4;
 const GIT_TIMEOUT_MS = 10000;
 const STATE_TMP = 'state.json.tmp';
 
@@ -475,13 +476,26 @@ function removeOwn(rootReal, file, name) {
   return true;
 }
 
+/** Remove the takeover guard only when it holds this run's content. */
+function releaseGuard(rootReal, guard, name, body) {
+  let text;
+  try {
+    text = fs.readFileSync(guard, 'utf8');
+  } catch {
+    return false;
+  }
+  if (text !== body) return false;
+  return removeOwn(rootReal, guard, name);
+}
+
 /**
  * Take .guilda/queue/lock. The content { pid, session, at } goes to a temp file first, and a hard link makes the
- * lock, so a lock is never empty (L1). A live pid throws exit 3. A dead pid is taken over: the result is
- * { oldPid, oldSession }; else null.
+ * lock, so a lock is never empty (L1). A live pid throws exit 3. A dead pid is taken over under the guard
+ * lock.takeover.<old pid>, so exactly one run takes over one stale lock: the result is { oldPid, oldSession };
+ * else null. `beforeReplace` is a test hook, called between the check and the replace.
  */
-export function takeLock(P, rootReal, session, nowIso) {
-  const name = `lock.${process.pid}.tmp`;
+export function takeLock(P, rootReal, session, nowIso, { beforeReplace } = {}) {
+  const name = `lock.${process.pid}.${crypto.randomBytes(LOCK_TMP_BYTES).toString('hex')}.tmp`;
   const tmp = path.join(P.dir, name);
   const body = `${JSON.stringify({ pid: process.pid, session: session ?? null, at: nowIso })}\n`;
   try {
@@ -513,19 +527,39 @@ export function takeLock(P, rootReal, session, nowIso) {
       }
       if (!old || !Number.isInteger(old.pid) || old.pid <= 0) throw lockedError('unknown');
       if (pidAlive(old.pid)) throw lockedError(old.pid);
-      // A dead pid: replace the lock if it is still the same stale lock, then check that it is ours.
-      let again;
+      // A dead pid: one takeover at a time. The guard lock.takeover.<old pid> is made with a link, so exactly one
+      // run holds it. That run replaces the lock if it is still the same stale lock.
+      const guardName = `lock.takeover.${old.pid}`;
+      const guard = path.join(P.dir, guardName);
       try {
-        again = fs.readFileSync(P.lock, 'utf8');
-      } catch {
-        continue;
+        fs.linkSync(tmp, guard);
+      } catch (err) {
+        if (err.code !== 'EEXIST') throw ioError(P.lock);
+        let holder = null;
+        try {
+          holder = JSON.parse(fs.readFileSync(guard, 'utf8'));
+        } catch {
+          holder = null;
+        }
+        throw lockedError(holder && Number.isInteger(holder.pid) ? holder.pid : 'unknown');
       }
-      if (again !== oldText) continue;
-      fs.renameSync(tmp, P.lock);
-      tmpUsed = true;
-      const mine = JSON.parse(fs.readFileSync(P.lock, 'utf8'));
-      if (mine.pid !== process.pid) throw lockedError(mine.pid);
-      return { oldPid: old.pid, oldSession: old.session ?? null };
+      try {
+        let again;
+        try {
+          again = fs.readFileSync(P.lock, 'utf8');
+        } catch {
+          continue;
+        }
+        if (again !== oldText) continue;
+        if (beforeReplace) beforeReplace();
+        fs.renameSync(tmp, P.lock);
+        tmpUsed = true;
+        const mine = JSON.parse(fs.readFileSync(P.lock, 'utf8'));
+        if (mine.pid !== process.pid) throw lockedError(mine.pid);
+        return { oldPid: old.pid, oldSession: old.session ?? null };
+      } finally {
+        releaseGuard(rootReal, guard, guardName, body);
+      }
     }
     throw lockedError('unknown');
   } finally {

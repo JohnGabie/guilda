@@ -11,6 +11,8 @@ import {
   fold,
   writeSignal,
   validId,
+  queuePaths,
+  takeLock,
   ACK_TIMEOUT_MS,
   MAX_ATTEMPTS,
 } from '../scripts/lib/queue.mjs';
@@ -247,6 +249,34 @@ test('an append after a partial last line keeps the next event', () => {
   assert.ok(added, text);
   assert.deepEqual(j.events.map((e) => e.seq), [1, 2, 3, 4]);
   assert.equal(task(dir, 'T9').title, 'nine');
+});
+
+test('two takeovers of one stale lock: exactly one wins', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  const rootReal = fs.realpathSync(dir);
+  const P = queuePaths(rootReal);
+  const gone = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' });
+  const stale = JSON.stringify({ pid: Number(gone.stdout), session: 'old', at: at(0) });
+  fs.writeFileSync(P.lock, stale);
+  const wins = [];
+  const refused = [];
+  const attempt = (session, hook) => {
+    try {
+      wins.push({ session, takeover: takeLock(P, rootReal, session, at(1), hook) });
+    } catch (err) {
+      refused.push({ session, code: err.exitCode, message: err.message });
+    }
+  };
+  // The second run does its whole takeover while the first is between its check and its replace.
+  attempt('first', { beforeReplace: () => attempt('second') });
+  assert.equal(wins.length, 1, JSON.stringify({ wins, refused }));
+  assert.equal(refused.length, 1, JSON.stringify({ wins, refused }));
+  assert.equal(refused[0].code, 3);
+  assert.equal(wins[0].takeover.oldSession, 'old');
+  assert.equal(JSON.parse(fs.readFileSync(P.lock, 'utf8')).session, wins[0].session);
+  // No temp file and no takeover guard is left; only the lock of the winner.
+  assert.deepEqual(fs.readdirSync(P.dir).sort(), ['journal.jsonl', 'lock', 'state.json']);
 });
 
 test('lock and takeover', () => {
