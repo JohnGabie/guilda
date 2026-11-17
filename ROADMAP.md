@@ -25,8 +25,8 @@ A core plugin with the laws, the hooks, the agents, `guilda:init` and the Archit
 plugin, `guilda-skills`, with eight skills: the domain skills and the agent creator.
 With no `.guilda/` folder, guilda tells the user to run `guilda:init` (R28). Rules change in place with migrations.
 No project runs `guilda:init` again. A DevOps advisor, an AI role group with its lead, and an Architect role group.
-Skills isolated by role group, and truth first in every role. Labs gate their parts before the build of each part. The session context has a short form of
-each core rule, so it stays under 150 lines.
+Skills isolated by role group, and truth first in every role. Labs gate their parts before the build of each
+part. The session context has a short form of each core rule, so it stays under 150 lines.
 
 Status: released as 0.2.0. The production approval rule R29 is not in this release. It moves to 0.3.0.
 

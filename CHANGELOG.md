@@ -53,8 +53,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - The version notice sends the user to `guilda:update`.
 - ARC4 is a law. The main session may dispatch `guilda:*`, `Explore` and `Plan`. It may also dispatch the types
   that the user lists in the new config key `dispatch.agentTypes`. Each other type is refused.
-- R20 is a law. In a project with `.guilda`, a hook refuses `rm` with a force or recursive flag in the Bash call
-  of a subagent. `scripts/lab-env.mjs` makes a safe temporary folder for a lab.
+- R20 is a law. In a project with `.guilda`, a hook refuses `rm` with a force or recursive flag. The hook reads
+  the Bash call of a subagent. `scripts/lab-env.mjs` makes a safe temporary folder for a lab.
 - Task worktrees are durable. They live in `../<repo>.worktrees/`, and `task-start --worktree` makes one.
 - A rule changes in place, so no project runs `guilda:init` again. `guilda:update` saves the new version and the
   0.2.0 config form (`schemaVersion` 2).
@@ -72,7 +72,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ### Known gaps
 
-- The R20 hook does not see an `rm` hidden in a variable, in a script file that `bash` runs, or in a remote command.
+- The R20 hook does not see an `rm` hidden in a variable or in a script file that `bash` runs.
+  It does not see an `rm` in a remote command.
 - The turn budgets of two skill eval suites are provisional until lab #58.
 
 ## [0.1.1] - 2026-11-10

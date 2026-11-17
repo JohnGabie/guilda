@@ -20,8 +20,8 @@ claude plugin install ios-on-linux@guilda
 ```
 
 The core `guilda` works alone. `ios-on-linux` works alone. `guilda-skills` needs the `superpowers` and
-`skill-creator` plugins of the official Anthropic marketplace. The install of `guilda-skills` adds them as dependencies. Skip the first line when
-`claude plugin marketplace list` already shows the official marketplace.
+`skill-creator` plugins of the official Anthropic marketplace. The install of `guilda-skills` adds them as
+dependencies. Skip the first line when `claude plugin marketplace list` already shows the official marketplace.
 
 To check that `guilda` loaded, ask Claude Code to list its agents: a `guilda:*` agent (for example
 `guilda:executor`) exists when it did.
