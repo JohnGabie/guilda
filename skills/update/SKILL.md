@@ -1,6 +1,7 @@
 ---
 name: update
 description: Use when the user asks to update guilda, to check for a new guilda version, or to see what changed in guilda. Also use when a session notice says that a new guilda version exists, or a session notice says "Run guilda:update".
+groups: [architect]
 ---
 
 # guilda:update

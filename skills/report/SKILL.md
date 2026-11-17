@@ -1,6 +1,7 @@
 ---
 name: report
 description: Use when the user wants to send a field report to the guilda repository — an improvement idea, a bug, a feature request or another note about guilda, drafted from a real session, anonymized and approved field by field before it is sent.
+groups: [architect]
 ---
 
 # guilda:report

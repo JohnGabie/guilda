@@ -12,15 +12,31 @@ const nonBlank = (text) => text.split('\n').filter((l) => l.trim() !== '').lengt
 
 // name → expected tier, tools (undefined = inherit) and rule ID prefix.
 const AGENTS = {
-  executor: { tier: 'journeyman', tools: undefined, prefix: 'EXE' },
-  reviewer: { tier: 'master', tools: 'Read, Grep, Glob, Bash', prefix: 'REV' },
-  qa: { tier: 'journeyman', tools: undefined, prefix: 'QA' },
-  'version-control': { tier: 'journeyman', tools: 'Read, Grep, Glob, Bash', prefix: 'VC' },
-  security: { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'SEC' },
+  executor: { tier: 'journeyman', tools: undefined, prefix: 'EXE', group: ['engineering'] },
+  reviewer: { tier: 'master', tools: 'Read, Grep, Glob, Bash', prefix: 'REV', group: ['engineering', 'architect'] },
+  qa: { tier: 'journeyman', tools: undefined, prefix: 'QA', group: ['engineering'] },
+  'version-control': { tier: 'journeyman', tools: 'Read, Grep, Glob, Bash', prefix: 'VC', group: ['engineering'] },
+  security: { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'SEC', group: ['security'] },
+  'lab-researcher': {
+    tier: 'master', tools: 'Read, Grep, Glob, WebSearch, WebFetch', prefix: 'LAB', group: ['lab'],
+  },
+  'lab-reader': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'LAB', group: ['lab'] },
+  'lab-experimenter': {
+    tier: 'master', tools: 'Read, Grep, Glob, Bash, Write, Edit', prefix: 'LAB', group: ['lab'],
+  },
+  'devops-advisor': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'DEV', group: ['engineering'] },
+  'ai-lead': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'AIL', group: ['ai'] },
+  'architect-executor': {
+    tier: 'master', tools: 'Read, Grep, Glob, Write, Edit, Bash', prefix: 'AEX', group: ['architect'],
+  },
+  'coherence-validator': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'COH', group: ['architect'] },
 };
 const SKILL = 'skills/architect/SKILL.md';
 const KNOWLEDGE = ['core/knowledge/security.md', 'core/knowledge/qa.md'];
 const TIERS = JSON.parse(read('core/tiers.json'));
+
+/** A value `[a, b]` is a list; any other value is a string. */
+const parseValue = (v) => (/^\[.*\]$/.test(v) ? v.slice(1, -1).split(',').map((x) => x.trim()).filter(Boolean) : v);
 
 /** Split a Markdown file into its frontmatter fields and its body. */
 function parse(rel) {
@@ -30,7 +46,7 @@ function parse(rel) {
   const fields = {};
   for (const line of m[1].split('\n')) {
     const f = line.match(/^([\w-]+):\s*(.*)$/);
-    if (f) fields[f[1]] = f[2].trim();
+    if (f) fields[f[1]] = parseValue(f[2].trim());
   }
   return { fields, body: m[2] };
 }
@@ -75,6 +91,11 @@ for (const [name, spec] of Object.entries(AGENTS)) {
     assert.equal(parse(rel).fields.tools, spec.tools);
   });
 
+  test(`${name}: has its group`, () => {
+    const g = parse(rel).fields.group;
+    assert.deepEqual(Array.isArray(g) ? g : [g], spec.group);
+  });
+
   test(`${name}: body has 150 lines or fewer`, () => {
     assert.ok(nonBlank(parse(rel).body) <= 150);
   });
@@ -86,7 +107,10 @@ for (const [name, spec] of Object.entries(AGENTS)) {
     );
     for (const i of order) assert.ok(i > 0, `section found: ${order}`);
     assert.deepEqual([...order].sort((a, b) => a - b), order);
-    assert.ok(fence(section(body, 'Output format')), 'Output format has a fenced block');
+    const out = section(body, 'Output format');
+    // A lab report form holds `## ` headings inside its fence, so the section text stops at the first one.
+    if (spec.group.includes('lab')) assert.match(out, /^```/m, 'Output format opens a fenced block');
+    else assert.ok(fence(out), 'Output format has a fenced block');
   });
 
   test(`${name}: lintRules(role rules) is empty`, () => {
@@ -95,6 +119,23 @@ for (const [name, spec] of Object.entries(AGENTS)) {
     assert.deepEqual(lintRules(rules, { prefix: spec.prefix }), []);
   });
 }
+
+test('no agent definition of agents/ is outside the AGENTS map', () => {
+  const files = fs.readdirSync(path.join(REPO_ROOT, 'agents')).filter((f) => f.endsWith('.md'));
+  assert.deepEqual(files.map((f) => f.slice(0, -3)).sort(), Object.keys(AGENTS).sort());
+});
+
+test('ai-lead and devops-advisor each have a tools list', () => {
+  for (const name of ['ai-lead', 'devops-advisor']) assert.ok(parse(agentFile(name)).fields.tools, name);
+});
+
+test('each skill of skills/ has a groups field, and its value is [architect] (S37, section 3e)', () => {
+  const dirs = fs.readdirSync(path.join(REPO_ROOT, 'skills'), { withFileTypes: true }).filter((d) => d.isDirectory());
+  assert.deepEqual(dirs.map((d) => d.name).sort(), ['architect', 'init', 'lab', 'report', 'update']);
+  for (const d of dirs) {
+    assert.deepEqual(parse(`skills/${d.name}/SKILL.md`).fields.groups, ['architect'], d.name);
+  }
+});
 
 test('lintModelNames(agents, skill, knowledge) is empty', () => {
   const files = [...Object.keys(AGENTS).map(agentFile), SKILL, ...KNOWLEDGE].map((r) => path.join(REPO_ROOT, r));

@@ -1,6 +1,7 @@
 ---
 name: init
 description: Use when a project adopts guilda, new or existing — the user asks to set up, install, initialize, configure or adapt guilda for a repository, or to migrate the rules of a project CLAUDE.md to guilda. Also use when a session notice says "guilda:init is required" or "run guilda:init", or when the project changed and its project layer (.guilda/config.json, .guilda/rules.md) needs an update.
+groups: [architect]
 ---
 
 # guilda:init

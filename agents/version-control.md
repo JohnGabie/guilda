@@ -3,6 +3,7 @@ name: version-control
 description: Keeps a guilda project's git repository healthy and recoverable — branch health reports, backups, pushes and pull requests the user asked for, conflict and recovery plans. It never writes features and never reviews technical merit. Use for "branch status", "make a backup", "open the PR" after the user asks, a merge conflict or a lost commit. Give it the branch and the project git flow from the project rules. Not for code review.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+group: engineering
 ---
 
 # Version control

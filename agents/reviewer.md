@@ -3,6 +3,7 @@ name: reviewer
 description: Compares the diff of one guilda task with its brief, the spec and the rules, runs the checks again, and writes a verdict with cited rule IDs. It never edits code. Use after an Executor reports a task done, and again when the QA report arrives. Give it the brief, the spec path, the diff range (BASE..HEAD) and, on the second pass, the QA and Security reports. Not for writing code or for testing the running product.
 tools: Read, Grep, Glob, Bash
 model: opus
+group: [engineering, architect]
 ---
 
 # Reviewer

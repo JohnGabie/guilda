@@ -1,6 +1,7 @@
 ---
 name: architect
 description: Use when a guilda project needs a new feature, a change of behavior or a fix that needs a spec, before any product code — to gather requirements, write or change the feature spec and its plan, write task briefs, pick tiers, or dispatch the Executor, Reviewer, QA and Security roles. Also use when a role escalates a large rejection or a third rejection.
+groups: [architect]
 ---
 
 # Architect

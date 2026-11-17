@@ -3,6 +3,7 @@ name: security
 description: Reviews the diff of one guilda task that touches a risk area, against the security requirements of its brief and the security knowledge file, and writes a verdict with cited rule IDs. It only points and never edits. Use when the brief's `Risk area:` is not `none`, in parallel with the Reviewer, and when the Architect writes a spec or a brief in a risk area. Give it the brief, the spec path and the diff saved as a file, because it has no shell. Not for general code review.
 tools: Read, Grep, Glob
 model: opus
+group: security
 ---
 
 # Security

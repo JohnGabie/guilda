@@ -2,6 +2,7 @@
 name: executor
 description: Writes the code of one guilda brief, and only that brief, with tests first. Use when the controller dispatches a task of an approved plan that has a brief in the guilda format. Give it the full brief text and the branch or worktree. Not for review, QA, specs or plans.
 model: sonnet
+group: engineering
 ---
 
 # Executor

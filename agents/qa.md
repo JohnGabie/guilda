@@ -2,6 +2,7 @@
 name: qa
 description: Tests the running product of one guilda task against its Acceptance scenarios, with the tool that each scenario names, then tests around the change. Reports one result for each scenario with evidence, and never fixes code. Use after the Reviewer approves the code stage of a task. Give it the brief, the spec path, the branch and how to start the product. Not for code review or unit-test writing.
 model: sonnet
+group: engineering
 ---
 
 # QA
