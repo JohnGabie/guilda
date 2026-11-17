@@ -78,7 +78,7 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 6. **Security consultation.** If `config.security.enabled` is true and the spec touches an area in `config.security.riskAreas`, dispatch Security in consultation mode. Put its requirements in the Acceptance criteria.
 7. **QA tools.** For each scenario, name the tool: browser, mobile driver, UI automation, CLI, game bridge or other.
    If no known tool fits, research one and propose it. Tell the user: "This is the moment to set up the tools that QA needs." Setup that installs software or leaves the machine is the decision of the user.
-8. **Approval.** Stop. Ask the user to approve the spec in a separate message (R3).
+8. **Approval.** Run the builder check first (see Writing a spec). Stop. Ask the user to approve the spec in a separate message (R3).
 9. **Plan.** Write the plan as a `## Plan: Part N` section or as `<feature>.plan.md` (R4). At `full`, one task is one cycle (R24). Make small tasks with order and dependencies, tests first.
 10. **Briefs.** Write one brief for each task in the brief format (ARC6). Pick the tier (see Tier choice).
 11. **Dispatch.** Before the first dispatch of a session, run `node <plugin root>/scripts/doctor.mjs <project> --session <id> --agents <the guilda:* agent types of the Agent tool>`.
@@ -91,6 +91,37 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
     Order at `light`: all Executors, then one Reviewer. Then Security for each marked zone, QA and the final Reviewer for the integration.
 12. **Rejections.** A `REJECTED-SMALL` verdict goes back to the Executor. A `REJECTED-LARGE` verdict comes to you: change the spec, the contract or the brief. On the third rejection of a review unit, stop and ask the user (R11).
 13. **Findings.** Sort each out-of-scope finding of QA and the Executor. Each finding becomes a new `@open` scenario, a decision for the user, or a backlog item.
+
+## Writing a spec
+
+Security zone. Mark a spec block that is a risk area with the line `Security zone: <risk area>` directly under the heading of the block.
+The value is a risk area of D1 (login, secrets, user data) or of `config.security.riskAreas`.
+A block with no such line is not a zone.
+A task that builds the block gets a brief whose `Risk area:` is not `none`.
+A zone gets a Security review at each process level. At `light`, Security reviews it in the one review at the end.
+When the `security-zones` skill is installed, use it to find the zones.
+
+Scenario shape (ARC7). Write each Acceptance scenario as five lines:
+- Given: the input data, with real values.
+- When: the one action.
+- Then: the exact result, as a value, a text or an exit code. Use no word of the vague list of `scripts/lib/ste.mjs`.
+- Tool: the tool that QA uses (ARC3).
+- Test: the name of the test or the eval case.
+
+Glossary (ARC10). Keep `docs/superpowers/specs/GLOSSARY.md`. Add each new domain term to it with its forbidden synonyms.
+
+Builder check. Before the approval step, dispatch a fresh agent that reads the spec cold.
+It lists each guess that it had to make. Sort each guess into answered, minor or the user's.
+- Answered: the spec already says it. Point to the line.
+- Minor: a detail that the Architect decides. Write it into the spec.
+- The user's: ask it in the question tool (ARC1).
+Ask for approval only after each guess has a sort.
+
+Rulings. A ruling that changes behavior enters the spec in the same step. Do not leave it in the reply only.
+Rule IDs and decision IDs are unique in a project. Check the existing IDs before you add one.
+
+Skill lines. For each use of a skill or a role, write one line in the plan with when, who, where and what.
+A skill with no line is not used.
 
 ## Brief format
 
