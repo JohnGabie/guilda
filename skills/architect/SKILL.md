@@ -123,6 +123,23 @@ Rule IDs and decision IDs are unique in a project. Check the existing IDs before
 Skill lines. For each use of a skill or a role, write one line in the plan with when, who, where and what.
 A skill with no line is not used.
 
+## Parallel waves
+
+Producer/consumer table. Put each interaction between tasks in the plan as one row.
+A row has the interface, the producer task and the consumer task.
+Each row names the task that writes the join test.
+
+Foundation fix. A task that finds a bug in a shared part that it does not own makes no local workaround.
+It stops and reports the bug. The Architect decides where the fix goes and the merge order.
+
+Shared helper. Before a wave, forecast the shared helpers that its tasks need.
+A temporary copy of a helper has the comment marker `guilda:consolidate <name>`.
+A later task finds the copies with grep. The marker is not a command.
+
+Foundation task. It adds the ignore entries of each tool that it adds.
+
+Waves. No two tasks of one wave touch one file (R8). Each wave names its base commit.
+
 ## Brief format
 
 Write each field on one `Name:` line. Continue a long value on indented lines.
