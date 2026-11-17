@@ -35,7 +35,7 @@ test('appendViolation creates .guilda/.gitignore', () => {
   appendViolation(dir, V);
   assert.deepEqual(
     fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
-    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/'],
+    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json'],
   );
 });
 
@@ -82,7 +82,7 @@ test('ensureIgnored adds .hooks-live.json and reports/ one time', () => {
   const guildaDir = path.join(dir, '.guilda');
   fs.mkdirSync(guildaDir);
   fs.writeFileSync(path.join(guildaDir, '.gitignore'), 'violations.jsonl\nformat-retries.json\n');
-  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/']);
+  assert.ok(IGNORED.length >= 5);
   ensureIgnored(guildaDir);
   const first = fs.readFileSync(path.join(guildaDir, '.gitignore'), 'utf8');
   ensureIgnored(guildaDir);
@@ -92,4 +92,22 @@ test('ensureIgnored adds .hooks-live.json and reports/ one time', () => {
   for (const name of ['.hooks-live.json', 'reports/', 'violations.jsonl', 'format-retries.json']) {
     assert.equal(lines.filter((l) => l === name).length, 1, name);
   }
+});
+
+test('IGNORED has the eight 0.3.0 lines', () => {
+  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json']);
+});
+
+test('an existing ignore line stays one time', () => {
+  const dir = tempProject();
+  const guildaDir = path.join(dir, '.guilda');
+  fs.mkdirSync(guildaDir);
+  fs.writeFileSync(path.join(guildaDir, '.gitignore'), 'queue/\nstatus.md\n');
+  ensureIgnored(guildaDir);
+  ensureIgnored(guildaDir);
+  const lines = fs.readFileSync(path.join(guildaDir, '.gitignore'), 'utf8').split('\n').filter(Boolean);
+  assert.equal(lines.filter((l) => l === 'queue/').length, 1);
+  assert.equal(lines.filter((l) => l === 'status.md').length, 1);
+  assert.deepEqual([...new Set(lines)], lines);
+  assert.equal(lines.length, IGNORED.length);
 });

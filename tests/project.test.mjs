@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { createHash } from 'node:crypto';
 import {
   loadConfig,
   readProjectRules,
@@ -11,6 +13,7 @@ import {
   checkStrict,
   migrateConfig,
   normalizeRepo,
+  projectHash,
   SAFE_DEFAULTS,
   SCHEMA_VERSION,
 } from '../scripts/lib/project.mjs';
@@ -98,7 +101,7 @@ test('projectState: JSON with no tiers -> broken', () => {
 test('projectState: valid config -> valid', () => {
   const r = projectState(tempProject({ config: MINIMAL_CONFIG }));
   assert.equal(r.state, 'valid');
-  assert.deepEqual(r.config, migrateConfig(MINIMAL_CONFIG));
+  assert.deepEqual(r.config, { ...migrateConfig(MINIMAL_CONFIG), usage: { source: 'off' } });
   assert.deepEqual(r.notices, []);
 });
 
@@ -239,4 +242,67 @@ test('the safe defaults are complete (S16)', () => {
   assert.ok(Object.isFrozen(SAFE_DEFAULTS));
   assert.ok(Object.isFrozen(SAFE_DEFAULTS.tiers));
   assert.ok(Object.isFrozen(SAFE_DEFAULTS.security.riskAreas));
+});
+
+const BAD_SOURCE_NOTICE = 'guilda: .guilda/config.json has an invalid usage.source value; guilda uses off. Run guilda:update.';
+
+test('usage source', () => {
+  const read = (usage) => {
+    const config = { ...structuredClone(MINIMAL_CONFIG) };
+    if (usage !== undefined) config.usage = usage;
+    const dir = tempProject({ config });
+    const file = path.join(dir, '.guilda', 'config.json');
+    const before = fs.readFileSync(file, 'utf8');
+    const r = projectState(dir);
+    assert.equal(fs.readFileSync(file, 'utf8'), before, 'no read changes the file');
+    return r;
+  };
+  const a = read({ source: 'cswap' });
+  assert.equal(a.config.usage.source, 'cswap');
+  assert.ok(!a.notices.some((n) => n.includes('usage.source')));
+  const b = read({ source: 'off' });
+  assert.equal(b.config.usage.source, 'off');
+  assert.ok(!b.notices.some((n) => n.includes('usage.source')));
+  const c = read(undefined);
+  assert.equal(c.config.usage.source, 'off');
+  assert.ok(!c.notices.some((n) => n.includes('usage.source')));
+  const d = read({ source: 7 });
+  assert.equal(d.config.usage.source, 'off');
+  assert.ok(d.notices.includes(BAD_SOURCE_NOTICE));
+});
+
+test('checkStrict refuses usage.source 7', () => {
+  assert.equal(checkStrict({ ...structuredClone(MINIMAL_CONFIG), usage: { source: 7 } }), 'usage.source must be cswap or off');
+  assert.equal(checkStrict({ ...structuredClone(MINIMAL_CONFIG), usage: { source: 'cswap' } }), null);
+});
+
+function git(cwd, ...args) {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout;
+}
+
+test('projectHash is equal in a worktree and in its main folder', () => {
+  const dir = tempProject({ git: true });
+  git(dir, 'commit', '--allow-empty', '-m', 'init');
+  const wt = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guilda wt ')), 'tree');
+  git(dir, 'worktree', 'add', wt, '-b', 'side');
+  const h = projectHash(dir);
+  assert.match(h, /^[0-9a-f]{16}$/);
+  assert.equal(projectHash(wt), h);
+});
+
+test('projectHash with no git repository', () => {
+  const dir = tempProject();
+  const h = projectHash(dir);
+  assert.match(h, /^[0-9a-f]{16}$/);
+  assert.equal(h, createHash('sha256').update(fs.realpathSync(dir)).digest('hex').slice(0, 16));
+  assert.equal(projectHash(path.join(dir, 'missing')), null);
+});
+
+test('projectHash has 16 hex characters and no slash', () => {
+  const h = projectHash(tempProject({ git: true }));
+  assert.equal(h.length, 16);
+  assert.ok(!h.includes('/'));
+  assert.match(h, /^[0-9a-f]+$/);
 });

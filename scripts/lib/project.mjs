@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 /** The schemaVersion of a 0.2.0 config. A config with no schemaVersion is version 1 (0.1.x). */
 export const SCHEMA_VERSION = 2;
@@ -116,6 +118,9 @@ export function checkStrict(c) {
       return 'report.repo must be owner/name or a GitHub URL';
     }
   }
+  if (c.usage !== undefined && isObject(c.usage) && c.usage.source !== undefined && !USAGE_SOURCES.includes(c.usage.source)) {
+    return 'usage.source must be cswap or off';
+  }
   if (c.schemaVersion !== undefined && !(Number.isInteger(c.schemaVersion) && c.schemaVersion > 0)) {
     return 'schemaVersion must be a positive integer';
   }
@@ -179,6 +184,10 @@ function hasGuildaDir(projectDir) {
   }
 }
 
+const USAGE_SOURCES = ['cswap', 'off'];
+const invalidSourceNotice = () =>
+  'guilda: .guilda/config.json has an invalid usage.source value; guilda uses off. Run guilda:update.';
+
 const invalidLevelNotice = (field) =>
   `guilda: .guilda/config.json has an invalid ${field} value; guilda uses ${FAIL_CLOSED_LEVEL}. Run guilda:update.`;
 const newerSchemaNotice = (n) =>
@@ -196,6 +205,9 @@ function readValid(loaded) {
     config.explain = FAIL_CLOSED_LEVEL;
     notices.push(invalidLevelNotice('explain'));
   }
+  const source = isObject(config.usage) ? config.usage.source : undefined;
+  if (source !== undefined && !USAGE_SOURCES.includes(source)) notices.push(invalidSourceNotice());
+  config.usage = { ...(isObject(config.usage) ? config.usage : {}), source: USAGE_SOURCES.includes(source) ? source : 'off' };
   if (typeof config.schemaVersion === 'number' && config.schemaVersion > SCHEMA_VERSION) {
     notices.push(newerSchemaNotice(config.schemaVersion));
   }
@@ -229,5 +241,21 @@ export function readProjectRules(projectDir) {
     return fs.readFileSync(path.join(projectDir, '.guilda', 'rules.md'), 'utf8');
   } catch {
     return '';
+  }
+}
+
+/**
+ * The project hash of X9: the first 16 hex characters of SHA-256 of the real path of the main project root.
+ * The main root is the parent of the git common directory; with no repository it is the real path of projectDir.
+ * Returns null when the root cannot be found. Never throws.
+ */
+export function projectHash(projectDir) {
+  try {
+    let root = fs.realpathSync(projectDir);
+    const r = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' });
+    if (r.status === 0 && r.stdout.trim()) root = fs.realpathSync(path.dirname(r.stdout.trim()));
+    return createHash('sha256').update(root).digest('hex').slice(0, 16);
+  } catch {
+    return null;
   }
 }
