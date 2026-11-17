@@ -1,0 +1,2 @@
+{"type":"user","agentId":"a1","timestamp":"2026-11-17T10:05:00.000Z","message":{"role":"user","content":"Synthetic resume prompt."}}
+{"type":"assistant","agentId":"a1","timestamp":"2026-11-17T10:05:01.000Z","message":{"id":"msg_3","model":"claude-sonnet-5-5","usage":{"input_tokens":4,"cache_creation_input_tokens":1,"cache_read_input_tokens":40,"output_tokens":2,"cache_creation":{"ephemeral_5m_input_tokens":1,"ephemeral_1h_input_tokens":0}}}}

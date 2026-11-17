@@ -15,6 +15,8 @@ const MAX_VALUE = 200;
 /** An audit line must stay under this size, so one append is one whole line. */
 const MAX_LINE_BYTES = 4096;
 const TMP_BYTES = 4;
+/** The transcript copy holds reply and tool text, so only its owner may read it (R19). */
+const COPY_MODE = 0o600;
 /** The check roles whose last reply is a verdict or a report with a `Result:` line. */
 const VERDICT_AGENTS = new Set(['guilda:reviewer', 'guilda:security', 'guilda:qa']);
 /** The transcript usage fields (L2, I4) and their names in the audit log and the usage list (section 4a). */
@@ -100,6 +102,26 @@ function ensureDir(dir) {
   if (!isRealDir(dir)) throw new Error('refused: not a real folder');
 }
 
+/** The path of the transcript copy: .guilda/transcripts/<task or none>/<agentId>.jsonl. */
+const copyPath = (guildaDir, task, agentId) => path.join(guildaDir, 'transcripts', task ?? 'none', `${agentId}.jsonl`);
+
+/**
+ * The byte count of the transcript part that an earlier end of the same agent already counted, or 0. A resume
+ * (SendMessage) writes into the same transcript and fires a second SubagentStop (L2), and the earlier end left its
+ * copy of the transcript: when the transcript starts with the bytes of that copy, those bytes are counted already.
+ */
+function countedBytes(guildaDir, task, agentId, bytes) {
+  try {
+    const dest = copyPath(guildaDir, task, agentId);
+    const st = fs.lstatSync(dest);
+    if (!st.isFile() || st.nlink !== 1 || st.size > bytes.length) return 0;
+    const prev = fs.readFileSync(dest);
+    return bytes.subarray(0, prev.length).equals(prev) ? prev.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Copy the transcript bytes to .guilda/transcripts/<task or none>/<agentId>.jsonl. The relative path, or null. */
 function copyTranscript(guildaDir, task, agentId, bytes) {
   try {
@@ -108,9 +130,9 @@ function copyTranscript(guildaDir, task, agentId, bytes) {
     ensureIgnored(guildaDir);
     ensureDir(top);
     ensureDir(path.join(top, folder));
-    const dest = path.join(top, folder, `${agentId}.jsonl`);
+    const dest = copyPath(guildaDir, task, agentId);
     const tmp = `${dest}.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`;
-    fs.writeFileSync(tmp, bytes, { flag: 'wx' });
+    fs.writeFileSync(tmp, bytes, { flag: 'wx', mode: COPY_MODE });
     fs.renameSync(tmp, dest);
     return `.guilda/transcripts/${folder}/${agentId}.jsonl`;
   } catch {
@@ -142,7 +164,7 @@ await runHookMain(async (input) => {
   } catch {
     bytes = null;
   }
-  const usage = bytes === null ? null : sumUsage(bytes.toString('utf8'));
+  const usage = bytes === null ? null : sumUsage(bytes.subarray(countedBytes(guildaDir, task, agentId, bytes)).toString('utf8'));
   const copy = bytes === null ? null : copyTranscript(guildaDir, task, agentId, bytes);
 
   appendAudit(guildaDir, { kind: 'end', t, agentId, agentType, task, transcript, copy });

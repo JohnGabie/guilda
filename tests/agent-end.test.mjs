@@ -10,6 +10,9 @@ const SCRIPT = 'scripts/hooks/agent-end.mjs';
 const FIXTURES = path.join(REPO_ROOT, 'tests', 'fixtures', 'transcripts');
 const TWO_LINES = path.join(FIXTURES, 'two-lines.jsonl');
 const BAD_LINE = path.join(FIXTURES, 'bad-line.jsonl');
+const RESUME_PART = path.join(FIXTURES, 'resume-part.jsonl');
+const OWNER_ONLY = 0o600;
+const MODE_BITS = 0o777;
 const MODEL = 'claude-sonnet-5-5';
 const S21_SUMS = { input: 30, cacheRead: 300, cacheCreation: 5, output: 10 };
 
@@ -82,6 +85,36 @@ test('the end of an agent records its tokens (S21, three cases)', async (t) => {
     checkTokens(dir, null, '.guilda/transcripts/none/a1.jsonl');
     assert.deepEqual(fs.readFileSync(path.join(dir, '.guilda', 'transcripts', 'none', 'a1.jsonl')), fs.readFileSync(TWO_LINES));
   });
+});
+
+test('a resume counts only the transcript lines after the last counted one (S21, L2)', () => {
+  const dir = project();
+  bindT3(dir);
+  const transcript = path.join(dir, 'agent-a1.jsonl');
+  fs.copyFileSync(TWO_LINES, transcript);
+  assert.equal(end(dir, { agent_transcript_path: transcript }).code, 0);
+  fs.appendFileSync(transcript, fs.readFileSync(RESUME_PART));
+  assert.equal(end(dir, { agent_transcript_path: transcript }).code, 0);
+  const tokens = auditLines(dir).filter((l) => l.kind === 'tokens').map(({ model, input, cacheRead, cacheCreation, output }) =>
+    ({ model, input, cacheRead, cacheCreation, output }));
+  assert.deepEqual(tokens, [
+    { model: MODEL, ...S21_SUMS },
+    { model: MODEL, input: 4, cacheRead: 40, cacheCreation: 1, output: 2 },
+  ]);
+  assert.equal(auditLines(dir).filter((l) => l.kind === 'end').length, 2);
+  const copy = path.join(dir, '.guilda', 'transcripts', 'T3', 'a1.jsonl');
+  assert.deepEqual(fs.readFileSync(copy), fs.readFileSync(transcript));
+  assert.equal(fs.statSync(copy).mode & MODE_BITS, OWNER_ONLY);
+  assert.equal(end(dir, { agent_transcript_path: transcript }).code, 0);
+  assert.equal(auditLines(dir).filter((l) => l.kind === 'tokens').length, 2);
+});
+
+test('the transcript copy is readable by its owner only (R19)', () => {
+  const dir = project();
+  bindT3(dir);
+  assert.equal(end(dir).code, 0);
+  const copy = path.join(dir, '.guilda', 'transcripts', 'T3', 'a1.jsonl');
+  assert.equal(fs.statSync(copy).mode & MODE_BITS, OWNER_ONLY);
 });
 
 test('a bad transcript line is skipped', () => {
