@@ -144,3 +144,26 @@ test('a heredoc mark inside quotes, a comment or arithmetic is not a heredoc', (
   assert.deepEqual(queueFileWrites('echo x > .guilda/queue/lock', dir, dir), ['lock']);
   assert.ok(ALL.length === 4);
 });
+
+test('a delimiter word with $ or a backslash in double quotes is not followed', () => {
+  const dir = project();
+  for (const open of ["<<$'EOF'", '<<$"EOF"', '<<"A\\$B"', '<<"E\\OF"']) {
+    const command = `cat > a.txt ${open}\nx\nEOF\nA$B\necho x > .guilda/queue/lock`;
+    assert.ok(queueFileWrites(command, dir, dir).includes('lock'), command);
+  }
+});
+
+test('a quoted body is text only for cat or tee', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const head of ["ksh <<'EOF'", "mksh <<'EOF'", "fish <<'EOF'", "python - <<'EOF'", "cat <<'EOF' | sh",
+    "xargs -0 cat <<'EOF'", "sudo cat <<'EOF'", "./cat <<'EOF'", "PATH=bin cat <<'EOF'", "{ cat <<'EOF'; } | sh",
+    "eval $(cat <<'EOF')", "tee >(sh) <<'EOF'"]) {
+    assert.ok(queueFileWrites(`${head}${body}`, dir, dir).includes('state.json'), head);
+  }
+  assert.ok(queueFileWrites(`cat() { bash; }\ncat <<'EOF'${body}`, dir, dir).includes('state.json'));
+  for (const head of ["tee f.txt <<'EOF'", "cat <<'EOF'", "command cat > a <<'EOF'", "/bin/cat > a <<'EOF'",
+    "echo a; cat > b <<'EOF'"]) {
+    assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
+  }
+});

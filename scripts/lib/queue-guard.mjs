@@ -2,8 +2,9 @@
 // This is a small reader, not a full shell parser. It fails closed: it reads each command twice, once with the shell
 // quotes and once with the quotes, the comments and the heredoc marks taken out. A write that either reading finds
 // counts. A path from a variable or a command substitution passes (the stated limit of R32).
-// For a write, the body of a quoted heredoc is text and is taken out first, unless a shell word, eval, source or `.`
-// on its line can run it, or the line is one that this reader does not follow.
+// For a write, the body of a quoted heredoc is taken out first only when `cat` or `tee` gets it as the first word of
+// a line with no pipe, group or substitution, and the text defines no function, alias or PATH. Each other body is
+// read as shell: an unquoted one, one that a shell or an interpreter gets, one after a delimiter word with `$`.
 // A queue script call is any word whose base name is queue.mjs after a program `node` (or a program from a variable),
 // or a command word with that base name, in any folder; so no cd needs to be followed for a call.
 // Stated limits, which this reader does not see: a write through sed -i, dd, truncate, ln, find -delete, xargs, or
@@ -32,57 +33,64 @@ function flatten(command) {
   return command.replace(/\\\n/g, ' ').replace(/<</g, '< <').replace(/[`'"#\\]/g, ' ');
 }
 
-// The command words that run the text they read: a heredoc body given to one of them is read as shell.
-const BODY_RUNNERS = new Set([...SHELLS, 'eval', 'source', '.']);
+// The programs whose quoted heredoc body is text: they copy it and run nothing. Only as the first word, with no path
+// other than these, after only the wrappers in BODY_WRAPPERS.
+const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/tee', '/usr/bin/tee']);
+const BODY_WRAPPERS = new Set(['command', 'exec', 'env']);
+// A text that can change what `cat` or `tee` runs: a function, an alias, PATH, or the hash table.
+const RENAMES = /\b(?:function|alias|hash|enable)\b|\bPATH=|\b(?:cat|tee)\s*\(/;
 
 /**
- * The quote state of a line that starts outside quotes, and the quoted heredoc marks in it, in order. `clean` is
- * false when the line can go on to the next line (open quote, open `$(`/`(`/backtick, end `\` or `|`) or has a mark
- * that this reader does not follow (arithmetic, `[[`): then no body of the line is dropped (fail closed).
+ * The quoted heredoc marks of a line that starts outside quotes, in order, each with the simple command that gets it.
+ * `clean` is false when the line can go on to the next line or has a form that this reader does not follow: a quote
+ * left open, `(`, `)`, `{`, `}`, a backtick, a pipe, arithmetic, `[[`, an end `\`, or a delimiter word that it does
+ * not read. Then no body of the line is dropped (fail closed).
  */
 function scanHeredocLine(line) {
   const marks = [];
+  const segments = [];
+  let segStart = 0;
   let quote = null;
-  let depth = 0;
-  let backticks = 0;
-  let clean = !/\(\(|\$\[|\[\[/.test(line);
-  for (let i = 0; i < line.length; i += 1) {
+  let clean = !/\$\[|\[\[/.test(line) && !/\\\s*$/.test(line);
+  let end = line.length;
+  for (let i = 0; i < line.length && clean; i += 1) {
     const ch = line[i];
     if (quote === "'") {
       if (ch === "'") quote = null;
     } else if (quote === '"') {
       if (ch === '\\') i += 1;
       else if (ch === '"') quote = null;
-      else if (ch === '`' || (ch === '$' && line[i + 1] === '(')) clean = false;
+      else if (ch === '`' || ch === '$') clean = false;
     } else if (ch === '\\') {
       i += 1;
     } else if (ch === "'" || ch === '"') {
       quote = ch;
-    } else if (ch === '#' && (i === 0 || /[\s;&|()]/.test(line[i - 1]))) {
+    } else if (ch === '#' && (i === 0 || /[\s;&]/.test(line[i - 1]))) {
+      end = i;
       break;
-    } else if (ch === '(') depth += 1;
-    else if (ch === ')') depth -= 1;
-    else if (ch === '`') backticks += 1;
-    else if (ch === '<' && line[i + 1] === '<' && line[i + 2] !== '<') {
+    } else if ('(){}|`'.includes(ch)) {
+      clean = false;
+    } else if ((ch === ';' || ch === '&') && line[i - 1] !== '>' && line[i - 1] !== '<' && line[i + 1] !== '>') {
+      segments.push(line.slice(segStart, i));
+      segStart = i + 1;
+    } else if (ch === '<' && line[i + 1] === '<' && line[i + 2] !== '<') {
       const mark = readMark(line, i + 2);
       if (mark === null) clean = false;
       else if (mark.quoted !== null) {
-        marks.push(mark);
+        marks.push({ ...mark, segment: segments.length });
         i = mark.next - 1;
       } else i += 1;
     }
   }
-  const tail = line.replace(/\s+$/, '');
-  if (quote !== null || depth !== 0 || backticks % 2 !== 0 || tail.endsWith('\\') || tail.endsWith('|')
-    || tail.endsWith('|&')) {
-    clean = false;
-  }
-  return { clean, marks };
+  if (quote !== null) clean = false;
+  segments.push(line.slice(segStart, end));
+  return { clean, marks: marks.map((m) => ({ ...m, receiver: segments[m.segment] })) };
 }
 
 /**
  * The heredoc delimiter word after `<<` at `start`: { strip, delimiter, quoted, next }, `quoted` true when any part of
- * the word is quoted. { quoted: null } when there is no word; null when the word has an open quote.
+ * the word is quoted. { quoted: null } when there is no word. Null when this reader is not sure of the word: an open
+ * quote, a `$` or a backtick in it, or a backslash in double quotes.
  */
 function readMark(line, start) {
   let i = start;
@@ -93,12 +101,15 @@ function readMark(line, start) {
   let quoted = false;
   while (i < line.length && !/[\s;&|()<>]/.test(line[i])) {
     const ch = line[i];
+    if (ch === '$' || ch === '`') return null;
     if (ch === "'" || ch === '"') {
-      const end = line.indexOf(ch, i + 1);
-      if (end < 0) return null;
-      delimiter += line.slice(i + 1, end);
+      const close = line.indexOf(ch, i + 1);
+      if (close < 0) return null;
+      const inner = line.slice(i + 1, close);
+      if (ch === '"' && /[\\$`]/.test(inner)) return null;
+      delimiter += inner;
       quoted = true;
-      i = end + 1;
+      i = close + 1;
     } else if (ch === '\\') {
       if (i + 1 >= line.length) return null;
       delimiter += line[i + 1];
@@ -113,47 +124,48 @@ function readMark(line, start) {
   return { strip, delimiter, quoted, next: i };
 }
 
-/** True when a command word of the line can run a heredoc body: a shell, eval, source, `.`, or a variable. */
-function runsBody(line) {
-  return splitCommands(line).some((words) => {
-    const { rest } = stripPrefix(words);
-    return (rest.length > 0 && isVariable(rest[0])) || rest.some((w) => BODY_RUNNERS.has(path.basename(w)));
-  });
+/** True when the simple command that gets the heredoc is `cat` or `tee`, after only bare wrapper words. */
+function copiesBody(receiver) {
+  const commands = splitCommands(receiver);
+  if (commands.length !== 1) return false;
+  const words = commands[0];
+  let i = 0;
+  while (i < words.length && BODY_WRAPPERS.has(words[i])) i += 1;
+  return i < words.length && BODY_COPIERS.has(words[i]);
 }
 
 /**
- * The text with the body lines of each quoted heredoc taken out: bash reads such a body as text, with no expansion.
- * The heredoc line and the end line stay. A body is kept when its line can run it (a shell word, eval, source, `.`)
- * or when this reader cannot follow the line; an unquoted body is kept (it can run `$(...)`). A quoted heredoc with
- * no end line takes the rest of the text, as in bash.
+ * The text with the body lines of each quoted heredoc taken out, when `cat` or `tee` gets it: bash reads such a body
+ * as text, with no expansion, and these programs only copy it. The heredoc line and the end line stay. Each other body
+ * is kept: an unquoted body (it can run `$(...)`), a body that another program gets (a shell or an interpreter can run
+ * it), and each body after a line that this reader cannot follow. A quoted heredoc with no end line takes the rest of
+ * the text, as in bash. With a text that can rename `cat` or `tee`, nothing is taken out.
  */
 function dropQuotedBodies(command) {
+  if (RENAMES.test(command)) return command;
   const lines = command.split('\n');
   const out = [];
-  let lineStartClean = true;
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
     out.push(line);
     i += 1;
-    const scan = lineStartClean ? scanHeredocLine(line) : { clean: false, marks: [] };
-    if (!lineStartClean || !scan.clean) {
+    const scan = scanHeredocLine(line);
+    if (!scan.clean) {
       // From a line that this reader cannot follow, the rest of the text is read as shell.
-      lineStartClean = false;
-      continue;
+      out.push(...lines.slice(i));
+      break;
     }
-    if (scan.marks.length === 0) continue;
-    const drop = scan.marks.some((m) => m.quoted) && !runsBody(line);
     for (const mark of scan.marks) {
-      for (;;) {
-        if (i >= lines.length) break;
+      const drop = mark.quoted && copiesBody(mark.receiver);
+      while (i < lines.length) {
         const body = lines[i];
         i += 1;
         if ((mark.strip ? body.replace(/^\t+/, '') : body) === mark.delimiter) {
           out.push(body);
           break;
         }
-        if (!drop || !mark.quoted) out.push(body);
+        if (!drop) out.push(body);
       }
     }
   }
