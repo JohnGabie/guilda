@@ -154,7 +154,7 @@ test('an existing .gitignore with only violations.jsonl gets the new line append
   const dir = tempProject({ config: MINIMAL_CONFIG });
   fs.writeFileSync(path.join(dir, '.guilda', '.gitignore'), 'violations.jsonl\n');
   sendBack(dir, 'a1');
-  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\nformat-retries.json\n.hooks-live.json\nreports/\n');
+  assert.equal(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8'), 'violations.jsonl\nformat-retries.json\n.hooks-live.json\n.extension-live.json\nreports/\n');
 });
 
 test('a consultation line with a verdict in the answer is still checked', () => {

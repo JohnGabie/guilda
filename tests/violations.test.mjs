@@ -35,7 +35,7 @@ test('appendViolation creates .guilda/.gitignore', () => {
   appendViolation(dir, V);
   assert.deepEqual(
     fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
-    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', 'reports/'],
+    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/'],
   );
 });
 
@@ -82,7 +82,7 @@ test('ensureIgnored adds .hooks-live.json and reports/ one time', () => {
   const guildaDir = path.join(dir, '.guilda');
   fs.mkdirSync(guildaDir);
   fs.writeFileSync(path.join(guildaDir, '.gitignore'), 'violations.jsonl\nformat-retries.json\n');
-  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', 'reports/']);
+  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/']);
   ensureIgnored(guildaDir);
   const first = fs.readFileSync(path.join(guildaDir, '.gitignore'), 'utf8');
   ensureIgnored(guildaDir);

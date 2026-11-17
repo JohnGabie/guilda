@@ -247,7 +247,7 @@ test('context has 150 non-blank lines or fewer with a 20-line project rules file
   assert.ok(lines.length <= 150, `got ${lines.length} lines`);
 });
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 function runHookWithRoot(dir, root) {
   const r = spawnSync(process.execPath, [path.join(REPO_ROOT, SCRIPT)], {
     input: JSON.stringify({ source: 'startup', cwd: dir }),
@@ -296,4 +296,90 @@ test('context has 110 non-blank lines or fewer with a 20-line project rules file
   assert.match(ctx, /guilda updated/);
   const n = ctx.split('\n').filter((l) => l.trim() !== '').length;
   assert.ok(n <= 110, `got ${n} lines`);
+});
+
+// S13: the extension plugin did not load (section 3c, method of L4: the marker file).
+const EXT_NOTICE =
+  'guilda: the extension plugin guilda-skills did not load. Its skills are off; the core laws are on. ' +
+  'Check its two dependencies, skill-creator and superpowers, and their marketplaces.';
+const runWithSession = (dir, source, sessionId) =>
+  runHook(SCRIPT, { hook_event_name: 'SessionStart', source, cwd: dir, session_id: sessionId }, dir);
+const writeLive = (dir, sessionId) =>
+  fs.writeFileSync(
+    path.join(dir, '.guilda', '.extension-live.json'),
+    JSON.stringify({ sessionId, at: '2026-11-10T00:00:00.000Z' }) + '\n',
+  );
+const countOf = (text, needle) => text.split(needle).length - 1;
+
+test('S13: the extension did not load: one notice with skill-creator and superpowers, and it does not say which one is missing', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r = runWithSession(dir, 'startup', 's1');
+  const out = JSON.parse(r.stdout);
+  assert.equal(countOf(out.hookSpecificOutput.additionalContext, EXT_NOTICE), 1);
+  assert.equal(out.systemMessage, EXT_NOTICE);
+  assert.match(EXT_NOTICE, /skill-creator/);
+  assert.match(EXT_NOTICE, /superpowers/);
+  // At clear too, and a stale marker (another session) means not loaded.
+  writeLive(dir, 's0');
+  const clear = JSON.parse(runWithSession(dir, 'clear', 's1').stdout);
+  assert.equal(countOf(clear.hookSpecificOutput.additionalContext, EXT_NOTICE), 1);
+  assert.equal(clear.systemMessage, EXT_NOTICE);
+});
+
+test('S13: a broken project layer also gets the notice when the extension did not load', () => {
+  const dir = tempProject({ config: '{ not json' });
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  assert.equal(countOf(out.hookSpecificOutput.additionalContext, EXT_NOTICE), 1);
+  assert.equal(out.systemMessage, EXT_NOTICE);
+});
+
+test('the extension loaded: no notice', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  writeLive(dir, 's1');
+  for (const source of ['startup', 'clear']) {
+    const out = JSON.parse(runWithSession(dir, source, 's1').stdout);
+    assert.doesNotMatch(out.hookSpecificOutput.additionalContext, /guilda-skills did not load/);
+    assert.equal(out.systemMessage, undefined);
+  }
+});
+
+test('no notice at compact and resume, and no wait', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const source of ['compact', 'resume']) {
+    const t0 = Date.now();
+    const out = JSON.parse(runWithSession(dir, source, 's1').stdout);
+    assert.ok(Date.now() - t0 < 280, 'the hook waited');
+    assert.doesNotMatch(out.hookSpecificOutput.additionalContext, /guilda-skills did not load/);
+    assert.equal(out.systemMessage, undefined);
+  }
+});
+
+test('no .guilda folder: only the R28 notice', () => {
+  const dir = tempProject();
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  assert.equal(out.hookSpecificOutput.additionalContext, SETUP_NOTICE);
+  assert.equal(out.systemMessage, SETUP_NOTICE);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('a marker that parses with the right session ID written late (within the limit) counts as loaded', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const script = `setTimeout(()=>require('node:fs').writeFileSync(process.argv[1],JSON.stringify({sessionId:'s1',at:'x'})),100)`;
+  const child = spawn(process.execPath, ['-e', script, path.join(dir, '.guilda', '.extension-live.json')], { stdio: 'ignore' });
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  child.kill();
+  assert.doesNotMatch(out.hookSpecificOutput.additionalContext, /guilda-skills did not load/);
+});
+
+test('a marker with a parse error means not yet, then not loaded', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.writeFileSync(path.join(dir, '.guilda', '.extension-live.json'), '{ nope');
+  const out = JSON.parse(runWithSession(dir, 'startup', 's1').stdout);
+  assert.equal(out.systemMessage, EXT_NOTICE);
+});
+
+test('the session start writes .extension-live.json into .gitignore', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  run(dir);
+  assert.ok(fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').split('\n').includes('.extension-live.json'));
 });

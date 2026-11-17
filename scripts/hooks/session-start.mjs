@@ -10,6 +10,12 @@ const DIARY_LINES = 220;
 const ESCALATION_THRESHOLD = 2;
 const BROKEN_NOTICE_TAIL = 'guilda runs with safe defaults. Run guilda:init to fix .guilda/config.json.';
 const MARKER_FILE = '.hooks-live.json';
+const EXTENSION_MARKER_FILE = '.extension-live.json';
+const EXTENSION_WAIT_MS = 300;
+const EXTENSION_POLL_MS = 20;
+export const EXTENSION_NOTICE =
+  'guilda: the extension plugin guilda-skills did not load. Its skills are off; the core laws are on. ' +
+  'Check its two dependencies, skill-creator and superpowers, and their marketplaces.';
 
 function readCore(root, name) {
   try {
@@ -39,11 +45,40 @@ function versionNotice(installed, configured) {
   );
 }
 
-/** Write the hooks marker. It never throws. When ensureIgnored throws, it writes no marker. */
+/** True when the extension marker parses and has this session ID. A missing file or a parse error is "not yet". */
+function extensionLoaded(projectDir, sessionId) {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(projectDir, '.guilda', EXTENSION_MARKER_FILE), 'utf8'));
+    return Boolean(sessionId) && m !== null && m.sessionId === sessionId;
+  } catch {
+    return false;
+  }
+}
+
+/** Read the extension marker every EXTENSION_POLL_MS until EXTENSION_WAIT_MS passed. */
+async function waitForExtension(projectDir, sessionId) {
+  const end = Date.now() + EXTENSION_WAIT_MS;
+  while (true) {
+    if (extensionLoaded(projectDir, sessionId)) return true;
+    if (Date.now() >= end) return false;
+    await new Promise((resolve) => setTimeout(resolve, EXTENSION_POLL_MS));
+  }
+}
+
+/** Make the state files ignored by git. It never throws; false means the .gitignore could not be written. */
+function ignoreStateFiles(projectDir) {
+  try {
+    ensureIgnored(path.join(projectDir, '.guilda'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Write the hooks marker. It never throws. */
 function writeMarker(projectDir, sessionId, installed) {
   try {
     const dir = path.join(projectDir, '.guilda');
-    ensureIgnored(dir);
     const marker = { sessionId: sessionId ?? null, version: installed, at: new Date().toISOString() };
     fs.writeFileSync(path.join(dir, MARKER_FILE), JSON.stringify(marker, null, 2) + '\n');
   } catch {
@@ -51,8 +86,9 @@ function writeMarker(projectDir, sessionId, installed) {
   }
 }
 
-function emit(additionalContext) {
+function emit(additionalContext, systemMessage) {
   const out = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext } };
+  if (systemMessage) out.systemMessage = systemMessage;
   process.stdout.write(JSON.stringify(out));
 }
 
@@ -75,6 +111,9 @@ await runHookMain(async (input) => {
   const broken = project.state === 'broken';
   const fresh = input.source === 'startup' || input.source === 'clear';
   const installed = installedVersion(pluginRoot);
+  const ignored = ignoreStateFiles(projectDir);
+  let extensionNotice = '';
+  if (fresh && !(await waitForExtension(projectDir, input.session_id))) extensionNotice = EXTENSION_NOTICE;
   const parts = [`guilda ${installed} active`];
   const root = pluginRoot.split(path.sep).join('/');
   parts.push(
@@ -99,6 +138,7 @@ await runHookMain(async (input) => {
   if (fresh) {
     parts.push(...project.notices);
     if (broken) parts.push(`guilda: ${project.reason}. ${BROKEN_NOTICE_TAIL}`);
+    if (extensionNotice) parts.push(extensionNotice);
   }
   for (const [rule, count] of countViolations(projectDir)) {
     if (count >= ESCALATION_THRESHOLD) {
@@ -109,6 +149,6 @@ await runHookMain(async (input) => {
     const diary = newestDiary(projectDir);
     if (diary) parts.push(diary);
   }
-  emit(parts.filter(Boolean).join('\n\n'));
-  writeMarker(projectDir, input.session_id, installed);
+  emit(parts.filter(Boolean).join('\n\n'), extensionNotice);
+  if (ignored) writeMarker(projectDir, input.session_id, installed);
 });
