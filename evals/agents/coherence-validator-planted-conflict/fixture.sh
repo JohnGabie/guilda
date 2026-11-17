@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fixture: a spec, its plan and the register, with one planted conflict (30 minutes in the spec, 60 in the plan).
+# Fixture: a spec, its plan and the register, with two planted conflicts (30 minutes in the spec, 60 in the plan; the test file of S2 and of T2).
 set -eu
 git init -q
 git config user.name fixture
@@ -47,7 +47,7 @@ Contract: `isExpired(sentAt, now)` returns true when now - sentAt is more than 6
 Tests: 'a link opened at 10:31 is accepted'; 'a link opened at 11:01 is refused with 410'.
 
 ## T2 — One use (D2, S2)
-Files: src/reset.js, tests/reset-used.spec
+Files: src/reset.js, tests/reset-used-link.spec
 Contract: `markUsed(token)` stores the use; a second open returns 410 "This link was already used."
 Tests: 'a used link is refused with 410'.
 MD
