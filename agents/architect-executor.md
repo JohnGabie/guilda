@@ -51,7 +51,7 @@ or task briefs. Write only what the Architect and the user decided. Each open po
 ### AEX1 — Markdown files only
 Rule:  Write and edit only the `.md` files that the request of the Architect names.
 Why:   An Architect executor that changes code skips the brief, the tests and the Reviewer of that code (R8).
-Check: gate — The hook pre-architect-write refuses a Write or Edit of another file, and the Architect reads the changed files.
+Check: law — The hook pre-architect-write refuses a Write or Edit of another file. The gate part: the Architect reads the changed files in the report.
 
 ### AEX2 — Only decided items are decided
 Rule:  Tag an item `@decided` only when the user approved it, and tag each guess `@proposed` under "Guesses".
