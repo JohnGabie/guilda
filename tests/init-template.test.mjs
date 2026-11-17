@@ -77,3 +77,42 @@ test('lint-rules CLI lints a project rules file with --prefix P', () => {
   assert.equal(bad.status, 1);
   assert.match(bad.stdout, /P1/);
 });
+
+const readRef = (name) => fs.readFileSync(path.join(REFS, name), 'utf8');
+
+test('S20: the CLAUDE.md block has the exact sentence', () => {
+  const text = readRef('claude-md-block.md');
+  assert.ok(
+    text.includes('This project uses guilda. If no `guilda:*` agent exists in this session, stop and tell the user that guilda is off.'),
+  );
+});
+
+test('S24: the glossary skeleton has a heading, and each `- **` line matches the line format of core/glossary.md', () => {
+  const text = readRef('glossary-template.md');
+  assert.match(text, /^# .+/m);
+  const lines = text.split(/\r?\n/).filter((l) => l.startsWith('- **'));
+  assert.ok(lines.length >= 1);
+  const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
+  for (const line of lines) assert.match(line, re);
+});
+
+test('the skill names process, explain, doctor.mjs, --new-project and "with its context"', () => {
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'init', 'SKILL.md'), 'utf8');
+  for (const word of ['process', 'explain', 'doctor.mjs', '--new-project', 'with its context']) {
+    assert.ok(text.includes(word), word);
+  }
+});
+
+test('rules-template has the triage rows', () => {
+  const text = readRef('rules-template.md');
+  assert.match(text, /^## Triage/m);
+  assert.match(text, /lesson/i);
+  assert.match(text, /open question.*Lab/i);
+  assert.match(text, /risk area.*Security/i);
+  assert.match(text, /decided change.*Engineering/i);
+});
+
+test('rules-template has 20 non-blank lines or fewer', () => {
+  const lines = readRef('rules-template.md').split(/\r?\n/).filter((l) => l.trim() !== '');
+  assert.ok(lines.length <= 20, `${lines.length} lines`);
+});

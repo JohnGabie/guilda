@@ -20,3 +20,8 @@ Check: judgment — <Why no hook and no Reviewer can check the rule, or the pers
 Rule:  <one instruction in the imperative, 20 words or fewer>.
 Why:   <one sentence: why this project differs from the core>.
 Check: law — <The hook or script that blocks a violation>.
+
+## Triage (a lesson changes this table)
+- Open question: the Lab.
+- Risk area: Security.
+- Decided change: Engineering.

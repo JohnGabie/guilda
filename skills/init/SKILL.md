@@ -5,7 +5,7 @@ description: Use when a project adopts guilda, new or existing — the user asks
 
 # guilda:init
 
-This skill adapts guilda to one project. It writes the project layer: `.guilda/config.json`, `.guilda/rules.md` and `.guilda/.gitignore`.
+This skill adapts guilda to one project. It writes the project layer: `.guilda/config.json`, `.guilda/rules.md` and `.guilda/.gitignore`. It can also write a block in `CLAUDE.md` and a glossary skeleton.
 Without `.guilda/config.json`, guilda injects nothing into the project (design 7.2). This skill is how a project opts in.
 
 **Plugin root.** When this skill loads, Claude Code shows the base directory of the skill. The plugin root is two folders above that directory. Write `<root>` for the plugin root in each command.
@@ -23,9 +23,11 @@ Without `.guilda/config.json`, guilda injects nothing into the project (design 7
 If the `superpowers:brainstorming` skill is installed, use it for the conversation in step 2. Use only its question method. Do not write its design doc, and do not start its plan. The output is the proposal of step 3.
 
 If `superpowers:brainstorming` is not installed, use this fallback:
-- Send one question in each message. Use AskUserQuestion with 2 to 4 options and put the recommended option first (R13).
+- Send one question in each message. Use AskUserQuestion with 2 to 4 options, with its context, and put the recommended option first (R13). The level question of topic 10 has no recommended option.
 - If the user asks for "a round" of questions, send more messages, one question in each. Never send a list of questions.
 - After each topic, write back what you understood. The user corrects it.
+
+If the user's message already gives the answer to a question, use that answer. Do not ask the question again. Say which answers you used.
 
 ## Steps
 
@@ -36,6 +38,9 @@ Read, and write down what you find with the file path:
 - Test tools: browser automation, mobile driver, game client bridge, sandbox, MCP servers in `.mcp.json` or `.claude/settings.json`.
 - Git branches and remotes (`git branch -a`, `git remote -v`).
 - The project `CLAUDE.md`, role files (`docs/roles/`, `.claude/agents/`), hooks (`.claude/settings.json`) and the `docs/` folders.
+- A formatter: a `.prettierrc*` file, a `prettier` key in `package.json`, `biome.json` or `dprint.json`.
+- A mobile app: an iOS or Android project folder, or a React Native, Flutter or Expo dependency.
+- The plugins that are installed. Run `claude plugin list`. Check `guilda-skills`, `superpowers` and `skill-creator`. If one is missing, show its install command and ask the user to run it. Never run an install yourself. The commands are `claude plugin marketplace add anthropics/claude-plugins-official`, then `claude plugin install superpowers`, `claude plugin install skill-creator` and `claude plugin install guilda-skills@guilda`.
 - An existing `.guilda/config.json` and `.guilda/rules.md`. If they exist, this is a re-run (see Re-run).
 
 Run each candidate check command one time. Record the command and its exit code. Before a command that installs software, deploys, migrates a database or writes outside the project, ask the user. If a command fails, show the output and ask the user. Do not put a failed command into `checks`.
@@ -52,6 +57,10 @@ Ask about these topics, one question in each message:
 7. **Git flow.** Autocommit, a PR for each feature, remotes. Write the flow as project adjustments.
 8. **Tiers.** The model for each tier (see Config values).
 9. **Extra roles.** Project roles, for example a Learning Advisor. A project role lives in `docs/roles/`.
+10. **Process level.** Ask in the question tool: "Is this a prototype or personal project, or a product?" Give the options "prototype or personal project" and "product", with no preselected answer. The first answer writes `process: "light"`. The second writes `process: "full"`. Say that `light` runs one review at the end, and `full` reviews each task.
+11. **Explain.** Ask in the question tool for `explain`: `brief` or `full`. Say what each one changes. With `brief`, a question of the Architect has one sentence of context and its options. With `full`, it also has the reasons and the trade-offs. The answer writes `explain` in the config.
+12. **Formatter.** Only if step 1 found a formatter. Ask in the question tool if you may add `.guilda/` to the ignore file of that formatter. Examples are `.prettierignore` and `files.ignore` in `biome.json`. Add the entry only after the approval of step 5.
+13. **Mobile.** Only if step 1 found a mobile app. Offer the `ios-on-linux` plugin: `claude plugin install ios-on-linux@guilda`. Never offer it to another project. Never run the install yourself.
 
 ### 3. Propose the project layer
 
@@ -61,6 +70,9 @@ Show the full proposal in one message:
 - The rule list of step 4, if the project has rules.
 - The docs map: each existing `docs/` folder and its place in the guilda layout (design 6.10). Folder names follow the docs language.
 - The QA tools and the gaps.
+- The `CLAUDE.md` block of `references/claude-md-block.md`. Propose it only if the project `CLAUDE.md` does not have it.
+- `docs/superpowers/specs/GLOSSARY.md` from `references/glossary-template.md`. Propose it only if the file does not exist.
+- The formatter ignore entry, if topic 12 applies.
 - Each file that you will write, and each file that you propose to change.
 
 ### 4. Sort the existing rules
@@ -80,8 +92,10 @@ Ask the user to approve the proposal in a separate message. Do not write a file 
 3. Write `.guilda/rules.md`. Run `node "<root>/scripts/lint-rules.mjs" --prefix P .guilda/rules.md`. If the script exits 1, correct the rules.
 4. Run `node "<root>/scripts/config-check.mjs" "<project>"`. The output must be `ok`.
 5. Tell the user to add `.journal/` to the project `.gitignore`. The diary script never edits `.gitignore`. Offer to add the line. Add the line only if the user approves.
-6. If the user approved changes to the project `CLAUDE.md`, make only those changes.
-7. Tell the user to commit `.guilda/config.json`, `.guilda/rules.md` and `.guilda/.gitignore`, so that each clone gets the same project layer.
+6. If the user approved changes to the project `CLAUDE.md`, make only those changes. Add the block of `references/claude-md-block.md` only if the file does not have it.
+7. Write `docs/superpowers/specs/GLOSSARY.md` from `references/glossary-template.md`, only if the file does not exist. Add the formatter ignore entry, if the user approved it.
+8. Tell the user to commit `.guilda/config.json`, `.guilda/rules.md` and `.guilda/.gitignore`, so that each clone gets the same project layer.
+9. Run the last step: `node "<root>/scripts/doctor.mjs" "<project>" --session ${CLAUDE_SESSION_ID} --agents <names>`. Give `<names>` as the `guilda:*` agent names of this session, with commas between them. Add `--new-project` if this run created `.guilda/`. Show each line that is not PASS to the user.
 
 ## P-rules
 
