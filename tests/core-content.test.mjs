@@ -46,7 +46,7 @@ test('R28 has the level law', () => {
 test('R20 has the level law, and its Check: line names the hook and keeps the gate part', () => {
   const r20 = blocks(read('core/rules.md')).R20;
   assert.equal(r20.level, 'law');
-  assert.match(r20.text, /Check: law — PreToolUse refuses rm with a force or recursive flag in a subagent's Bash call; the Reviewer rejects a diff that deletes files when its brief has no `Deletion rules:` field\.$/);
+  assert.match(r20.text, /Check: law — PreToolUse refuses rm with a force or recursive flag in a subagent's Bash call\. The Reviewer rejects a diff that deletes files when its brief has no `Deletion rules:` field\.$/);
 });
 
 test('R30 has the level law', () => {

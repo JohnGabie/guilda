@@ -12,11 +12,20 @@ const RM_WORD = /(^|[^\w.-])rm($|[^\w.-])/;
 
 class Unreadable extends Error {}
 
-const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash', 'busybox']);
-const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '}', 'time', 'builtin', 'exec', 'nohup', 'setsid', 'doas']);
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash']);
+const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '}', 'builtin', 'exec', 'nohup', 'setsid', 'doas']);
+// A redirect word (2>/dev/null, >log, &>x, <in, 2>&1), and a redirect operator that stands alone and takes the next word.
+const REDIRECT = /^(\d*|&)[<>]/;
+const REDIRECT_ALONE = /^(\d*|&)(>>?|<<?<?|>&|<&|<>|>\|)$/;
+// The commands whose output is known text: their arguments are read as the commands that a shell gets from the pipe.
+const ECHO_LIKE = new Set(['echo', 'printf']);
+const ANSI_C = { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', v: '\v' };
 // Wrappers that run the command after their options. The value is the set of options that take a separate value.
 const WRAPPERS = {
   command: new Set(),
+  busybox: new Set(),
+  time: new Set(['-f', '-o', '--format', '--output']),
+  watch: new Set(['-n', '-q', '--interval', '--equexit']),
   sudo: new Set(['-u', '-g', '-C', '-h', '-p', '-r', '-t', '-U', '-D', '-R', '-T']),
   env: new Set(['-u', '-C', '-S', '--unset', '--chdir', '--split-string']),
   xargs: new Set(['-I', '-L', '-n', '-P', '-d', '-E', '-s', '-a', '--max-args', '--max-procs', '--delimiter', '--arg-file', '--max-lines', '--max-chars', '--eof', '--replace']),
@@ -69,6 +78,39 @@ function closeBacktick(text, open) {
   return -1;
 }
 
+/** Read the ANSI-C quoted text that starts after the quote at `open`. Returns [text, index of the closing quote]. */
+function ansiC(text, open) {
+  let out = '';
+  for (let i = open + 1; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "'") return [out, i];
+    if (ch !== '\\') {
+      out += ch;
+      continue;
+    }
+    const next = text[i + 1];
+    let m;
+    if (next === undefined) break;
+    if (next in ANSI_C) {
+      out += ANSI_C[next];
+      i += 1;
+    } else if ((m = /^x([0-9a-fA-F]{1,2})/.exec(text.slice(i + 1)))) {
+      out += String.fromCharCode(parseInt(m[1], 16));
+      i += m[0].length;
+    } else if ((m = /^(?:u([0-9a-fA-F]{1,4})|U([0-9a-fA-F]{1,8}))/.exec(text.slice(i + 1)))) {
+      out += String.fromCodePoint(parseInt(m[1] ?? m[2], 16));
+      i += m[0].length;
+    } else if ((m = /^[0-7]{1,3}/.exec(text.slice(i + 1)))) {
+      out += String.fromCharCode(parseInt(m[0], 8));
+      i += m[0].length;
+    } else {
+      out += next;
+      i += 1;
+    }
+  }
+  throw new Unreadable();
+}
+
 /**
  * Split a command into simple commands (lists of words without quotes). The text of each $(...), backtick, <(...)
  * and heredoc body is read again as commands into `inner`. Throws Unreadable on text that it cannot read.
@@ -80,6 +122,7 @@ function split(text, inner) {
   let inWord = false;
   let quote = null;
   let heredocs = [];
+  let piped = false;
   const endWord = () => {
     if (inWord) words.push(word);
     word = '';
@@ -87,7 +130,12 @@ function split(text, inner) {
   };
   const endCommand = () => {
     endWord();
-    if (words.length > 0) commands.push(words);
+    if (words.length > 0) {
+      // A command after | keeps the command before it: a shell with no -c text reads that command's output.
+      if (piped && commands.length > 0) words.pipedFrom = commands[commands.length - 1];
+      commands.push(words);
+      piped = false;
+    }
     words = [];
   };
   const substitution = (i) => {
@@ -128,6 +176,16 @@ function split(text, inner) {
       i += 1;
     } else if (ch === '$' && text[i + 1] === '(') {
       i = substitution(i);
+    } else if (ch === '$' && text[i + 1] === "'") {
+      const [decoded, end] = ansiC(text, i + 1);
+      word += decoded;
+      inWord = true;
+      i = end;
+    } else if (ch === '$' && text[i + 1] === '"') {
+      // $"text" is a translated string: the same words as "text".
+      quote = '"';
+      inWord = true;
+      i += 1;
     } else if ((ch === '<' || ch === '>') && text[i + 1] === '(') {
       endWord();
       i = substitution(i);
@@ -168,7 +226,15 @@ function split(text, inner) {
     } else if (ch === '&' && (text[i - 1] === '>' || text[i + 1] === '>')) {
       word += ch;
       inWord = true;
-    } else if (';&|()\n'.includes(ch)) {
+    } else if (ch === '|' && text[i + 1] === '|') {
+      endCommand();
+      i += 1;
+    } else if (ch === '|') {
+      // | and |& send the output of the command before them to the command after them.
+      endCommand();
+      piped = true;
+      if (text[i + 1] === '&') i += 1;
+    } else if (';&()\n'.includes(ch)) {
       endCommand();
     } else if (/\s/.test(ch)) {
       endWord();
@@ -225,6 +291,11 @@ function refusedWords(words, depth) {
     const name = path.posix.basename(w);
     if (/^[A-Za-z_]\w*=/.test(w) || KEYWORDS.has(w)) {
       i += 1;
+    } else if (REDIRECT.test(w)) {
+      i += REDIRECT_ALONE.test(w) ? 2 : 1;
+    } else if (name === 'watch') {
+      // watch joins its arguments and gives them to sh -c.
+      return refusedText(words.slice(skipWrapper(name, words, i + 1)).join(' '), depth + 1);
     } else if (name in WRAPPERS) {
       i = skipWrapper(name, words, i + 1);
     } else if (name === 'rm') {
@@ -233,7 +304,8 @@ function refusedWords(words, depth) {
       // bash -c 'text' (also -lc, -ec): the text is read as commands.
       const rest = words.slice(i + 1);
       const c = rest.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
-      return c >= 0 && c + 1 < rest.length ? refusedText(rest[c + 1], depth + 1) : false;
+      if (c >= 0) return c + 1 < rest.length ? refusedText(rest[c + 1], depth + 1) : false;
+      return words.pipedFrom ? refusedPipe(words.pipedFrom, depth) : false;
     } else if (name === 'eval') {
       return refusedText(words.slice(i + 1).join(' '), depth + 1);
     } else if (name === 'find') {
@@ -251,6 +323,23 @@ function refusedWords(words, depth) {
     }
   }
   return false;
+}
+
+/**
+ * True when the output of `words`, piped into a shell, can run rm with a force or recursive flag.
+ * Only the output of echo and printf is known; the output of any other command is refused (fail closed).
+ */
+function refusedPipe(words, depth) {
+  let i = 0;
+  while (i < words.length && (/^[A-Za-z_]\w*=/.test(words[i]) || REDIRECT.test(words[i]))) {
+    i += REDIRECT_ALONE.test(words[i]) ? 2 : 1;
+  }
+  if (!ECHO_LIKE.has(path.posix.basename(words[i] ?? ''))) return true;
+  const out = words
+    .slice(i + 1)
+    .join(' ')
+    .replace(/\\n/g, '\n');
+  return refusedText(out, depth + 1);
 }
 
 /** True when the text runs rm with a force or recursive flag, or when it cannot be read and holds the word rm. */
