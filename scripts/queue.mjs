@@ -357,6 +357,7 @@ export function main(argv) {
     const r = runWriter(root, { now, session }, work);
     out.push(...(r.result ?? [`queue: ${r.added} events`]));
     for (const n of r.skipped) out.push(`queue: skipped bad line ${n}`);
+    if (r.badSignals > 0) out.push(`queue: skipped ${r.badSignals} bad signal files`);
     return { code: 0, lines: out };
   } catch (err) {
     if (err instanceof QueueError) return { code: err.exitCode, lines: [err.message] };

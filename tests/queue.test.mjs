@@ -92,7 +92,7 @@ test('pending to done', () => {
 
   // A fold of the journal from the first line gives the tasks of state.json.
   const s = stateFile(dir);
-  assert.deepEqual(fold(events(dir), { now: at(5) }).tasks, s.tasks);
+  assert.deepEqual(JSON.parse(JSON.stringify(fold(events(dir), { now: at(5) }).tasks)), s.tasks);
   assert.equal(s.journalSeq, events(dir).at(-1).seq);
   assert.match(s.generator, /^guilda \d+\.\d+\.\d+/);
   // Each event has seq, t and a type of the 0.3.0 vocabulary, and no field named time.
@@ -219,7 +219,7 @@ test('partial and bad lines', () => {
   assert.equal(j.events.length, 8);
   const r = ok(q(a, 1, 'sync'));
   assert.doesNotMatch(r, /skipped/);
-  assert.deepEqual(stateFile(a).tasks, first8.tasks);
+  assert.deepEqual(stateFile(a).tasks, JSON.parse(JSON.stringify(first8.tasks)));
   assert.equal(stateFile(a).journalSeq, 8);
 
   // A bad line: skipped and reported with its number.
@@ -557,12 +557,15 @@ test('makeAddress draws again on a match', () => {
 });
 
 test('a failed state write exits 2 and dispatches nothing', () => {
+  const src = project();
+  ok(q(src, 0, 'init', 'one.plan.md', '--slots', '1'));
+  ok(q(src, 0, 'sync'));
+  // The same journal in a project where state.json is a folder: the state write fails.
   const dir = project();
-  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
-  ok(q(dir, 0, 'sync'));
+  fs.mkdirSync(qdir(dir));
+  fs.copyFileSync(path.join(qdir(src), 'journal.jsonl'), path.join(qdir(dir), 'journal.jsonl'));
+  fs.mkdirSync(path.join(qdir(dir), 'state.json'));
   const before = journalText(dir);
-  // A folder where the temp file of state.json goes makes the state write fail.
-  fs.mkdirSync(path.join(qdir(dir), 'state.json.tmp'));
   const r = q(dir, 1, 'dispatch', 'T1', '--role', 'exe', '--tool', 'claude', '--tier', 'journeyman');
   assert.equal(r.code, 2, r.out);
   assert.match(r.out, /io-error: .*state\.json/);
@@ -608,4 +611,88 @@ test('readState folds the journal when state.json is older', () => {
   fs.writeFileSync(file, '{ not json');
   assert.equal(readState(dir, { now: at(1) }).tasks.T1.state, 'dispatched');
   assert.equal(fs.readFileSync(file, 'utf8'), '{ not json');
+});
+
+/** A file outside the temp project, as the target of a planted link. */
+function outsideFile() {
+  const out = tempProject();
+  const file = path.join(out, 'target.txt');
+  fs.writeFileSync(file, 'outside\n');
+  return file;
+}
+
+test('a link at state.json.tmp, state.json or journal.jsonl changes nothing outside', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  const tmpTarget = outsideFile();
+  fs.symlinkSync(tmpTarget, path.join(qdir(dir), 'state.json.tmp'));
+  ok(q(dir, 0, 'sync'));
+  assert.equal(fs.readFileSync(tmpTarget, 'utf8'), 'outside\n');
+  assert.equal(task(dir, 'T1').state, 'ready');
+
+  const j = project();
+  const jTarget = outsideFile();
+  fs.mkdirSync(qdir(j));
+  fs.symlinkSync(jTarget, path.join(qdir(j), 'journal.jsonl'));
+  const r1 = q(j, 0, 'add', 'T1', '--title', 'one');
+  assert.equal(r1.code, 2, r1.out);
+  assert.match(r1.out, /^io-error: .*journal\.jsonl\n/);
+  assert.equal(fs.readFileSync(jTarget, 'utf8'), 'outside\n');
+  assert.equal(fs.existsSync(path.join(qdir(j), 'lock')), false);
+
+  const st = project();
+  ok(q(st, 0, 'init', 'one.plan.md', '--slots', '1'));
+  const st2 = project();
+  const sTarget = outsideFile();
+  fs.mkdirSync(qdir(st2));
+  fs.copyFileSync(path.join(qdir(st), 'journal.jsonl'), path.join(qdir(st2), 'journal.jsonl'));
+  fs.symlinkSync(sTarget, path.join(qdir(st2), 'state.json'));
+  const before = journalText(st2);
+  const r2 = q(st2, 0, 'sync');
+  assert.equal(r2.code, 2, r2.out);
+  assert.match(r2.out, /^io-error: .*state\.json\n/);
+  assert.equal(fs.readFileSync(sTarget, 'utf8'), 'outside\n');
+  assert.equal(journalText(st2), before);
+});
+
+test('a linked signals folder creates nothing outside', () => {
+  const dir = project();
+  const out = tempProject();
+  fs.mkdirSync(qdir(dir));
+  fs.symlinkSync(out, path.join(qdir(dir), 'signals'));
+  assert.throws(() => writeSignal(dir, { task: 'T1', attempt: 1 }, 'started', { at: at(0) }), /link/);
+  assert.throws(() => writeSignal(dir, { agentId: 'a1' }, 'heartbeat', { at: at(0) }), /link/);
+  assert.deepEqual(fs.readdirSync(out), []);
+});
+
+test('a signal with a bad field is skipped and counted', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  ok(q(dir, 0, 'sync'));
+  dispatch(dir, 0, 'T1');
+  writeSignal(dir, { task: 'T1', attempt: 1 }, 'started', { at: at(0.5), reason: 'finished' });
+  writeSignal(dir, { task: 'T1', attempt: 1 }, 'heartbeat', { at: at(0.6), tokens: 'many', busyUntil: null });
+  writeSignal(dir, { task: 'T1', attempt: 1 }, 'done', {
+    at: at(0.7),
+    reason: 'finished',
+    usage: [{ model: 'm', input: '1', cacheRead: 0, cacheCreation: 0, output: 0 }],
+  });
+  writeSignal(dir, { task: 'T1', attempt: 1 }, 'failed', { at: at(0.8), reason: 'bogus', usage: null });
+  const out = ok(q(dir, 1, 'sync'));
+  assert.match(out, /queue: skipped 4 bad signal files/);
+  assert.equal(events(dir).filter((e) => e.type === 'signal').length, 0);
+  assert.equal(task(dir, 'T1').state, 'dispatched');
+});
+
+test('a task named __proto__ in the journal touches no prototype', () => {
+  const lines = [
+    { seq: 1, t: at(0), type: 'task', task: '__proto__', work: null, key: null, title: 'x', deps: [], uses: [], owns: [] },
+    { seq: 2, t: at(0), type: 'state', task: '__proto__', from: 'pending', to: 'ready', cause: 'deps-done' },
+    { seq: 3, t: at(0), type: 'plan', plan: 'p', part: null, work: '__proto__', slots: 1 },
+  ];
+  const s = fold(lines, { now: at(1) });
+  assert.equal({}.state, undefined);
+  assert.equal({}.plan, undefined);
+  assert.equal(Object.hasOwn(s.tasks, '__proto__'), true);
+  assert.equal(s.tasks.__proto__.state, 'ready');
 });

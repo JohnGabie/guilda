@@ -20,6 +20,7 @@ export const DEFAULT_TOOL_TIMEOUT_MS = 600000;
 export const MAX_ATTEMPTS = 3;
 
 const ADDRESS_HEX_BYTES = 2;
+const TMP_BYTES = 4;
 const ADDRESS_DRAWS = 10;
 const WORK_HEX_BYTES = 4;
 const MS_PER_MINUTE = 60000;
@@ -223,11 +224,11 @@ function resetAttempt(t) {
  * open time in `running` to agentSeconds. An unknown event type is ignored (D40).
  */
 export function fold(events, { now, generator = GENERATOR } = {}) {
-  const s = { generator, journalSeq: 0, slots: 1, works: {}, tasks: {} };
-  const runningSince = {};
-  const seconds = {};
+  const s = { generator, journalSeq: 0, slots: 1, works: Object.create(null), tasks: Object.create(null) };
+  const runningSince = Object.create(null);
+  const seconds = Object.create(null);
   // address -> { task, check } of each dispatch.
-  const runs = {};
+  const runs = Object.create(null);
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
     if (Number.isFinite(e.seq)) s.journalSeq = Math.max(s.journalSeq, e.seq);
@@ -386,6 +387,32 @@ export function signalDir(projectDir, owner) {
 }
 
 /**
+ * Make each folder of `rel` under `base`, one level at a time. A part that exists must be a real folder, not a
+ * symbolic link, so nothing is created outside `base`. Throws on a link.
+ */
+function mkdirInside(base, rel) {
+  let cur = base;
+  for (const part of rel.split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, part);
+    let st = null;
+    try {
+      st = fs.lstatSync(cur);
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    if (st === null) {
+      try {
+        fs.mkdirSync(cur);
+      } catch (err) {
+        if (err.code !== 'EEXIST') throw err;
+      }
+      st = fs.lstatSync(cur);
+    }
+    if (st.isSymbolicLink() || !st.isDirectory()) throw new Error(`refused: ${cur} is a link`);
+  }
+}
+
+/**
  * Write one signal file (section 4a). owner is { task, attempt } or { agentId }. started, done, failed and
  * dispatch.json are created with the flag wx (an existing file throws 'exists'); heartbeat is written again by a
  * temp file and a rename. Each ID is checked first ('invalid ID'). With no .guilda folder it throws and creates
@@ -398,16 +425,12 @@ export function writeSignal(projectDir, owner, kind, data) {
   const dir = signalDir(projectDir, owner);
   const p = queuePaths(projectDir);
   if (!isRealDir(p.guilda)) throw new Error('refused: guilda is not set up');
-  fs.mkdirSync(dir, { recursive: true });
-  const real = fs.realpathSync(dir);
-  if (real !== path.join(fs.realpathSync(p.root), path.relative(p.root, dir))) {
-    throw new Error(`refused: ${dir} is a link`);
-  }
+  mkdirInside(p.guilda, path.relative(p.guilda, dir));
   const file = path.join(dir, kind);
   const text = `${JSON.stringify(data)}\n`;
   if (kind === 'heartbeat') {
-    const tmp = path.join(dir, `heartbeat.${process.pid}.tmp`);
-    fs.writeFileSync(tmp, text);
+    const tmp = path.join(dir, `heartbeat.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`);
+    fs.writeFileSync(tmp, text, { flag: 'wx' });
     fs.renameSync(tmp, file);
     return file;
   }
@@ -448,7 +471,6 @@ export function checkRemovable(rootReal, file, names) {
 const LOCK_TRIES = 3;
 const LOCK_TMP_BYTES = 4;
 const GIT_TIMEOUT_MS = 10000;
-const STATE_TMP = 'state.json.tmp';
 
 /** An error with the exit code of the queue script: 1 refused, 2 I/O error, 3 live lock. */
 export class QueueError extends Error {
@@ -579,6 +601,59 @@ export function releaseLock(P, rootReal) {
   return removeOwn(rootReal, P.lock, 'lock');
 }
 
+const MISSING = Symbol('missing');
+
+/** The JSON of a signal file: MISSING when there is no file, null when it is not a plain file or not JSON. */
+function readSignalFile(file) {
+  let st;
+  try {
+    st = fs.lstatSync(file);
+  } catch {
+    return MISSING;
+  }
+  if (!st.isFile()) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** The end reasons of X5. */
+export const END_REASONS = Object.freeze(['finished', 'error', 'limit', 'timeout']);
+const USAGE_KEYS = ['input', 'cacheRead', 'cacheCreation', 'output'];
+const MODEL_MAX = 200;
+const isCount = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+const isTime = (v) => typeof v === 'string' && !Number.isNaN(Date.parse(v));
+
+/**
+ * The checked fields of a signal file, or null when a field has a bad value (section 4a, X5). Only these fields
+ * are copied: at, reason (an end reason, only for done and failed), usage (a list of { model, input, cacheRead,
+ * cacheCreation, output } with counts), tokens (a count) and busyUntil (an ISO time).
+ */
+export function checkSignalBody(kind, body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || !isTime(body.at)) return null;
+  const end = kind === 'done' || kind === 'failed';
+  const reason = body.reason ?? null;
+  if (reason !== null && !(end && END_REASONS.includes(reason))) return null;
+  const tokens = body.tokens ?? null;
+  if (tokens !== null && !isCount(tokens)) return null;
+  const busyUntil = body.busyUntil ?? null;
+  if (busyUntil !== null && !isTime(busyUntil)) return null;
+  let usage = body.usage ?? null;
+  if (usage !== null) {
+    if (!Array.isArray(usage)) return null;
+    const clean = [];
+    for (const u of usage) {
+      if (!u || typeof u !== 'object' || typeof u.model !== 'string' || u.model.length > MODEL_MAX) return null;
+      if (!USAGE_KEYS.every((k) => isCount(u[k]))) return null;
+      clean.push({ model: u.model, input: u.input, cacheRead: u.cacheRead, cacheCreation: u.cacheCreation, output: u.output });
+    }
+    usage = clean;
+  }
+  return { at: body.at, reason, usage, tokens, busyUntil };
+}
+
 function readJsonFile(file) {
   try {
     const st = fs.lstatSync(file);
@@ -641,8 +716,14 @@ function newSignals(P, events) {
   const seen = new Set(events.filter((e) => e.type === 'signal').map(signalKey));
   const runs = runsOf(events);
   const found = [];
-  const add = (owner, kind, body) => {
-    if (!body || typeof body.at !== 'string' || Number.isNaN(Date.parse(body.at))) return;
+  let bad = 0;
+  const add = (owner, kind, raw) => {
+    if (raw === MISSING) return;
+    const body = checkSignalBody(kind, raw);
+    if (body === null) {
+      bad++;
+      return;
+    }
     const e = {
       type: 'signal',
       address: owner.address ?? null,
@@ -669,7 +750,7 @@ function newSignals(P, events) {
       let address = null;
       for (const [a, r] of runs) if (r.task === taskId && r.attempt === attempt && !r.check) address = a;
       for (const kind of SIGNAL_KINDS) {
-        add({ task: taskId, attempt, address }, kind, readJsonFile(path.join(P.signals, taskId, att, kind)));
+        add({ task: taskId, attempt, address }, kind, readSignalFile(path.join(P.signals, taskId, att, kind)));
       }
     }
   }
@@ -678,10 +759,11 @@ function newSignals(P, events) {
   for (const [agentId, b] of bindings) {
     for (const kind of SIGNAL_KINDS) {
       const owner = { task: b.task, attempt: b.attempt, address: b.address, agentId };
-      add(owner, kind, readJsonFile(path.join(P.signals, 'agents', agentId, kind)));
+      add(owner, kind, readSignalFile(path.join(P.signals, 'agents', agentId, kind)));
     }
   }
-  return found.map((e, i) => ({ e, i })).sort((a, b) => Date.parse(a.e.at) - Date.parse(b.e.at) || a.i - b.i).map((x) => x.e);
+  const sorted = found.map((e, i) => ({ e, i })).sort((a, b) => Date.parse(a.e.at) - Date.parse(b.e.at) || a.i - b.i);
+  return { found: sorted.map((x) => x.e), bad };
 }
 
 /** The state change of one signal of the current work run, or null (section 4a). */
@@ -702,7 +784,8 @@ export function signalTransition(state, e) {
 /** Recovery steps 3 and 4: agent events, signal events and their states, the timeouts and the dependencies. */
 export function recover(P, events, emit, nowIso, headOf) {
   foldAgents(P, events, emit);
-  for (const sig of newSignals(P, events)) {
+  const { found, bad } = newSignals(P, events);
+  for (const sig of found) {
     if (sig.kind === 'done') sig.head = headOf();
     emit(sig);
     const tr = signalTransition(fold(events), sig);
@@ -719,6 +802,7 @@ export function recover(P, events, emit, nowIso, headOf) {
       emit({ type: 'state', task: id, from: 'pending', to: 'ready', cause: 'deps-done' });
     }
   }
+  return { badSignals: bad };
 }
 
 /** The real paths of the queue of a project, with .guilda/queue created when missing (never .guilda itself). */
@@ -745,20 +829,70 @@ export function openQueue(projectDir) {
   return { P, rootReal };
 }
 
-function readJournalText(file) {
+/** Open a queue file with O_NOFOLLOW and check that it is a plain file; else exit 2. */
+function openPlain(file, flags) {
+  let fd;
   try {
-    return fs.readFileSync(file, 'utf8');
+    fd = fs.openSync(file, flags | fs.constants.O_NOFOLLOW, 0o644);
   } catch (err) {
-    if (err.code === 'ENOENT') return '';
+    if (err.code === 'ENOENT') return null;
     throw ioError(file);
   }
+  let ok = false;
+  try {
+    ok = fs.fstatSync(fd).isFile();
+  } finally {
+    if (!ok) fs.closeSync(fd);
+  }
+  if (!ok) throw ioError(file);
+  return fd;
+}
+
+function readJournalText(file) {
+  const fd = openPlain(file, fs.constants.O_RDONLY);
+  if (fd === null) return '';
+  try {
+    return fs.readFileSync(fd, 'utf8');
+  } catch {
+    throw ioError(file);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** Cut a partial last line, then append the events, through one fd that does not follow a link. */
+function appendJournal(file, text, events) {
+  const fd = openPlain(file, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT);
+  if (fd === null) throw ioError(file);
+  try {
+    // Cut a partial last line before the append, so that the new event is not joined to it (L1).
+    if (text.length > 0 && !text.endsWith('\n')) fs.ftruncateSync(fd, Buffer.byteLength(text.slice(0, text.lastIndexOf('\n') + 1)));
+    fs.writeSync(fd, events.map((e) => `${JSON.stringify(e)}\n`).join(''));
+  } catch (err) {
+    if (err instanceof QueueError) throw err;
+    throw ioError(file);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** state.json must be a plain file when it exists, so the rename never replaces a folder or a link. */
+function checkStateTarget(file) {
+  let st;
+  try {
+    st = fs.lstatSync(file);
+  } catch (err) {
+    if (err.code === 'ENOENT') return;
+    throw ioError(file);
+  }
+  if (!st.isFile()) throw ioError(file);
 }
 
 /**
  * One run of the queue writer (section 4a): take the lock, replay the journal, turn the signal files into events,
  * check the timeouts, run `work`, then write the new events and state.json, and remove the lock. `work(ctx)` gets
  * { state, events, emit, now }. It throws a QueueError with exit 1 to refuse: then nothing is written. The result:
- * { added, skipped, result }.
+ * { added, skipped, badSignals, result }.
  */
 export function runWriter(projectDir, { now, session = null } = {}, work = null) {
   const { P, rootReal } = openQueue(projectDir);
@@ -780,30 +914,28 @@ export function runWriter(projectDir, { now, session = null } = {}, work = null)
       if (head === undefined) head = gitHead(rootReal);
       return head;
     };
-    recover(P, events, emit, now, headOf);
+    const { badSignals } = recover(P, events, emit, now, headOf);
     const result = work ? work({ state: fold(events, { now }), events, emit, now, session }) : null;
     const state = fold(events, { now });
-    const tmp = path.join(P.dir, STATE_TMP);
+    checkStateTarget(P.state);
+    const tmp = path.join(P.dir, `state.json.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`);
     try {
-      fs.writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`);
+      fs.writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`, { flag: 'wx' });
     } catch {
       throw ioError(P.state);
     }
-    if (pending.length > 0) {
+    try {
+      if (pending.length > 0) appendJournal(P.journal, text, pending);
       try {
-        // Cut a partial last line before the append, so that the new event is not joined to it (L1).
-        if (text.length > 0 && !text.endsWith('\n')) fs.truncateSync(P.journal, Buffer.byteLength(text.slice(0, text.lastIndexOf('\n') + 1)));
-        fs.appendFileSync(P.journal, pending.map((e) => `${JSON.stringify(e)}\n`).join(''));
+        fs.renameSync(tmp, P.state);
       } catch {
-        throw ioError(P.journal);
+        throw ioError(P.state);
       }
+    } catch (err) {
+      removeOwn(rootReal, tmp, path.basename(tmp));
+      throw err;
     }
-    try {
-      fs.renameSync(tmp, P.state);
-    } catch {
-      throw ioError(P.state);
-    }
-    return { added: pending.length, skipped, result };
+    return { added: pending.length, skipped, badSignals, result };
   } finally {
     releaseLock(P, rootReal);
   }
