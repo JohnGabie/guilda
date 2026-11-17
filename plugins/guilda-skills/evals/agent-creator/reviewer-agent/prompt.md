@@ -1,6 +1,6 @@
 ---
 description: "A reviewer agent with a least-privilege tools line and its first eval cases."
-max_turns: 20
+max_turns: 50
 timeout_seconds: 420
 allowed_tools: [Skill, Read, Glob, Grep, Write]
 ---

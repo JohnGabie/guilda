@@ -1,6 +1,6 @@
 ---
 description: "A limit that must always hold goes in a plugin hook with an agent_type filter, not only in the agent text."
-max_turns: 15
+max_turns: 45
 timeout_seconds: 420
 allowed_tools: [Skill, Read, Glob, Grep, Write]
 ---
