@@ -3,7 +3,7 @@
 
 Apply these categories to a field report, with the supplied `PUBLIC_REPOS` and `PROPRIETARY` lists.
 Anonymization is on by default. The user can turn it off for one report. Turning it off covers only the last four rows.
-The first seven rows apply to every report. The scan of `report-send` also refuses a secret or an absolute path.
+The first seven rows and the `PROPRIETARY` row apply to every report. The scan of `report-send` also refuses a secret or an absolute path.
 
 | Category | Placeholder | What to catch |
 |---|---|---|
@@ -14,9 +14,10 @@ The first seven rows apply to every report. The scan of `report-send` also refus
 | Hosts and addresses | `<HOST-n>` | hostnames that are not public package or docs domains, IPv4 and IPv6 addresses, internal URLs |
 | Home paths | `~` | any absolute path under a home directory becomes `~/…`; the account-name segment is removed |
 | Repositories | `<REPO-n>` | repository names, slugs and remote URLs, unless the name or URL is in `PUBLIC_REPOS` |
+| Proprietary terms | `<TERM-n>` | each term in `PROPRIETARY`, case-insensitive, whole word |
 | Project names | `<PROJECT-n>` | the name of the project, its product, its company and its team |
 | Routes | `<ROUTE-n>` | URL paths, route patterns and API endpoints of the project |
-| Domain terms | `<TERM-n>` | words that name the business of the project, such as the names of its entities, and each term in `PROPRIETARY`, case-insensitive, whole word |
+| Domain terms | `<TERM-n>` | words that name the business of the project, such as the names of its entities |
 | Business data | `<DATA-n>` | customer names, amounts, counts, dates and rows that come from the business |
 
 Generic terms are better than placeholders where a reader needs the meaning. "the invoice list" can become "the list".

@@ -58,7 +58,7 @@ Ask about these topics, one question in each message:
 8. **Tiers.** The model for each tier (see Config values).
 9. **Extra roles.** Project roles, for example a Learning Advisor. A project role lives in `docs/roles/`.
 10. **Process level.** Ask in the question tool: "Is this a prototype or personal project, or a product?" Give the options "prototype or personal project" and "product", with no preselected answer. The first answer writes `process: "light"`. The second writes `process: "full"`. Say that `light` runs one review at the end, and `full` reviews each task.
-11. **Explain.** Ask in the question tool for `explain`: `brief` or `full`. Say what each one changes. With `brief`, a question of the Architect has one sentence of context and its options. With `full`, it also has the reasons and the trade-offs. The answer writes `explain` in the config.
+11. **Explain.** Ask in the question tool for `explain`: `brief` or `full`. Say what each one changes. With `brief`, a question of the Architect has one sentence of context and its options. With `full`, it has four parts. They are the where, the what, an example with real values, and the effect of each option. The answer writes `explain` in the config.
 12. **Formatter.** Only if step 1 found a formatter. Ask in the question tool if you may add `.guilda/` to the ignore file of that formatter. Examples are `.prettierignore` and `files.ignore` in `biome.json`. Add the entry only after the approval of step 5.
 13. **Mobile.** Only if step 1 found a mobile app. Offer the `ios-on-linux` plugin: `claude plugin install ios-on-linux@guilda`. Never offer it to another project. Never run the install yourself.
 

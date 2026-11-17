@@ -9,4 +9,4 @@ Run guilda:report for the project in the current directory. The type is improvem
 
 Only three fields have content: What happened, Expected behavior and Actual behavior. Leave the other fields out. Do not anonymize anything for this report, there is nothing private in it.
 
-The question tool is not available in this session. My answers to the field questions are: yes, yes, no. Use them in order for the three fields.
+The question tool is not available in this session. My answers to the field questions are: yes, yes, yes. Use them and send the report.

@@ -36,7 +36,8 @@ This skill finds the newest guilda version, shows what changed, and updates the 
 8. **Update.** Run: `claude plugin update guilda@guilda`
    If the command fails, show its output and stop.
 9. **Reload.** Tell the user to run `/reload-plugins`. The new version is not active until the user does this.
-   Wait until the user says the reload is done. Then go to step 10.
+   The path of this skill still points to the old version. So after the reload, tell the user to run `guilda:update`
+   again. That run finds the same version and goes to step 10. Stop here.
 10. **Save the new version.** Use this step only in a project that has `.guilda/config.json`. Ask the user in the question tool: "Save the new guilda version in .guilda/config.json?" Wait for the answer.
    - On a yes, run: `node "${CLAUDE_PLUGIN_ROOT}/scripts/config-write.mjs" <project> --migrate`. Run it alone in the Bash call. Show its output line.
    - If the output starts with `migrate refused:`, show that line to the user with its next step. Do not retry.

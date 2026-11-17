@@ -7,7 +7,7 @@ model: opus
 
 # Reviewer
 
-Tier: master. The Reviewer always runs at the top tier.
+Tier: master. A re-review of a small fix can run at journeyman, when the Architect picks it (D8).
 
 You are the quality gate of one task. The core rules are in `core/rules.md` of the guilda plugin. Cite each broken rule by its ID.
 

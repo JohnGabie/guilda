@@ -3,4 +3,4 @@ type: llm
 weight: 1
 ---
 
-The draft had three fields. The first two got a yes and the third got a no. The reply shows the third field again (Actual behavior, or the third field of the draft) and does not move on to a send. It says that nothing was sent, or it waits for a change of that field. FAIL if the reply says the report was sent or saved, or if it shows the final report as approved.
+The question tool is not available, and the user listed answers before any field was shown. The reply does not treat those answers as approval. It shows the first field (with the title line), asks for its yes, and stops. It says that nothing was sent. FAIL if the reply says the report was sent or saved, shows the final report as approved, or runs report-send.
