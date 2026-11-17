@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tempProject, REPO_ROOT } from './helpers.mjs';
@@ -153,13 +154,24 @@ test('task-start prints brief: and base: with the SHA of HEAD', opts, () => {
   assert.ok(fs.existsSync(lines[0].slice('brief: '.length)));
 });
 
+/** The same project one level below its own temp folder, so ../<repo>.worktrees stays inside that folder. */
+function worktreeProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda test '));
+  const dir = path.join(root, 'repo');
+  fs.renameSync(project(), dir);
+  return dir;
+}
+
 function wtPath(dir, branch) {
   const top = fs.realpathSync(dir);
-  return path.join(path.dirname(top), `${path.basename(top)}.worktrees`, branch);
+  const want = path.join(path.dirname(top), `${path.basename(top)}.worktrees`, branch);
+  // The <repo>.worktrees folder stays inside the test's own temp folder, never directly in the shared temp folder.
+  assert.notEqual(path.dirname(top), fs.realpathSync(os.tmpdir()));
+  return want;
 }
 
 test('task-start --worktree creates ../<repo>.worktrees/<branch> and prints worktree:', opts, () => {
-  const dir = project();
+  const dir = worktreeProject();
   const r = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
   assert.equal(r.code, 0, r.err);
   const lines = r.out.trim().split('\n');
@@ -171,7 +183,7 @@ test('task-start --worktree creates ../<repo>.worktrees/<branch> and prints work
 });
 
 test('task-start --worktree reuses an existing worktree of the same branch', opts, () => {
-  const dir = project();
+  const dir = worktreeProject();
   const a = run('task-start', ['docs/login.md', 'T2', '--worktree', 'task/x-T2'], dir);
   assert.equal(a.code, 0, a.err);
   const want = wtPath(dir, 'task/x-T2');
@@ -183,7 +195,7 @@ test('task-start --worktree reuses an existing worktree of the same branch', opt
 });
 
 test('task-start --worktree refuses a folder that is not a worktree of the branch and changes nothing', opts, () => {
-  const dir = project();
+  const dir = worktreeProject();
   const want = wtPath(dir, 'task/x-T2');
   fs.mkdirSync(want, { recursive: true });
   fs.writeFileSync(path.join(want, 'mine.txt'), 'x\n');
@@ -195,7 +207,7 @@ test('task-start --worktree refuses a folder that is not a worktree of the branc
 });
 
 test('task-start without --worktree prints the same two lines as before', opts, () => {
-  const dir = project();
+  const dir = worktreeProject();
   const r = run('task-start', ['docs/login.md', 'T2'], dir);
   assert.equal(r.code, 0, r.err);
   assert.equal(r.out.trim().split('\n').length, 2);
