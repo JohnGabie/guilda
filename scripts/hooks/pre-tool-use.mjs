@@ -33,6 +33,7 @@ const R32 = {
     action: 'queue script call refused: not the writer role',
     reason: 'R32: only the writer role calls the queue script; in 0.3.0 that is the Architect in the main session, not a subagent',
   },
+  error: { action: 'hook error: cannot check the call', reason: 'R32: cannot check the call' },
   noSession: { action: 'queue script call refused: no --session', reason: 'R32: no --session' },
   session: {
     action: 'queue script call refused: --session is not this session',
@@ -174,6 +175,8 @@ function commandPlanProblem(projectDir, command, startCwd) {
 }
 
 async function main(input) {
+  // A seam for the fail-closed test only: no product path sets it.
+  if (process.env.GUILDA_TEST_HOOK_THROW === '1') throw new Error('test error');
   const projectDir = resolveProjectDir(input);
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
   const project = projectState(projectDir);
@@ -250,8 +253,9 @@ async function readInput() {
 }
 
 // A law fails closed (X9): an input that the hook cannot read is refused, in a project with a .guilda folder.
+let input = null;
 try {
-  const input = await readInput();
+  input = await readInput();
   if (input === null) {
     const projectDir = resolveProjectDir(null);
     if (projectState(projectDir).state !== 'none') {
@@ -263,5 +267,15 @@ try {
   }
 } catch (err) {
   process.stderr.write(`guilda: ${String((err && err.message) || 'hook failed').split('\n')[0]}\n`);
+  // A law fails closed (X9): a check that throws refuses the call.
+  try {
+    const projectDir = resolveProjectDir(input);
+    if (projectState(projectDir).state !== 'none') {
+      appendViolation(projectDir, { rule: 'R32', level: 'law', source: 'pre-tool-use', action: R32.error.action });
+      deny(R32.error.reason);
+    }
+  } catch {
+    deny(R32.error.reason);
+  }
 }
 process.exitCode = 0;

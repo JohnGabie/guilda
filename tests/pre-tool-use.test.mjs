@@ -733,3 +733,35 @@ test('S16: the R4 and R19 checks still run with the R32 check', () => {
   assert.match(assertDeny(bash(dir, 'git commit -m x')), /^R19:/);
   assert.deepEqual(violations(dir).map((r) => r.rule), ['R4', 'R4', 'R19']);
 });
+
+test('R32: a queue script call by a short path or run directly is refused for a subagent', () => {
+  const dir = queueProject();
+  fs.mkdirSync(path.join(dir, 'scripts'));
+  const sub = { agent_id: 'a1', session_id: 's1' };
+  const cases = [
+    ['cd scripts && node queue.mjs . sync', dir],
+    ['(cd scripts; node queue.mjs . sync)', dir],
+    ['node ./queue.mjs .. sync', path.join(dir, 'scripts')],
+    ['./scripts/queue.mjs . sync', dir],
+  ];
+  for (const [command, cwd] of cases) {
+    const r = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd, ...sub }, dir);
+    assert.match(assertDeny(r), /^R32: /, command);
+  }
+  assert.equal(violations(dir).length, cases.length);
+});
+
+test('R32: an error in the check refuses the call with one record (fail closed)', () => {
+  const dir = queueProject();
+  const r = spawnSync(process.execPath, [path.join(REPO_ROOT, SCRIPT)], {
+    input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' }, cwd: dir }),
+    encoding: 'utf8',
+    cwd: dir,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: dir, CLAUDE_PLUGIN_ROOT: REPO_ROOT, GUILDA_TEST_HOOK_THROW: '1' },
+  });
+  assert.equal(assertDeny({ code: r.status, stdout: r.stdout }), 'R32: cannot check the call');
+  const v = violations(dir);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].rule, 'R32');
+  assert.equal(v[0].action.includes('ls'), false);
+});

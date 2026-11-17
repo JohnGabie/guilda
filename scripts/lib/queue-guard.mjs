@@ -2,6 +2,11 @@
 // This is a small reader, not a full shell parser. It fails closed: it reads each command twice, once with the shell
 // quotes and once with the quotes, the comments and the heredoc marks taken out. A write that either reading finds
 // counts. A path from a variable or a command substitution passes (the stated limit of R32).
+// A queue script call is any word whose base name is queue.mjs after a program `node` (or a program from a variable),
+// or a command word with that base name, in any folder; so no cd needs to be followed for a call.
+// Stated limits, which this reader does not see: a write through sed -i, dd, truncate, ln, find -delete, xargs, or
+// an interpreter (python, node -e); a queue script run by `node -e` with an import, by bun, deno or tsx, or under
+// another file name or a link; a path from a variable; a case-insensitive file system that spells a name otherwise.
 import fs from 'node:fs';
 import path from 'node:path';
 import { splitCommands, stripPrefix, isVariable, resolveDir } from './git-command.mjs';
@@ -9,7 +14,7 @@ import { findCreatedFiles } from './shell-writes.mjs';
 
 export const QUEUE_DIR = ['.guilda', 'queue'];
 export const QUEUE_FILES = ['journal.jsonl', 'state.json', 'lock', 'writer.json'];
-const QUEUE_SCRIPT = 'scripts/queue.mjs';
+const QUEUE_SCRIPT = 'queue.mjs';
 const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const WRITERS = new Set(['tee', 'touch', 'cp', 'mv', 'rm']);
@@ -199,14 +204,17 @@ export function queueFileWrites(command, cwd, projectDir) {
   }
 }
 
-/** True when the word can be a path that ends in scripts/queue.mjs. A variable or a glob counts as any text. */
-function canBeQueueScript(word) {
+/** True when the word can be a path whose base name is queue.mjs. A variable or a glob counts as any text. */
+function canBeQueueScript(word, { direct = false } = {}) {
   const w = word.replace(/\\/g, '/');
   const parts = w.split(/\$\{[^}]*\}|\$\([^)]*\)|\$\w+|\$|`[^`]*`|`|[*?]|\[[^\]]*\]|\{[^}]*\}/);
   const last = parts[parts.length - 1];
   const tail = last === '' ? '' : path.posix.normalize(last).replace(/^\.\//, '');
-  if (tail.endsWith(QUEUE_SCRIPT)) return true;
-  return parts.length > 1 && QUEUE_SCRIPT.endsWith(tail);
+  if (tail === QUEUE_SCRIPT || tail.endsWith(`/${QUEUE_SCRIPT}`)) return true;
+  if (parts.length === 1) return false;
+  // A command word that is only a variable is not taken as the queue script; one with a literal end can be.
+  if (direct && tail === '') return false;
+  return QUEUE_SCRIPT.endsWith(tail) || tail.endsWith(QUEUE_SCRIPT);
 }
 
 /** The --session value of the queue script arguments, as the script reads them: null when there is none. */
@@ -229,7 +237,11 @@ function callsIn(commands) {
   const sessions = [];
   for (const words of commands) {
     const { rest } = stripPrefix(words);
-    const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)));
+    if (rest.length > 0 && canBeQueueScript(rest[0], { direct: true })) {
+      sessions.push(readSession(rest.slice(1)));
+      continue;
+    }
+    const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
     if (nodeAt < 0) continue;
     const scriptAt = rest.findIndex((w, i) => i > nodeAt && canBeQueueScript(w));
     if (scriptAt < 0) continue;
@@ -239,7 +251,8 @@ function callsIn(commands) {
 }
 
 /**
- * The queue script call of a Bash command: a program `node` whose script path ends in scripts/queue.mjs. Returns null
+ * The queue script call of a Bash command: a program `node` whose script has the base name queue.mjs, or that script
+ * run directly. Returns null
  * when the command has none, else { session, sessions }: `sessions` is the --session value of each call (null for a
  * call with none), and `session` is the first. A call that only the reading without quotes finds has the value null.
  */
