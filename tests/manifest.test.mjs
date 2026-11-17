@@ -157,3 +157,51 @@ test('S31: the extension has no user skill', () => {
     : [];
   for (const n of names) assert.ok(hidden(`plugins/guilda-skills/skills/${n}/SKILL.md`), n);
 });
+
+// T32: the 0.2.0 release texts.
+const changelogText = () => readText('CHANGELOG.md');
+const entry = (version) => {
+  const text = changelogText();
+  const start = text.indexOf(`## [${version}] - `);
+  assert.ok(start >= 0, `the ${version} entry exists`);
+  const next = text.indexOf('\n## [', start + 1);
+  return text.slice(start, next < 0 ? undefined : next);
+};
+
+test('T32: the three manifests have the version 0.2.0', () => {
+  for (const p of [CORE, EXT, IOS]) assert.equal(readJson(p).version, '0.2.0', p);
+});
+
+test('T32: the 0.2.0 entry has the headings Added, Changed and Fixed, and names its rule IDs', () => {
+  const e = entry('0.2.0');
+  for (const h of ['### Added', '### Changed', '### Fixed']) assert.ok(e.includes(h), h);
+  for (const id of ['R4', 'R11', 'R13', 'R24', 'ARC1', 'EXE2', 'R26', 'R27', 'R28']) {
+    assert.match(e, new RegExp(`\\b${id}\\b`), id);
+  }
+});
+
+test('T32: the entry names R29 only when core/rules.md has R29, and the same for R30', () => {
+  const rules = readText('core/rules.md');
+  const e = entry('0.2.0');
+  for (const id of ['R29', 'R30']) {
+    const has = new RegExp(`^### ${id} `, 'm').test(rules);
+    const inAdded = e.slice(e.indexOf('### Added'), e.indexOf('### Changed')).match(new RegExp(`\\b${id}\\b`));
+    assert.equal(Boolean(inAdded), has, `${id} in Added iff core/rules.md has it`);
+  }
+});
+
+test('T32: the changelog has an empty Unreleased entry and the 0.2.0 link references', () => {
+  const text = changelogText();
+  assert.match(text, /^## \[Unreleased\]\n\n## \[0\.2\.0\] - \d{4}-\d{2}-\d{2}$/m);
+  assert.match(text, /^\[unreleased\]: .*compare\/guilda--v0\.2\.0\.\.\.HEAD$/m);
+  assert.match(text, /^\[0\.2\.0\]: .*compare\/guilda--v0\.1\.1\.\.\.guilda--v0\.2\.0$/m);
+});
+
+test('T32: node scripts/changelog.mjs reads the changes from 0.1.1 to 0.2.0', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync('node', ['scripts/changelog.mjs', '0.1.1', '0.2.0'], { encoding: 'utf8', cwd: new URL('./', root) });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /R26/);
+  assert.match(r.stdout, /ARC1/);
+  assert.doesNotMatch(r.stdout, /^## \[0\.1\.1\]/m);
+});

@@ -23,6 +23,7 @@ never runs in the controller session (R26). Run it in a dispatched agent, never 
    - `guilda:lab-experimenter` for a test of the hypothesis against the PASS criteria.
 3. Write the lab brief: the question, the hypothesis and the PASS criteria. Add the paths the agent may read and the
    files it may write. Add the limits of time and tokens, and the path of the report.
+   A restricted PATH needs the preset: the brief tells the agent to run `eval "$(node scripts/lab-env.mjs)"` of the guilda plugin.
 4. Dispatch the role with the Agent tool. Give it the full brief text. Never run the lab in the controller, and never
    run a command of the lab yourself (R26).
 5. The agent writes its report to `docs/labs/<date>-<name>.md` on the lab branch, from `templates/report.md`

@@ -124,7 +124,24 @@ export function checkStrict(c) {
   if (c.schemaVersion !== undefined && !(Number.isInteger(c.schemaVersion) && c.schemaVersion > 0)) {
     return 'schemaVersion must be a positive integer';
   }
+  if (c.dispatch !== undefined) {
+    const types = isObject(c.dispatch) ? c.dispatch.agentTypes : null;
+    if (!isObject(c.dispatch) || (types !== undefined && !(Array.isArray(types) && types.every((t) => isString(t) && t.trim() !== '')))) {
+      return 'dispatch.agentTypes must be a list of agent type names';
+    }
+  }
   return null;
+}
+
+/**
+ * The extra agent types that the main session may dispatch (ARC4), from dispatch.agentTypes, trimmed and in lower
+ * case. A missing or bad value reads as an empty list (tolerant reader). Never throws.
+ */
+export function dispatchAgentTypes(config) {
+  const types = isObject(config) && isObject(config.dispatch) ? config.dispatch.agentTypes : undefined;
+  // A list with any bad item reads as empty, as the strict check refuses it (fail closed).
+  if (!Array.isArray(types) || !types.every((t) => isString(t) && t.trim() !== '')) return [];
+  return types.map((t) => t.trim().toLowerCase());
 }
 
 /**

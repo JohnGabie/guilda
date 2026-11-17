@@ -306,3 +306,18 @@ test('projectHash has 16 hex characters and no slash', () => {
   assert.ok(!h.includes('/'));
   assert.match(h, /^[0-9a-f]+$/);
 });
+
+test('checkStrict: dispatch.agentTypes is a list of non-empty strings', () => {
+  assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: { agentTypes: ['a', 'plugin:b'] } }), null);
+  assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: {} }), null);
+  for (const bad of [{ agentTypes: 'a' }, { agentTypes: [''] }, { agentTypes: [1] }, 'x']) {
+    assert.equal(checkStrict({ ...MINIMAL_CONFIG, dispatch: bad }), 'dispatch.agentTypes must be a list of agent type names');
+  }
+});
+
+test('dispatchAgentTypes reads a list in lower case and treats a bad value as empty', async () => {
+  const { dispatchAgentTypes } = await import('../scripts/lib/project.mjs');
+  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: [' A ', 'b'] } }), ['a', 'b']);
+  assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: ['a', '', 3] } }), []);
+  for (const c of [{}, { dispatch: 'x' }, { dispatch: { agentTypes: 'a' } }, null]) assert.deepEqual(dispatchAgentTypes(c), []);
+});

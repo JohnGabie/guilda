@@ -8,18 +8,73 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-17
+
 ### Added
 
+- New rules: R26, R27, R28 and R30. R26: labs run in a dispatched agent. R27: truth first. R28: tell the user when
+  guilda is not set up. R30: skills by role group.
+- New rule IDs in `guilda:architect`: ARC7 to ARC10. ARC7: concrete scenarios. ARC8: one owner task for each
+  decision. ARC9: a mutant for each new test. ARC10: a glossary for each new term.
+- Two process levels, `light` and `full`, set in `.guilda/config.json` (`process` and `explain`). `guilda:init`
+  asks for the level. A project with no setting runs `full`.
+- `guilda:report`: a field report skill. It scrubs private data and files an issue the user approves.
+- `guilda:lab` and the lab roles: `lab-researcher`, `lab-experimenter` and `lab-reader`, with a lab report
+  template (R26).
+- `scripts/doctor.mjs`: an activation check of the installed plugins and of the project layer.
+- The extension plugin `guilda-skills`, with `superpowers` and `skill-creator` as dependencies. It has eight skills:
+  - `data`: turn raw data and lab results into a verdict.
+  - `ai-engineering`: design, write and review a prompt, an LLM call or an agent.
+  - `ai-evals`: write, run and grade the eval suite of an AI artifact.
+  - `lab-experiment`: run an experiment or a spike and give a verdict.
+  - `devops`: CI/CD, infrastructure code, deploy and rollback plans.
+  - `ai-data`: estimate and report the tokens and the cost of an AI feature.
+  - `agent-creator`: create, change and review a subagent definition.
+  - `security-zones`: decide which spec blocks are security zones.
+- The plugin `ios-on-linux`: control a real iPhone from a Linux PC.
+- Four new agents: `architect-executor`, `ai-lead`, `coherence-validator` and `devops-advisor`.
+- Role groups, and the R30 hook: a `Skill` call is checked against the role group of the agent (R30).
+- An AI artifact gate in the Reviewer and in QA. A prompt, a skill or an agent file is checked with a tool.
+  It must pass a suite of runs before approval.
+- `scripts/bump-version.mjs`: one version for the three plugins, with `--check` and `--audit`.
+- `THIRD-PARTY-NOTICES.md`: the MIT notice for the pieces adapted from `superpowers`.
 - The decision register (D1 to D50, E1, E2), the 0.1.1 and 0.2.0 specs, and a backlog for 0.3.0 to 0.5.0.
-- `skill-creator` is a required plugin dependency. The README install adds the official marketplace first. The
-  0.2.0 spec moves it, with `superpowers`, to the extension plugin; the core plugin gets no dependency (D40).
 - `ROADMAP.md`, with one GitHub milestone for each release.
+- `skill-creator` is a plugin dependency of the extension plugin. The core plugin has no dependency (D40).
 
 ### Changed
 
+- R4: one MD for each feature. The plan is a `## Plan: Part N` section of it, or one plan file next to it.
+- R11: rejections are counted for each review unit. A small or a large rejection; 3 rejections escalate.
+- R13 and ARC1: decisions go through the question tool, one decision at a time.
+- R24: one review cycle for each review unit, by process level.
+- EXE2: the new test fails against the old code first.
+- The task brief format: `Base commit:` is a required field.
+- The version notice sends the user to `guilda:update`.
+- ARC4 is a law. The main session may dispatch `guilda:*`, `Explore` and `Plan`. It may also dispatch the types
+  that the user lists in the new config key `dispatch.agentTypes`. Each other type is refused.
+- R20 is a law. In a project with `.guilda`, a hook refuses `rm` with a force or recursive flag. The hook reads
+  the Bash call of a subagent. `scripts/lab-env.mjs` makes a safe temporary folder for a lab.
+- Task worktrees are durable. They live in `../<repo>.worktrees/`, and `task-start --worktree` makes one.
+- A rule changes in place, so no project runs `guilda:init` again. `guilda:update` saves the new version and the
+  0.2.0 config form (`schemaVersion` 2).
 - The CHANGELOG uses the Keep a Changelog form. `scripts/changelog.mjs` reads the new headings and the old ones.
-- `RELEASING.md`: while the major number is 0, a core rule that changes meaning raises the minor number. A rule
-  changes in place, so no project runs `guilda:init` again. Each tag gets a GitHub release with notes.
+- `RELEASING.md`: while the major number is 0, a core rule that changes meaning raises the minor number. Each tag
+  gets a GitHub release with notes.
+
+### Fixed
+
+- R4 also refuses a plan file that a Bash command creates.
+
+### Not in this release
+
+- R29 (production commands need the user's approval) moved to 0.3.0. The ID R29 stays reserved.
+
+### Known gaps
+
+- The R20 hook does not see an `rm` hidden in a variable or in a script file that `bash` runs.
+  It does not see an `rm` in a remote command.
+- The turn budgets of two skill eval suites are provisional until lab #58.
 
 ## [0.1.1] - 2026-11-10
 
@@ -40,6 +95,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - Core rules, roles, hooks, `guilda:architect`, `guilda:init` and `guilda:update`. New rule IDs: R1 to R25, and ARC1
   to ARC6 in `guilda:architect`. The brief check of the Executor dispatch cites ARC6, not R3.
 
-[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.1.1...HEAD
+[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.2.0...HEAD
+[0.2.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.1.1...guilda--v0.2.0
 [0.1.1]: https://github.com/JohnGabie/guilda/releases/tag/guilda--v0.1.1
 [0.1.0]: https://github.com/JohnGabie/guilda/releases/tag/guilda--v0.1.0

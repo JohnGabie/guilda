@@ -13,7 +13,7 @@ const nonBlank = (text) => text.split(/\r?\n/).filter((l) => l.trim() !== '').le
 const LEVELS = {
   R1: 'gate', R2: 'gate', R3: 'gate', R4: 'law', R5: 'gate', R6: 'gate', R7: 'gate', R8: 'gate', R9: 'gate',
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
-  R18: 'law', R19: 'law', R20: 'gate', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
+  R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
 };
 
@@ -43,6 +43,12 @@ test('the full files have 150 lines or fewer', () => {
 
 test('R28 has the level law', () => {
   assert.equal(blocks(read('core/rules.md')).R28.level, 'law');
+});
+
+test('R20 has the level law, and its Check: line names the hook and keeps the gate part', () => {
+  const r20 = blocks(read('core/rules.md')).R20;
+  assert.equal(r20.level, 'law');
+  assert.match(r20.text, /Check: law — PreToolUse refuses rm with a force or recursive flag in a subagent's Bash call\. The Reviewer rejects a diff that deletes files when its brief has no `Deletion rules:` field\.$/);
 });
 
 test('R30 has the level law', () => {

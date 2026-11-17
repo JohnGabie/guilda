@@ -1,5 +1,5 @@
 {
-  "guildaVersion": "0.1.0",
+  "guildaVersion": "0.2.0",
   "languages": {
     "replies": "pt-BR",
     "docs": "en"
@@ -40,5 +40,8 @@
     "master": "opus",
     "journeyman": "sonnet",
     "apprentice": "haiku"
-  }
+  },
+  "process": "full",
+  "explain": "full",
+  "schemaVersion": 2
 }

@@ -101,7 +101,7 @@ Check: law — PreToolUse scans the staged and changed lines of each `git commit
 ### R20 — Deletion safety rules in every brief that deletes
 Rule:  Copy the rules of `core/deletion-safety.md` into each brief whose code deletes, moves or overwrites files.
 Why:   A subagent starts without these rules, and one wrong path in a delete destroys work for good.
-Check: gate — The Reviewer rejects a diff that deletes files when its brief has no `Deletion rules:` field.
+Check: law — PreToolUse refuses rm with a force or recursive flag in a subagent's Bash call. The Reviewer rejects a diff that deletes files when its brief has no `Deletion rules:` field.
 
 ### R21 — QA demands its named tools
 Rule:  If the tool named for a scenario is missing, mark the scenario `NOT VERIFIED` and name the tool.
