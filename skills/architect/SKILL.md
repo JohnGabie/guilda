@@ -30,7 +30,7 @@ Check: gate — The Reviewer rejects an Acceptance scenario with no named tool.
 ### ARC4 — Dispatch with the tier model
 Rule:  Pass the Agent tool `model` parameter as `config.tiers[<tier>]` when you dispatch a role.
 Why:   The `model:` line of a plugin agent is only a default, and the project chooses its own models.
-Check: judgment — No hook sees the dispatch parameters yet, so this rule is text only.
+Check: law — The `pre-agent` hook refuses an Agent call of the main session with no `subagent_type`. It refuses `general-purpose` too.
 
 ### ARC5 — Verify memory on the web
 Rule:  Verify each claim from model memory in current official sources before a spec decision or a brief uses it.
@@ -81,15 +81,18 @@ Check: gate — The Reviewer rejects a spec that uses a domain term that the glo
 8. **Approval.** Run the builder check first (see Writing a spec). Stop. Ask the user to approve the spec in a separate message (R3).
 9. **Plan.** Write the plan as a `## Plan: Part N` section or as `<feature>.plan.md` (R4). At `full`, one task is one cycle (R24). Make small tasks with order and dependencies, tests first.
 10. **Briefs.** Write one brief for each task in the brief format (ARC6). Pick the tier (see Tier choice).
+    Before each brief, sort each item to its group and call the leads (see Triage and leads).
 11. **Dispatch.** Before the first dispatch of a session, run `node <plugin root>/scripts/doctor.mjs <project> --session <id> --agents <the guilda:* agent types of the Agent tool>`.
     Show the user each line that is not PASS (D2).
     State the reply language (`config.languages.replies`) in each dispatch.
     If the model of a tier is not available, use one tier lower and tell the user (ARC4).
+    Set the `subagent_type` of each dispatch (see Dispatch types).
     Dispatch each role with the Agent tool `model` parameter = `config.tiers[<tier of the brief>]` (ARC4). If `config.tiers` has no value for the tier, use `core/tiers.json`.
     Order at `full`, for each task: Executor → Reviewer (code stage) → QA → Reviewer (final stage).
     Security runs in parallel with the code Reviewer if `Risk area:` is not `none`.
     Order at `light`: all Executors, then one Reviewer. Then Security for each marked zone, QA and the final Reviewer for the integration.
 12. **Rejections.** A `REJECTED-SMALL` verdict goes back to the Executor. A `REJECTED-LARGE` verdict comes to you: change the spec, the contract or the brief. On the third rejection of a review unit, stop and ask the user (R11).
+    For a Reviewer question and the count of rejections, see Review verdicts.
 13. **Findings.** Sort each out-of-scope finding of QA and the Executor. Each finding becomes a new `@open` scenario, a decision for the user, or a backlog item.
 
 ## Writing a spec
@@ -167,6 +170,7 @@ Skills: <each domain skill that the Executor and the Reviewer load>
 Decisions: <the decision IDs that the task builds>
 Mutants: <for each new test, one change to the product code that makes it fail>
 Conflict cases: <each case where this task and another task touch the same state>
+Issue: #<N>
 ```
 
 `Base commit:` is required in each new brief, inline or in a file.
@@ -179,6 +183,39 @@ Then the dispatch prompt has the line `Brief file: <path>`. The path is inside t
 `review-package` saves the diff as a file for Security.
 Each dispatch states the reply language of `config.languages.replies`.
 Each brief asks for a timeout on each long command and a commit for each green item.
+
+## Triage and leads
+
+Before each brief, sort each item of the task to its group. One task can use more than one group.
+
+| Item | Group | Result |
+| --- | --- | --- |
+| Open question | Lab | A lab brief for `guilda:lab-researcher`. |
+| Risk area | Security | A Security review (`guilda:security`). |
+| Decided change | Engineering | An Executor brief. |
+
+A lesson changes the triage table of `.guilda/rules.md`.
+
+Leads: call the lead of each area to decide with it. They are `guilda:security`, `guilda:devops-advisor` and `guilda:ai-lead`.
+
+## Review verdicts
+
+The Reviewer can ask a question about the spec. Answer with facts: the line of the spec, the decision ID or the command output. Never argue for a verdict.
+The ledger records each question and each answer.
+The count of rejections for R11 is for each review unit. A verdict with `Stage: spec` does not count.
+
+## Dispatch types
+
+Set the `subagent_type` of each dispatch to the guilda agent of the job:
+
+| Job | `subagent_type` |
+| --- | --- |
+| An MD file (a spec, a plan, a brief) | `guilda:architect-executor` |
+| Code | `guilda:executor` |
+| A review | `guilda:reviewer` |
+| Research | `guilda:lab-researcher` |
+
+Dispatch each role yourself. There is no intermediate agent that dispatches another agent.
 
 ## Tier choice
 
@@ -215,6 +252,7 @@ A lead Executor can split a task and delegate to lower tiers. The hierarchy has 
 - No task breaks a core rule, a project rule or a decision that belongs to the user (R12).
 - Each brief in a risk area went through the Security consultation.
 - Each brief whose code deletes files has its `Deletion rules:` field (R20).
+- Each plan task or gate that comes from an issue names it with an `Issue: #<N>` line. The release closes it after the user's merge.
 
 ## Does not
 

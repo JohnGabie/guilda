@@ -17,7 +17,7 @@ export const BRIEF_FIELDS = [
   'Base commit',
 ];
 /** Brief fields that a brief can have. validateBrief does not need them. */
-export const OPTIONAL_BRIEF_FIELDS = ['Decisions', 'Mutants', 'Conflict cases', 'Skills'];
+export const OPTIONAL_BRIEF_FIELDS = ['Decisions', 'Mutants', 'Conflict cases', 'Skills', 'Issue'];
 const TIERS = ['master', 'journeyman', 'apprentice'];
 
 const RESULTS = {

@@ -68,3 +68,10 @@ test('the text names the reply language and the timeout', () => {
   assert.match(s, /timeout/);
   assert.match(s, /commit for each green item/);
 });
+
+test('Issue is an optional brief field and is in the template', () => {
+  assert.ok(OPTIONAL_BRIEF_FIELDS.includes('Issue'));
+  const lines = template();
+  const marker = lines.findIndex((l) => MARKER.test(l));
+  assert.ok(lines.slice(marker + 1).some((l) => /^Issue: #<N>/.test(l)));
+});
