@@ -20,6 +20,8 @@
       "RELEASING.md",
       "README.md",
       "scripts/changelog.mjs",
+      "scripts/config-write.mjs",
+      "scripts/lib/project.mjs",
       ".guilda",
       "docs",
       "tests",

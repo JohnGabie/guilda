@@ -28,7 +28,8 @@ advisor, an AI role group with its lead, and an Architect role group. Skills iso
 first in every role. Labs gate their parts before the build of each part. The session context has a short form of
 each core rule, so it stays under 150 lines.
 
-Status: the user approved the spec on 2026-11-10. The plan is in the spec, in three parts.
+Status: released as 0.2.0. The domain skills of the extension plugin and the production approval rule R29 are not
+in this release. R29 moves to 0.3.0. The domain skills wait for the curation of their sources.
 
 guilda reuses `superpowers` 7.x (D51). It copies and adapts the pieces that need a guilda format, with the MIT
 notice. It calls the other pieces from `superpowers`. The three plugins of the repository share one version, and
@@ -38,7 +39,7 @@ a bump script updates them together.
 
 [Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
 
-A block index with content hashes, agent identity, an audit log and a task queue. An agent panel, a status script
+R29, production commands that need the user's approval, with its hook. A block index with content hashes, agent identity, an audit log and a task queue. An agent panel, a status script
 and token measures in tokens and money.
 
 ## 0.4.0 — the Architect outside the main session
