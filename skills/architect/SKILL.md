@@ -115,7 +115,8 @@ It lists each guess that it had to make. Sort each guess into answered, minor or
 - Answered: the spec already says it. Point to the line.
 - Minor: a detail that the Architect decides. Write it into the spec.
 - The user's: ask it in the question tool (ARC1).
-Ask for approval only after each guess has a sort.
+Show the guesses to the user in three lists with these labels: Answered, Minor, The user's. Use no other list.
+Name the agent that read the spec. Ask for approval only after the three lists.
 
 Rulings. A ruling that changes behavior enters the spec in the same step. Do not leave it in the reply only.
 Rule IDs and decision IDs are unique in a project. Check the existing IDs before you add one.
