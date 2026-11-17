@@ -5,8 +5,8 @@
 This repository has three plugins. They share one version.
 
 - `guilda`: the core. It has the rules, the hooks, the agents, `guilda:init` and the Architect. It has no dependency.
-- `guilda-skills`: the extension. It has the agent creator and, in later releases, the domain skills. It needs
-  `superpowers` and `skill-creator`.
+- `guilda-skills`: the extension. It has no domain skill yet. The domain skills and the agent creator come in a
+  later release, after the curation of their sources. It needs `superpowers` and `skill-creator`.
 - `ios-on-linux`: control a real iPhone from a Linux PC.
 
 ## Install
@@ -19,8 +19,8 @@ claude plugin install guilda-skills@guilda
 claude plugin install ios-on-linux@guilda
 ```
 
-The core `guilda` works alone. `ios-on-linux` works alone. `guilda-skills` needs the `superpowers` and `skill-creator` plugins of the official
-Anthropic marketplace. The install of `guilda-skills` adds them as dependencies. Skip the first line when
+The core `guilda` works alone. `ios-on-linux` works alone. `guilda-skills` needs the `superpowers` and
+`skill-creator` plugins of the official Anthropic marketplace. The install of `guilda-skills` adds them as dependencies. Skip the first line when
 `claude plugin marketplace list` already shows the official marketplace.
 
 To check that `guilda` loaded, ask Claude Code to list its agents: a `guilda:*` agent (for example

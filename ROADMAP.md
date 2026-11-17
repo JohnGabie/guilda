@@ -22,10 +22,10 @@ skill. Six role groups, one Executor with domain skills, AI engineering skills, 
 also reads Bash commands.
 
 A core plugin with the laws, the hooks, the agents, `guilda:init` and the Architect, with no dependency. An extension
-plugin, `guilda-skills`, with the domain skills and the agent creator. With no `.guilda/` folder, guilda tells the user to run
-`guilda:init` (R28). Rules change in place with migrations. No project runs `guilda:init` again. An agent creator, a DevOps skill and
-advisor, an AI role group with its lead, and an Architect role group. Skills isolated by role group, and truth
-first in every role. Labs gate their parts before the build of each part. The session context has a short form of
+plugin, `guilda-skills`, for the domain skills and the agent creator, which come after the curation of their sources.
+With no `.guilda/` folder, guilda tells the user to run `guilda:init` (R28). Rules change in place with migrations.
+No project runs `guilda:init` again. A DevOps advisor, an AI role group with its lead, and an Architect role group.
+Skills isolated by role group, and truth first in every role. Labs gate their parts before the build of each part. The session context has a short form of
 each core rule, so it stays under 150 lines.
 
 Status: released as 0.2.0. The domain skills of the extension plugin and the production approval rule R29 are not
@@ -39,8 +39,8 @@ a bump script updates them together.
 
 [Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
 
-R29, production commands that need the user's approval, with its hook. A block index with content hashes, agent identity, an audit log and a task queue. An agent panel, a status script
-and token measures in tokens and money.
+R29, production commands that need the user's approval, with its hook. A block index with content hashes, agent
+identity, an audit log and a task queue. An agent panel, a status script and token measures in tokens and money.
 
 ## 0.4.0 — the Architect outside the main session
 

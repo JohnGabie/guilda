@@ -1,2 +1,5 @@
 violations.jsonl
 format-retries.json
+.hooks-live.json
+.extension-live.json
+reports/
