@@ -44,7 +44,8 @@ signal script, agent identity, an audit log, the status script, a cost record in
 
 ## 0.3.1 — held parts of 0.3.0
 
-Three parts wait for live labs and hand-run Codex checklists: T20, the status part of T11, and T17b. The panel module
+Three parts wait for live labs and hand-run Codex checklists. They are the external agent rows of the panel, the
+`AGENTS.md` check of `doctor`, and the `AGENTS.md` status line for other tools. The panel module
 and the production approval rule R29 also stay open.
 
 ## 0.4.0 — the Architect outside the main session
