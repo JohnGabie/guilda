@@ -37,3 +37,27 @@ test('with config: context has R5, the docs language and the glossary path', () 
   const n = out.additionalContext.split('\n').filter((l) => l.trim()).length;
   assert.ok(n <= 60 + 3, `got ${n}`);
 });
+
+const ctxOf = (input, dir) => JSON.parse(runHook(SCRIPT, { hook_event_name: 'SubagentStart', cwd: dir, ...input }, dir).stdout).hookSpecificOutput.additionalContext;
+
+test('the agent ID line is added for a valid agent_id', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const lines = ctxOf({ agent_id: 'agent-ab12.C:d_3' }, dir).split('\n');
+  const i = lines.findIndex((l) => l.startsWith('Docs language:'));
+  assert.equal(lines[i + 1], 'Your agent ID: agent-ab12.C:d_3');
+});
+
+test('a bad or missing agent_id adds no line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const id of [undefined, '', 42, null, 'a b', 'x\ny', 'a'.repeat(129), '../x/']) {
+    const r = runHook(SCRIPT, { hook_event_name: 'SubagentStart', cwd: dir, agent_id: id }, dir);
+    assert.equal(r.code, 0);
+    assert.doesNotMatch(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /Your agent ID/);
+  }
+});
+
+test('with no project layer the hook prints nothing even with an agent_id', () => {
+  const dir = tempProject();
+  const r = runHook(SCRIPT, { hook_event_name: 'SubagentStart', cwd: dir, agent_id: 'abc' }, dir);
+  assert.equal(r.stdout, '');
+});
