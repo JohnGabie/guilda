@@ -246,3 +246,34 @@ test('a join signal with a bad name, a file name that differs from its fields, o
   assert.equal(evs.filter((e) => e.type === 'join' || e.type === 'session').length, 0);
   assert.deepEqual(stateFile(dir).bindings, {});
 });
+
+test('architect and unbind', () => {
+  const BUS = path.join(REPO_ROOT, 'scripts', 'bus.mjs');
+  const who = (dir, address) => spawnSync(process.execPath, [BUS, dir, 'who', '--address', address], { encoding: 'utf8' });
+  const dir = project();
+  writeJournal(dir, [...TASK_EVENTS, { type: 'state', task: 'T3', from: 'dispatched', to: 'done', cause: 'approve' }]);
+  writeSignal(dir, { agentId: 'a-9' }, 'dispatch.json', {
+    address: 'architect', task: null, attempt: null, agentType: 'guilda:architect', parentSession: 's-1', parentAgent: null, at: at(1),
+  });
+  const first = who(dir, 'architect');
+  assert.equal(first.status, 0, first.stdout);
+  const entry = JSON.parse(first.stdout.split('\n')[0]);
+  assert.equal(entry.agentId, 'a-9');
+  assert.equal(entry.task, null);
+  assert.equal(entry.state, 'bound');
+
+  const seq = readJournal(dir).events.length;
+  q(dir, 5, 'sync');
+  const added = readJournal(dir).events.slice(seq);
+  const agents = added.filter((e) => e.type === 'agent');
+  assert.equal(agents.length, 1);
+  assert.equal(agents[0].task, null);
+  const unbinds = added.filter((e) => e.type === 'unbind');
+  assert.equal(unbinds.length, 1);
+  assert.equal(unbinds[0].address, 'T3-exe-7f2a');
+  assert.equal(Object.hasOwn(unbinds[0], 'cause'), false);
+
+  const last = who(dir, 'T3-exe-7f2a');
+  assert.equal(last.status, 1, last.stdout);
+  assert.equal(last.stdout.split('\n')[0], 'no binding');
+});
