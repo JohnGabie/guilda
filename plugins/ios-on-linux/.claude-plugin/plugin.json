@@ -1,6 +1,6 @@
 {
   "name": "ios-on-linux",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Control a real iPhone from a Linux PC through mobile-mcp, without a Mac.",
   "author": {
     "name": "USER"

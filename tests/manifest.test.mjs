@@ -168,10 +168,6 @@ const entry = (version) => {
   return text.slice(start, next < 0 ? undefined : next);
 };
 
-test('T32: the three manifests have the version 0.2.0', () => {
-  for (const p of [CORE, EXT, IOS]) assert.equal(readJson(p).version, '0.2.0', p);
-});
-
 test('T32: the 0.2.0 entry has the headings Added, Changed and Fixed, and names its rule IDs', () => {
   const e = entry('0.2.0');
   for (const h of ['### Added', '### Changed', '### Fixed']) assert.ok(e.includes(h), h);
@@ -190,13 +186,6 @@ test('T32: the entry names R29 only when core/rules.md has R29, and the same for
   }
 });
 
-test('T32: the changelog has an empty Unreleased entry and the 0.2.0 link references', () => {
-  const text = changelogText();
-  assert.match(text, /^## \[Unreleased\]\n\n## \[0\.2\.0\] - \d{4}-\d{2}-\d{2}$/m);
-  assert.match(text, /^\[unreleased\]: .*compare\/guilda--v0\.2\.0\.\.\.HEAD$/m);
-  assert.match(text, /^\[0\.2\.0\]: .*compare\/guilda--v0\.1\.1\.\.\.guilda--v0\.2\.0$/m);
-});
-
 test('T32: node scripts/changelog.mjs reads the changes from 0.1.1 to 0.2.0', async () => {
   const { spawnSync } = await import('node:child_process');
   const r = spawnSync('node', ['scripts/changelog.mjs', '0.1.1', '0.2.0'], { encoding: 'utf8', cwd: new URL('./', root) });
@@ -204,4 +193,31 @@ test('T32: node scripts/changelog.mjs reads the changes from 0.1.1 to 0.2.0', as
   assert.match(r.stdout, /R26/);
   assert.match(r.stdout, /ARC1/);
   assert.doesNotMatch(r.stdout, /^## \[0\.1\.1\]/m);
+});
+
+// T23: the 0.3.0 release texts.
+test('T23: the four manifests have the version 0.3.0', () => {
+  for (const p of [CORE, EXT, IOS, PANEL]) assert.equal(readJson(p).version, '0.3.0', p);
+});
+
+test('T23: the 0.3.0 entry names R31 and R32, and R29 only when core/rules.md has R29', () => {
+  const rules = readText('core/rules.md');
+  const e = entry('0.3.0');
+  for (const h of ['### Added', '### Changed']) assert.ok(e.includes(h), h);
+  const added = e.slice(e.indexOf('### Added'), e.indexOf('### Changed'));
+  for (const id of ['R31', 'R32']) assert.match(added, new RegExp(`\\b${id}\\b`), id);
+  const has = /^### R29 /m.test(rules);
+  assert.equal(/\bR29\b/.test(added), has, 'R29 in Added iff core/rules.md has it');
+  assert.match(e, /not in this release/);
+});
+
+test('T23: the changelog has an empty Unreleased entry and the 0.3.0 link references', () => {
+  const text = changelogText();
+  assert.match(text, /^## \[Unreleased\]\n\n## \[0\.3\.0\] - \d{4}-\d{2}-\d{2}$/m);
+  assert.match(text, /^\[unreleased\]: .*compare\/guilda--v0\.3\.0\.\.\.HEAD$/m);
+  assert.match(text, /^\[0\.3\.0\]: .*compare\/guilda--v0\.2\.0\.\.\.guilda--v0\.3\.0$/m);
+});
+
+test('T23: .guilda/config.json has guildaVersion 0.3.0', () => {
+  assert.equal(readJson('.guilda/config.json').guildaVersion, '0.3.0');
 });

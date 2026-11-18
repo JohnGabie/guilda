@@ -8,6 +8,39 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-18
+
+### Added
+
+- New rules: R31 and R32. R31: each plan task and each brief cites the blocks that it uses, with a hash. R32: one
+  writer for the queue.
+- The block index and the citation check: `scripts/trace.mjs` (`index`, `check`, `show`, `ack`).
+- The task queue and the signal script: `scripts/queue.mjs` and `scripts/signal.mjs`. A worker writes its signals,
+  and `signal.mjs run` wraps an external command.
+- The identity hook: it binds a queued dispatch to the agent that runs it. The audit log `.guilda/audit.jsonl`
+  records the tool calls of each subagent.
+- The status script `scripts/status.mjs`, and the file `.guilda/status.md` that the queue script writes for other
+  tools. `status.mjs --agent <name>` shows one agent.
+- The cost record: `scripts/cost.mjs` writes the tokens and the cost of each task, block and build at list price.
+- The `guilda-panel` plugin entry in the marketplace, with the shared version. The panel module is not in this
+  release.
+- The eval result cache: `scripts/eval-run.mjs` keeps a passed eval case.
+
+### Changed
+
+- The Reviewer runs the trace check and can ask questions (R31).
+- The Architect runs the queue and records each run (R32).
+- The tier of each role is pinned by a test, `tests/tiers.test.mjs`. The tiers are the same as in 0.2.0.
+- R17: research files and lab files may quote model names and prices as dated records.
+
+### Not in this release
+
+- The `doctor` status line and the Codex checks of the status file: not in this release.
+  They wait for live labs. They move to 0.3.1.
+- The agent panel module: not in this release.
+- The production approval rule R29: not in this release.
+- The cheaper tier for a role: lab L7 gave NO-GO, and the tiers stay as they are.
+
 ## [0.2.0] - 2026-11-17
 
 ### Added
@@ -95,7 +128,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - Core rules, roles, hooks, `guilda:architect`, `guilda:init` and `guilda:update`. New rule IDs: R1 to R25, and ARC1
   to ARC6 in `guilda:architect`. The brief check of the Executor dispatch cites ARC6, not R3.
 
-[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.2.0...HEAD
+[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.0...HEAD
+[0.3.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.2.0...guilda--v0.3.0
 [0.2.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.1.1...guilda--v0.2.0
 [0.1.1]: https://github.com/JohnGabie/guilda/releases/tag/guilda--v0.1.1
 [0.1.0]: https://github.com/JohnGabie/guilda/releases/tag/guilda--v0.1.0

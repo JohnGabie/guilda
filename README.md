@@ -2,12 +2,13 @@
 
 `guilda` is a Claude Code plugin. It gives a project shared engineering rules, roles and checks.
 
-This repository has three plugins. They share one version.
+This repository has four plugins. They share one version.
 
 - `guilda`: the core. It has the rules, the hooks, the agents, `guilda:init` and the Architect. It has no dependency.
 - `guilda-skills`: the extension, with eight skills: `data`, `ai-engineering`, `ai-evals`, `lab-experiment`,
   `devops`, `ai-data`, `agent-creator` and `security-zones`. It needs `superpowers` and `skill-creator`.
 - `ios-on-linux`: control a real iPhone from a Linux PC.
+- `guilda-panel`: the panel plugin for the queue and the agents of a project. Its panel module is not in 0.3.0.
 
 ## Install
 
@@ -17,6 +18,7 @@ claude plugin marketplace add JohnGabie/guilda
 claude plugin install guilda@guilda
 claude plugin install guilda-skills@guilda
 claude plugin install ios-on-linux@guilda
+claude plugin install guilda-panel@guilda
 ```
 
 The core `guilda` works alone. `ios-on-linux` works alone. `guilda-skills` needs the `superpowers` and
@@ -41,6 +43,11 @@ official one. Open `/plugin`, go to Marketplaces, and select Enable auto-update.
 
 To update by hand, run `claude plugin update guilda@guilda`. A running session keeps the loaded version. Run
 `/reload-plugins` or start a new session to load the update.
+
+## Status file for other tools
+
+The queue script writes `.guilda/status.md`, a copy of the state of the queue. Other tools can read this file.
+Run `node scripts/status.mjs <project>` to see the state, or add `--agent <name>` to see one agent.
 
 ## Update from 0.1.x
 

@@ -38,8 +38,14 @@ a bump script updates them together.
 
 [Milestone 0.3.0](https://github.com/JohnGabie/guilda/milestone/3)
 
-R29, production commands that need the user's approval, with its hook. A block index with content hashes, agent
-identity, an audit log and a task queue. An agent panel, a status script and token measures in tokens and money.
+Status: released as 0.3.0. It has the rules R31 and R32, a block index with content hashes, a task queue with its
+signal script, agent identity, an audit log, the status script, a cost record in tokens and money, and the
+`guilda-panel` plugin entry.
+
+## 0.3.1 — held parts of 0.3.0
+
+Three parts wait for live labs and hand-run Codex checklists: T20, the status part of T11, and T17b. The panel module
+and the production approval rule R29 also stay open.
 
 ## 0.4.0 — the Architect outside the main session
 
