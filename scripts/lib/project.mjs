@@ -130,7 +130,55 @@ export function checkStrict(c) {
       return 'dispatch.agentTypes must be a list of agent type names';
     }
   }
+  for (const key of ['bus', 'adapters', 'links']) {
+    if (c[key] !== undefined && !isObject(c[key])) return `${key} must be an object`;
+  }
+  if (c.bus !== undefined) {
+    if (c.bus.userChannels !== undefined && !validUserChannels(c.bus.userChannels)) return USER_CHANNELS_REASON;
+    if (c.bus.maxHops !== undefined && !validMaxHops(c.bus.maxHops)) return 'bus.maxHops must be an integer from 1 to 64';
+  }
+  if (c.adapters !== undefined) {
+    for (const name of ['codex', 'peer']) {
+      const a = c.adapters[name];
+      if (a !== undefined && isObject(a) && a.enabled !== undefined && typeof a.enabled !== 'boolean') {
+        return `adapters.${name}.enabled must be a boolean`;
+      }
+    }
+  }
+  if (c.links !== undefined && c.links.open !== undefined && !LINK_OPEN_VALUES.includes(c.links.open)) {
+    return `links.open must be one of ${LINK_OPEN_VALUES.join(', ')}`;
+  }
   return null;
+}
+
+/** The only user channel that 0.4.0 knows (section 4m). */
+const USER_CHANNELS = Object.freeze(['main']);
+const USER_CHANNELS_REASON = 'bus.userChannels is invalid; only main counts';
+const MAX_HOPS_DEFAULT = 8;
+const MAX_HOPS_MIN = 1;
+const MAX_HOPS_MAX = 64;
+const LINK_OPEN_VALUES = ['auto', 'kitty-overlay', 'kitty-window', 'zed', 'openidea', 'vscode', 'system'];
+
+const validUserChannels = (v) => Array.isArray(v) && v.length === 1 && v[0] === 'main';
+const validMaxHops = (v) => Number.isInteger(v) && v >= MAX_HOPS_MIN && v <= MAX_HOPS_MAX;
+
+/** The bus settings of a config. userChannels is always ['main']. Never throws, writes nothing. */
+export function busSettings(config) {
+  const bus = isObject(config) && isObject(config.bus) ? config.bus : {};
+  return { userChannels: [...USER_CHANNELS], maxHops: validMaxHops(bus.maxHops) ? bus.maxHops : MAX_HOPS_DEFAULT };
+}
+
+/** The adapter switches of a config. A value is true only when it is `true`. Never throws, writes nothing. */
+export function adapterSettings(config) {
+  const adapters = isObject(config) && isObject(config.adapters) ? config.adapters : {};
+  const on = (name) => isObject(adapters[name]) && adapters[name].enabled === true;
+  return { codex: { enabled: on('codex') }, peer: { enabled: on('peer') } };
+}
+
+/** The links.open value of a config, or 'auto'. Never throws, writes nothing. */
+export function linksOpen(config) {
+  const v = isObject(config) && isObject(config.links) ? config.links.open : undefined;
+  return LINK_OPEN_VALUES.includes(v) ? v : 'auto';
 }
 
 /**
@@ -227,6 +275,12 @@ function readValid(loaded) {
   config.usage = { ...(isObject(config.usage) ? config.usage : {}), source: USAGE_SOURCES.includes(source) ? source : 'off' };
   if (typeof config.schemaVersion === 'number' && config.schemaVersion > SCHEMA_VERSION) {
     notices.push(newerSchemaNotice(config.schemaVersion));
+  }
+  if (isObject(config.bus)) {
+    if (config.bus.userChannels !== undefined && !validUserChannels(config.bus.userChannels)) notices.push(USER_CHANNELS_REASON);
+    if (config.bus.maxHops !== undefined && !validMaxHops(config.bus.maxHops)) {
+      notices.push(`bus.maxHops is invalid; using ${MAX_HOPS_DEFAULT}`);
+    }
   }
   return { state: 'valid', config, notices };
 }

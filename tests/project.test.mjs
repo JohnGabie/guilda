@@ -16,6 +16,9 @@ import {
   projectHash,
   SAFE_DEFAULTS,
   SCHEMA_VERSION,
+  busSettings,
+  adapterSettings,
+  linksOpen,
 } from '../scripts/lib/project.mjs';
 import { tempProject, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
@@ -320,4 +323,122 @@ test('dispatchAgentTypes reads a list in lower case and treats a bad value as em
   assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: [' A ', 'b'] } }), ['a', 'b']);
   assert.deepEqual(dispatchAgentTypes({ dispatch: { agentTypes: ['a', '', 3] } }), []);
   for (const c of [{}, { dispatch: 'x' }, { dispatch: { agentTypes: 'a' } }, null]) assert.deepEqual(dispatchAgentTypes(c), []);
+});
+
+// 0.4.0 config keys (section 4m, D40).
+const USER_NOTICE = 'bus.userChannels is invalid; only main counts';
+const HOPS_NOTICE = 'bus.maxHops is invalid; using 8';
+const LINK_VALUES = ['auto', 'kitty-overlay', 'kitty-window', 'zed', 'openidea', 'vscode', 'system'];
+const withKeys = (extra) => ({ ...structuredClone(MINIMAL_CONFIG), ...extra });
+const noticesOf = (extra) => projectState(tempProject({ config: withKeys(extra) })).notices;
+
+test('bus settings: missing keys give main and 8', () => {
+  assert.deepEqual(busSettings({}), { userChannels: ['main'], maxHops: 8 });
+  const r = projectState(tempProject({ config: MINIMAL_CONFIG }));
+  assert.deepEqual(r.notices, []);
+  assert.deepEqual(busSettings(r.config), { userChannels: ['main'], maxHops: 8 });
+});
+
+test('bus.userChannels with another address reads main and gives one notice', () => {
+  const config = withKeys({ bus: { userChannels: ['main', 'ext-codex-voice-4592'] } });
+  assert.deepEqual(busSettings(config).userChannels, ['main']);
+  assert.deepEqual(noticesOf({ bus: { userChannels: ['main', 'ext-codex-voice-4592'] } }), [USER_NOTICE]);
+  assert.deepEqual(noticesOf({ bus: { userChannels: ['main'] } }), []);
+});
+
+test('bus.userChannels empty or not a list reads main with the notice', () => {
+  for (const v of [[], 'main', null, 5, { main: 1 }]) {
+    assert.deepEqual(busSettings({ bus: { userChannels: v } }).userChannels, ['main']);
+    assert.deepEqual(noticesOf({ bus: { userChannels: v } }), [USER_NOTICE]);
+  }
+});
+
+test('bus.maxHops 1 and 64 are valid; 0, 65, 2.5 and "8" read 8 with the notice', () => {
+  for (const n of [1, 64]) {
+    assert.equal(busSettings({ bus: { maxHops: n } }).maxHops, n);
+    assert.deepEqual(noticesOf({ bus: { maxHops: n } }), []);
+  }
+  for (const v of [0, 65, 2.5, '8', null, -1, NaN]) {
+    assert.equal(busSettings({ bus: { maxHops: v } }).maxHops, 8);
+  }
+  for (const v of [0, 65, 2.5, '8']) assert.deepEqual(noticesOf({ bus: { maxHops: v } }), [HOPS_NOTICE]);
+});
+
+test('adapter settings: only true enables an adapter', () => {
+  assert.deepEqual(adapterSettings({}), { codex: { enabled: false }, peer: { enabled: false } });
+  assert.deepEqual(adapterSettings({ adapters: { codex: { enabled: true }, peer: { enabled: true } } }), {
+    codex: { enabled: true },
+    peer: { enabled: true },
+  });
+  for (const v of ['true', 1, 'yes', null, [true]]) {
+    assert.deepEqual(adapterSettings({ adapters: { codex: { enabled: v }, peer: { enabled: v } } }), {
+      codex: { enabled: false },
+      peer: { enabled: false },
+    });
+  }
+  assert.deepEqual(noticesOf({ adapters: { peer: { enabled: 'true' } } }), []);
+});
+
+test('links.open: each of the seven values is read; an unknown value reads auto', () => {
+  for (const v of LINK_VALUES) assert.equal(linksOpen({ links: { open: v } }), v);
+  for (const v of ['emacs', '', 3, null, 'Zed']) assert.equal(linksOpen({ links: { open: v } }), 'auto');
+  assert.equal(linksOpen({}), 'auto');
+  assert.deepEqual(noticesOf({ links: { open: 'emacs' } }), []);
+});
+
+test('checkStrict refuses each invalid 0.4.0 key with its reason', () => {
+  const cases = [
+    [{ bus: { userChannels: ['main', 'x'] } }, USER_NOTICE],
+    [{ bus: { userChannels: [] } }, USER_NOTICE],
+    [{ bus: { userChannels: 'main' } }, USER_NOTICE],
+    [{ bus: { maxHops: 0 } }, 'bus.maxHops must be an integer from 1 to 64'],
+    [{ bus: { maxHops: 65 } }, 'bus.maxHops must be an integer from 1 to 64'],
+    [{ bus: { maxHops: 2.5 } }, 'bus.maxHops must be an integer from 1 to 64'],
+    [{ bus: { maxHops: '8' } }, 'bus.maxHops must be an integer from 1 to 64'],
+    [{ adapters: { codex: { enabled: 'true' } } }, 'adapters.codex.enabled must be a boolean'],
+    [{ adapters: { peer: { enabled: 1 } } }, 'adapters.peer.enabled must be a boolean'],
+    [{ links: { open: 'emacs' } }, 'links.open must be one of auto, kitty-overlay, kitty-window, zed, openidea, vscode, system'],
+    [{ bus: [] }, 'bus must be an object'],
+    [{ adapters: 'x' }, 'adapters must be an object'],
+    [{ links: null }, 'links must be an object'],
+  ];
+  for (const [extra, reason] of cases) assert.equal(checkStrict(withKeys(extra)), reason, JSON.stringify(extra));
+  for (const v of [1, 64]) assert.equal(checkStrict(withKeys({ bus: { maxHops: v } })), null);
+  for (const v of LINK_VALUES) assert.equal(checkStrict(withKeys({ links: { open: v } })), null);
+});
+
+test('checkStrict accepts a config with no 0.4.0 key', () => {
+  assert.equal(checkStrict(structuredClone(MINIMAL_CONFIG)), null);
+  assert.equal(checkStrict(withKeys({ bus: {}, adapters: {}, links: {} })), null);
+  assert.equal(checkStrict(withKeys({ adapters: { codex: {}, peer: {} } })), null);
+});
+
+test('the readers never throw on null, a list or a string', () => {
+  for (const v of [null, undefined, [], 'x', 5, { bus: null, adapters: [], links: 'x' }, { adapters: { codex: null, peer: 'x' } }]) {
+    assert.doesNotThrow(() => busSettings(v));
+    assert.doesNotThrow(() => adapterSettings(v));
+    assert.doesNotThrow(() => linksOpen(v));
+    assert.deepEqual(busSettings(v), { userChannels: ['main'], maxHops: 8 });
+    assert.deepEqual(adapterSettings(v), { codex: { enabled: false }, peer: { enabled: false } });
+    assert.equal(linksOpen(v), 'auto');
+  }
+});
+
+test('the timeoutSec keys and an unknown key under bus, adapters or links are ignored', () => {
+  const extra = {
+    bus: { future: 1 },
+    adapters: { codex: { enabled: true, timeoutSec: 'x', messageTimeoutSec: [] }, other: {} },
+    links: { future: 1 },
+  };
+  assert.equal(checkStrict(withKeys(extra)), null);
+  assert.deepEqual(noticesOf(extra), []);
+  assert.equal(adapterSettings(withKeys(extra)).codex.enabled, true);
+});
+
+test('config-check prints the S4-36 reason and exits 1', () => {
+  const script = path.join(REPO_ROOT, 'scripts', 'config-check.mjs');
+  const dir = tempProject({ config: withKeys({ bus: { userChannels: ['main', 'ext-codex-voice-4592'] } }) });
+  const r = spawnSync(process.execPath, [script, dir], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /bus\.userChannels is invalid; only main counts/);
 });

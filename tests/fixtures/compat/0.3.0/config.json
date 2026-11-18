@@ -1,0 +1,27 @@
+{
+  "guildaVersion": "0.3.0",
+  "schemaVersion": 2,
+  "languages": {
+    "replies": "en",
+    "docs": "en"
+  },
+  "tiers": {
+    "master": "opus",
+    "journeyman": "sonnet",
+    "apprentice": "haiku"
+  },
+  "process": "full",
+  "explain": "full",
+  "writing": {
+    "free": [],
+    "exceptions": []
+  },
+  "security": {
+    "enabled": false,
+    "riskAreas": []
+  },
+  "checks": [],
+  "scan": {
+    "ignore": []
+  }
+}

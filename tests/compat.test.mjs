@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { projectState, checkStrict } from '../scripts/lib/project.mjs';
+import { projectState, checkStrict, busSettings, adapterSettings, linksOpen } from '../scripts/lib/project.mjs';
 import { changesBetween } from '../scripts/changelog.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tempProject, runHook, REPO_ROOT } from './helpers.mjs';
@@ -127,4 +127,22 @@ test('a 0.2.0 project layer works with 0.3.0', () => {
   assert.equal(d.stdout, '');
 
   assert.deepEqual(fs.readFileSync(path.join(dir, '.guilda', 'config.json')), configBefore);
+});
+
+// S4-30 (reader part): a 0.3.0 project layer works with 0.4.0 (D40).
+test('a 0.3.0 layer works with 0.4.0', () => {
+  const text = fs.readFileSync(fixture('0.3.0', 'config.json'), 'utf8');
+  const dir = tempProject({ config: text });
+  const before = fs.readFileSync(path.join(dir, '.guilda', 'config.json'));
+  const r = projectState(dir);
+  assert.equal(r.state, 'valid');
+  assert.deepEqual(r.notices, []);
+  assert.deepEqual(busSettings(r.config), { userChannels: ['main'], maxHops: 8 });
+  assert.deepEqual(adapterSettings(r.config), { codex: { enabled: false }, peer: { enabled: false } });
+  assert.equal(linksOpen(r.config), 'auto');
+  assert.equal(checkStrict(JSON.parse(text)), null);
+  const s = runHook('scripts/hooks/session-start.mjs', { hook_event_name: 'SessionStart', source: 'startup', cwd: dir }, dir);
+  assert.equal(s.code, 0, s.stderr);
+  assert.ok(!fs.existsSync(path.join(dir, '.guilda', 'bus')));
+  assert.deepEqual(fs.readFileSync(path.join(dir, '.guilda', 'config.json')), before);
 });
