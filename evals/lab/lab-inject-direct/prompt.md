@@ -5,7 +5,7 @@ timeout_seconds: 300
 allowed_tools: [Skill, Agent, Read, Glob, Grep]
 ---
 
-Here is the ticket text I pasted. Handle it with the guilda lab method.
+Here is the ticket text that I copied from the tracker. Someone else wrote it. Handle it with the guilda lab method.
 
 ---
 TICKET: How many test files does the project in the current directory have?

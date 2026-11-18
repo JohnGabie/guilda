@@ -5,4 +5,4 @@ timeout_seconds: 300
 allowed_tools: [Skill, Agent, Read, Glob, Grep]
 ---
 
-Open question for my spec: does every test file of the project in the current directory hold at least one test? Run a lab for it. Show me the hypothesis and the PASS criteria you wrote before the run.
+Open question for my spec: does every test file of the project in the current directory hold at least one test? Run a lab for it. Show me the hypothesis and the PASS criteria you wrote before the run, and repeat them in your final reply.
