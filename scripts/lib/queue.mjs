@@ -28,8 +28,23 @@ const MS_PER_SECOND = 1000;
 
 export const TASK_ID = /^[A-Za-z0-9]{1,24}$/;
 export const AGENT_ID = /^[A-Za-z0-9._-]{1,64}$/;
-export const ADDRESS =
-  /^(main|architect|supervisor|council-[0-9a-f]{4}|[A-Za-z0-9]{1,24}-[a-z]{2,4}-[0-9a-f]{4}|ext-[a-z0-9]{1,24}-[A-Za-z0-9]{1,24}-[0-9a-f]{4})$/;
+const ADDRESS_BODY =
+  'main|architect|supervisor|council-[0-9a-f]{4}|[A-Za-z0-9]{1,24}-[a-z]{2,4}-[0-9a-f]{4}|ext-[a-z0-9]{1,24}-[A-Za-z0-9]{1,24}-[0-9a-f]{4}';
+export const ADDRESS = new RegExp(`^(${ADDRESS_BODY})$`);
+/** The tool and the name of a joined agent (X4). */
+export const TOOL_ID = /^[a-z0-9]{1,24}$/;
+export const NAME_ID = /^[A-Za-z0-9]{1,24}$/;
+/** A session of a host (section 4b), and the agent type of a dispatch. */
+export const SESSION_ID = /^[A-Za-z0-9._-]{1,128}$/;
+export const AGENT_TYPE = /^[A-Za-z0-9:._-]{1,64}$/;
+/** The fixed address of the Architect agent (section 4a). */
+export const ARCHITECT = 'architect';
+/** The sources of a session signal (section 4b). */
+export const SESSION_SOURCES = Object.freeze(['hook', 'run']);
+const JOIN_SIGNAL = new RegExp(`^join-(${ADDRESS_BODY})\\.json$`);
+const SESSION_SIGNAL = new RegExp(`^session-(${ADDRESS_BODY})-([A-Za-z0-9._-]{1,128})\\.json$`);
+const BUS_SIGNAL_PREFIXES = ['join-', 'session-'];
+const EXT_PREFIX = 'ext';
 export const WORK_ID = /^w-[0-9a-f]{8}$/;
 export const RESERVED_TASK_IDS = Object.freeze(['main', 'architect', 'supervisor', 'council', 'ext']);
 export const ROLE_NAMES = Object.freeze({
@@ -49,6 +64,8 @@ export const CHECK_ROLES = Object.freeze(['rev', 'qa', 'sec']);
 /** The kinds of a signal file, and the binding file of the identity hook. */
 export const SIGNAL_KINDS = Object.freeze(['started', 'heartbeat', 'done', 'failed']);
 export const DISPATCH_FILE = 'dispatch.json';
+/** The task states that unbind the address of the task (section 4b). */
+export const UNBIND_STATES = Object.freeze(['done', 'dead']);
 /** The states that use a slot. */
 export const BUSY_STATES = Object.freeze(['dispatched', 'running']);
 
@@ -65,7 +82,10 @@ function pluginVersion() {
 /** The generator field of state.json (section 3d). */
 export const GENERATOR = `guilda ${pluginVersion()}`;
 
-/** True when the value matches the pattern of its kind (X4). Kinds: task, attempt, agent, address, role, work. */
+/**
+ * True when the value matches the pattern of its kind (X4). Kinds: task, attempt, agent, address, role, work, tool,
+ * name, session, agentType.
+ */
 export function validId(kind, value) {
   switch (kind) {
     case 'task':
@@ -82,6 +102,14 @@ export function validId(kind, value) {
       return typeof value === 'string' && ROLE_CODES.includes(value);
     case 'work':
       return typeof value === 'string' && WORK_ID.test(value);
+    case 'tool':
+      return typeof value === 'string' && TOOL_ID.test(value);
+    case 'name':
+      return typeof value === 'string' && NAME_ID.test(value);
+    case 'session':
+      return typeof value === 'string' && SESSION_ID.test(value);
+    case 'agentType':
+      return typeof value === 'string' && AGENT_TYPE.test(value);
     default:
       return false;
   }
@@ -92,14 +120,22 @@ function invalidId() {
 }
 
 /**
- * Make the address `<task>-<role>-<4 hex>` from crypto.randomBytes (X3, X4). It draws again on a match with a
- * known address, at most 10 times, then throws 'no free address'. `random` is for tests only.
+ * Make the address `<task>-<role>-<4 hex>`, or with makeAddress('ext', { tool, name }) the address
+ * `ext-<tool>-<name>-<4 hex>`, from crypto.randomBytes (X3, X4). It draws again on a match with a known address, at
+ * most 10 times, then throws 'no free address'. `random` is for tests only.
  */
 export function makeAddress(task, role, known, random = crypto.randomBytes) {
-  if (!validId('task', task) || !validId('role', role)) throw invalidId();
+  let prefix;
+  if (task === EXT_PREFIX) {
+    if (!role || typeof role !== 'object' || !validId('tool', role.tool) || !validId('name', role.name)) throw invalidId();
+    prefix = `${EXT_PREFIX}-${role.tool}-${role.name}`;
+  } else {
+    if (!validId('task', task) || !validId('role', role)) throw invalidId();
+    prefix = `${task}-${role}`;
+  }
   const taken = known instanceof Set ? known : new Set(known ?? []);
   for (let i = 0; i < ADDRESS_DRAWS; i++) {
-    const address = `${task}-${role}-${Buffer.from(random(ADDRESS_HEX_BYTES)).toString('hex')}`;
+    const address = `${prefix}-${Buffer.from(random(ADDRESS_HEX_BYTES)).toString('hex')}`;
     if (!taken.has(address)) return address;
   }
   throw new Error('no free address');
@@ -127,6 +163,8 @@ export function queuePaths(projectDir) {
     state: path.join(dir, 'state.json'),
     lock: path.join(dir, 'lock'),
     signals: path.join(dir, 'signals'),
+    bus: path.join(root, '.guilda', 'bus'),
+    busSignals: path.join(root, '.guilda', 'bus', 'signals'),
   };
 }
 
@@ -219,12 +257,80 @@ function resetAttempt(t) {
   }
 }
 
+/** One entry of the binding table, in the form of section 4b. */
+function newBinding(address, fields) {
+  return {
+    address,
+    tool: null,
+    inSession: null,
+    agentId: null,
+    agentType: null,
+    sessions: [],
+    parentSession: null,
+    parentAgent: null,
+    name: null,
+    role: null,
+    task: null,
+    state: 'bound',
+    ...fields,
+  };
+}
+
+/** The binding table part of one event (section 4b). An unknown type changes nothing. */
+function foldBinding(bindings, e) {
+  if (!validId('address', e.address)) return;
+  const b = Object.hasOwn(bindings, e.address) ? bindings[e.address] : null;
+  switch (e.type) {
+    case 'dispatch':
+      bindings[e.address] = newBinding(e.address, {
+        tool: e.tool ?? null,
+        inSession: e.inSession ?? null,
+        role: e.role ?? null,
+        task: e.task ?? null,
+      });
+      break;
+    case 'agent': {
+      let entry = b;
+      if (!entry && e.address === ARCHITECT) {
+        entry = newBinding(ARCHITECT, { tool: 'claude', inSession: true, role: 'arc', task: null });
+        bindings[ARCHITECT] = entry;
+      }
+      if (!entry) break;
+      // A second agent event for the address is a rebind (X5): each field comes from the new agent.
+      entry.agentId = e.agentId ?? null;
+      entry.agentType = e.agentType ?? null;
+      entry.parentSession = e.parentSession ?? null;
+      entry.parentAgent = e.parentAgent ?? null;
+      break;
+    }
+    case 'join':
+      if (!b) bindings[e.address] = newBinding(e.address, { tool: e.tool ?? null, inSession: false, name: e.name ?? null });
+      break;
+    case 'session':
+      if (b && typeof e.session === 'string' && !b.sessions.includes(e.session)) b.sessions.push(e.session);
+      break;
+    case 'unbind':
+      if (b) b.state = 'unbound';
+      break;
+    default:
+      break;
+  }
+}
+
 /**
- * Fold the journal events into the state of section 4a. Pure: no file read and no clock read. `now` only adds the
- * open time in `running` to agentSeconds. An unknown event type is ignored (D40).
+ * Fold the journal events into the state of section 4a, with the binding table of section 4b. Pure: no file read
+ * and no clock read. `now` only adds the open time in `running` to agentSeconds. An unknown event type is ignored
+ * (D40).
  */
 export function fold(events, { now, generator = GENERATOR } = {}) {
-  const s = { generator, journalSeq: 0, slots: 1, works: Object.create(null), tasks: Object.create(null) };
+  const s = {
+    generator,
+    journalSeq: 0,
+    slots: 1,
+    works: Object.create(null),
+    tasks: Object.create(null),
+    bindings: Object.create(null),
+  };
   const runningSince = Object.create(null);
   const seconds = Object.create(null);
   // address -> { task, check } of each dispatch.
@@ -246,6 +352,7 @@ export function fold(events, { now, generator = GENERATOR } = {}) {
         break;
       case 'dispatch':
         if (!t || typeof e.address !== 'string') break;
+        foldBinding(s.bindings, e);
         runs[e.address] = { task: e.task, check: e.check === true };
         if (e.check === true) {
           t.checks.push({ address: e.address, role: e.role ?? null, agentId: null, attempt: e.attempt ?? t.attempt });
@@ -261,6 +368,7 @@ export function fold(events, { now, generator = GENERATOR } = {}) {
         }
         break;
       case 'agent': {
+        foldBinding(s.bindings, e);
         const run = runs[e.address];
         if (!run || !Object.hasOwn(s.tasks, run.task)) break;
         const owner = s.tasks[run.task];
@@ -303,6 +411,11 @@ export function fold(events, { now, generator = GENERATOR } = {}) {
         if (e.to === 'running' && toMs(e.t) !== null) runningSince[e.task] = toMs(e.t);
         break;
       }
+      case 'join':
+      case 'session':
+      case 'unbind':
+        foldBinding(s.bindings, e);
+        break;
       default:
         break;
     }
@@ -696,19 +809,111 @@ export function runsOf(events) {
 const ownerKey = (e) => (e.agentId ? `a/${e.agentId}` : `t/${e.task}/${e.attempt}`);
 const signalKey = (e) => `${ownerKey(e)}/${e.kind}/${e.at}`;
 
-/** Recovery step 3, part 1: one agent event for each dispatch.json of a known address (X3). */
+/** The value when it matches the pattern of its kind, else null. */
+const checked = (kind, v) => (validId(kind, v) ? v : null);
+const atMs = (v) => (isTime(v) ? Date.parse(v) : Number.POSITIVE_INFINITY);
+
+/**
+ * Recovery step 3, part 1: one agent event for each dispatch.json of a known address or of `architect` (X3, 4b),
+ * in the order of `at`, then agent ID. A second agent ID for one address is a rebind.
+ */
 function foldAgents(P, events, emit) {
   const runs = runsOf(events);
   const bound = new Set(events.filter((e) => e.type === 'agent').map((e) => `${e.address}/${e.agentId}`));
-  for (const agentId of listDirs(path.join(P.signals, 'agents')).sort()) {
+  const found = [];
+  for (const agentId of listDirs(path.join(P.signals, 'agents'))) {
     if (!validId('agent', agentId)) continue;
     const d = readJsonFile(path.join(P.signals, 'agents', agentId, DISPATCH_FILE));
-    if (!d || !validId('address', d.address) || !runs.has(d.address)) continue;
+    if (!d || typeof d !== 'object' || !validId('address', d.address)) continue;
+    if (d.address !== ARCHITECT && !runs.has(d.address)) continue;
     if (bound.has(`${d.address}/${agentId}`)) continue;
-    const run = runs.get(d.address);
-    emit({ type: 'agent', address: d.address, task: run.task, attempt: run.attempt, agentId });
+    found.push({ agentId, d });
+  }
+  found.sort((a, b) => atMs(a.d.at) - atMs(b.d.at) || (a.agentId < b.agentId ? -1 : a.agentId > b.agentId ? 1 : 0));
+  for (const { agentId, d } of found) {
+    const run = d.address === ARCHITECT ? { task: null, attempt: null } : runs.get(d.address);
+    emit({
+      type: 'agent',
+      address: d.address,
+      task: run.task,
+      attempt: run.attempt,
+      agentId,
+      agentType: checked('agentType', d.agentType),
+      parentSession: checked('session', d.parentSession),
+      parentAgent: checked('agent', d.parentAgent),
+    });
     bound.add(`${d.address}/${agentId}`);
   }
+}
+
+/** The entry names of a real folder (not a link), or [] when it is missing. */
+function listNames(dir) {
+  if (!isRealDir(dir)) return [];
+  try {
+    return fs.readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+/** The checked join signal of a file name, or null (section 4b). The path is built after the name check. */
+function readJoinSignal(P, file) {
+  const m = JOIN_SIGNAL.exec(file);
+  if (!m) return null;
+  const body = readSignalFile(path.join(P.busSignals, file));
+  if (!body || body === MISSING || typeof body !== 'object' || Array.isArray(body)) return null;
+  const { address, tool, name, at } = body;
+  if (!validId('tool', tool) || !validId('name', name) || !validId('address', address) || !isTime(at)) return null;
+  if (address !== m[1] || !address.startsWith(`${EXT_PREFIX}-${tool}-${name}-`)) return null;
+  return { address, tool, name, at };
+}
+
+/** The checked session signal of a file name, or null (section 4b). The path is built after the name check. */
+function readSessionSignal(P, file) {
+  if (!SESSION_SIGNAL.test(file)) return null;
+  const body = readSignalFile(path.join(P.busSignals, file));
+  if (!body || body === MISSING || typeof body !== 'object' || Array.isArray(body)) return null;
+  const { address, session, source, at } = body;
+  if (!validId('address', address) || !validId('session', session) || !isTime(at)) return null;
+  if (!SESSION_SOURCES.includes(source)) return null;
+  if (file !== `session-${address}-${session}.json`) return null;
+  return { address, session, source, at };
+}
+
+const byAt = (a, b) => Date.parse(a.at) - Date.parse(b.at) || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0);
+
+/**
+ * Recovery step 3, part 3: the bus signals (section 4b). Each new join signal, then each new session signal of a
+ * known address, in the order of `at`. A file with a bad name or field, a name that differs from its fields, or
+ * that is not a plain file is counted in the result and skipped. Other names are not signals.
+ */
+function foldBusSignals(P, events, emit) {
+  if (!isRealDir(P.bus)) return 0;
+  const joined = new Set(events.filter((e) => e.type === 'join').map((e) => e.address));
+  const sessions = new Set(events.filter((e) => e.type === 'session').map((e) => `${e.address}/${e.session}`));
+  const joins = [];
+  const sessionSignals = [];
+  let bad = 0;
+  for (const file of listNames(P.busSignals)) {
+    if (!BUS_SIGNAL_PREFIXES.some((x) => file.startsWith(x)) || !file.endsWith('.json')) continue;
+    const isJoin = file.startsWith('join-');
+    const sig = isJoin ? readJoinSignal(P, file) : readSessionSignal(P, file);
+    if (sig === null) bad++;
+    else (isJoin ? joins : sessionSignals).push({ ...sig, file });
+  }
+  for (const j of joins.sort(byAt)) {
+    if (joined.has(j.address)) continue;
+    joined.add(j.address);
+    emit({ type: 'join', address: j.address, tool: j.tool, name: j.name });
+  }
+  const known = fold(events).bindings;
+  for (const x of sessionSignals.sort(byAt)) {
+    const key = `${x.address}/${x.session}`;
+    if (!Object.hasOwn(known, x.address) || sessions.has(key)) continue;
+    sessions.add(key);
+    emit({ type: 'session', address: x.address, session: x.session, source: x.source });
+  }
+  return bad;
 }
 
 /** Recovery step 3, part 2: the new signal files, in the order of `at`. */
@@ -755,7 +960,8 @@ function newSignals(P, events) {
     }
   }
   const bindings = new Map();
-  for (const e of events) if (e.type === 'agent' && validId('agent', e.agentId)) bindings.set(e.agentId, e);
+  // An agent event with task null (the architect address) has no task signals.
+  for (const e of events) if (e.type === 'agent' && e.task !== null && validId('agent', e.agentId)) bindings.set(e.agentId, e);
   for (const [agentId, b] of bindings) {
     for (const kind of SIGNAL_KINDS) {
       const owner = { task: b.task, attempt: b.attempt, address: b.address, agentId };
@@ -791,6 +997,7 @@ export function recover(P, events, emit, nowIso, headOf) {
     const tr = signalTransition(fold(events), sig);
     if (tr) emit({ type: 'state', ...tr });
   }
+  const badBus = foldBusSignals(P, events, emit);
   let state = fold(events, { now: nowIso });
   for (const [id, t] of Object.entries(state.tasks)) {
     const mark = lateMark(t, nowIso);
@@ -802,7 +1009,37 @@ export function recover(P, events, emit, nowIso, headOf) {
       emit({ type: 'state', task: id, from: 'pending', to: 'ready', cause: 'deps-done' });
     }
   }
-  return { badSignals: bad };
+  // An address of a done or dead task is unbound (section 4b). The architect and a joined agent have no task.
+  state = fold(events, { now: nowIso });
+  for (const [address, b] of Object.entries(state.bindings)) {
+    if (address === ARCHITECT || b.state !== 'bound' || b.task === null) continue;
+    const owner = Object.hasOwn(state.tasks, b.task) ? state.tasks[b.task] : null;
+    if (owner && UNBIND_STATES.includes(owner.state)) emit({ type: 'unbind', address });
+  }
+  return { badSignals: bad + badBus };
+}
+
+/**
+ * The binding table that `queue sync` would write now (section 4b): the fold of the journal and of the signals
+ * that sync did not fold yet, in memory. It ignores state.json, writes nothing, creates no folder and never
+ * throws: an error gives {}.
+ */
+export function readBindings(projectDir) {
+  try {
+    const P = queuePaths(projectDir);
+    const { events } = readJournal(projectDir);
+    let seq = lastSeq(events);
+    const nowIso = new Date().toISOString();
+    const emit = (e) => {
+      const ev = { seq: ++seq, t: nowIso, ...e };
+      events.push(ev);
+      return ev;
+    };
+    recover(P, events, emit, nowIso, () => null);
+    return { ...fold(events, { now: nowIso }).bindings };
+  } catch {
+    return {};
+  }
 }
 
 /** The real paths of the queue of a project, with .guilda/queue created when missing (never .guilda itself). */

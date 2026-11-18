@@ -89,7 +89,7 @@ test('the identity hook writes a signal file, not the journal', () => {
   assert.equal(d.task, 'T3');
   assert.equal(d.attempt, 1);
   assert.ok(!Number.isNaN(Date.parse(d.at)), 'at is an ISO time');
-  assert.deepEqual(Object.keys(d).sort(), ['address', 'at', 'attempt', 'task']);
+  assert.deepEqual(Object.keys(d), ['address', 'task', 'attempt', 'agentType', 'parentSession', 'parentAgent', 'at']);
   assert.deepEqual(journalBytes(dir), before, 'the journal has the same bytes');
   assert.deepEqual(fs.readFileSync(path.join(qdir(dir), 'state.json')), stateBefore, 'state.json is not written');
 
@@ -215,6 +215,69 @@ test('an unreadable state.json gives task null', () => {
   assert.equal(agent.task, 'T3');
   assert.equal(agent.attempt, 1);
   assert.equal(agent.agentId, 'a1b2c3');
+});
+
+test('agent type and parent session', () => {
+  const { dir, address } = dispatched();
+  const r = runHook(HOOK, agentInput(dir, `Address: ${address}\n`, 'a-9'), dir);
+  assertSilent(r);
+  const d = JSON.parse(fs.readFileSync(dispatchFile(dir, 'a-9'), 'utf8'));
+  assert.equal(d.address, address);
+  assert.equal(d.task, 'T3');
+  assert.equal(d.attempt, 1);
+  assert.equal(d.agentType, 'guilda:executor');
+  assert.equal(d.parentSession, 's-1');
+  assert.equal(d.parentAgent, null);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', 'bus')), false, 'no file in .guilda/bus');
+
+  // A dispatch from a subagent: parentAgent is its agent_id, not the session.
+  const nested = agentInput(dir, `Address: ${address}\n`, 'a-10');
+  nested.agent_id = 'parent-7';
+  assertSilent(runHook(HOOK, nested, dir));
+  const n = JSON.parse(fs.readFileSync(dispatchFile(dir, 'a-10'), 'utf8'));
+  assert.equal(n.parentAgent, 'parent-7');
+  assert.equal(n.parentSession, 's-1');
+
+  // A value that fails its pattern is null.
+  const bad = agentInput(dir, `Address: ${address}\n`, 'a-11');
+  bad.agent_id = '../x';
+  bad.session_id = 'a b';
+  bad.tool_input.subagent_type = 'x'.repeat(65);
+  assertSilent(runHook(HOOK, bad, dir));
+  const b = JSON.parse(fs.readFileSync(dispatchFile(dir, 'a-11'), 'utf8'));
+  assert.deepEqual([b.agentType, b.parentSession, b.parentAgent], [null, null, null]);
+  const missing = agentInput(dir, `Address: ${address}\n`, 'a-12');
+  delete missing.session_id;
+  delete missing.tool_input.subagent_type;
+  assertSilent(runHook(HOOK, missing, dir));
+  const m = JSON.parse(fs.readFileSync(dispatchFile(dir, 'a-12'), 'utf8'));
+  assert.deepEqual([m.agentType, m.parentSession, m.parentAgent], [null, null, null]);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', 'bus')), false);
+
+  q(dir, 1, 'sync');
+  const agent = readJournal(dir).events.find((e) => e.type === 'agent' && e.agentId === 'a-10');
+  assert.equal(agent.agentType, 'guilda:executor');
+  assert.equal(agent.parentSession, 's-1');
+  assert.equal(agent.parentAgent, 'parent-7');
+});
+
+test('the architect address writes task null', () => {
+  const { dir } = dispatched();
+  const input = agentInput(dir, 'Address: architect\nGoal: g\n', 'arc-1');
+  input.tool_input.subagent_type = 'guilda:architect';
+  assertSilent(runHook(HOOK, input, dir));
+  const d = JSON.parse(fs.readFileSync(dispatchFile(dir, 'arc-1'), 'utf8'));
+  assert.equal(d.address, 'architect');
+  assert.equal(d.task, null);
+  assert.equal(d.attempt, null);
+  assert.equal(d.agentType, 'guilda:architect');
+  q(dir, 1, 'sync');
+  const agent = readJournal(dir).events.find((e) => e.type === 'agent' && e.address === 'architect');
+  assert.equal(agent.task, null);
+  assert.equal(agent.agentId, 'arc-1');
+  const b = JSON.parse(fs.readFileSync(path.join(qdir(dir), 'state.json'), 'utf8')).bindings.architect;
+  assert.equal(b.agentId, 'arc-1');
+  assert.equal(b.role, 'arc');
 });
 
 test('hooks.json has the PostToolUse Agent entry, and the Write|Edit entry is unchanged', () => {

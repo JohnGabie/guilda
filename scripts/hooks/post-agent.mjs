@@ -1,16 +1,18 @@
 import fs from 'node:fs';
 import { projectState } from '../lib/project.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
-import { validId, readState, writeSignal, queuePaths, DISPATCH_FILE } from '../lib/queue.mjs';
+import { validId, readState, writeSignal, queuePaths, DISPATCH_FILE, ARCHITECT } from '../lib/queue.mjs';
 
 // The identity hook (X3, section 4b): PostToolUse with the matcher Agent. It binds a queued dispatch to the agent
 // ID of the host by one signal file, .guilda/queue/signals/agents/<agentId>/dispatch.json. The writer folds that
 // file into an `agent` event at `queue sync`. The hook never writes the journal or state.json. It is a record
-// hook: each error gives exit 0 and no output (X9).
+// hook: each error gives exit 0 and no output (X9). The file has the agent type, the parent session and the parent
+// agent of the call (section 4b); a value that fails its pattern is null. The hook writes nothing in .guilda/bus.
 
 const ADDRESS_LINE = /^Address: (\S+)$/m;
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const checked = (kind, v) => (validId(kind, v) ? v : null);
 
 /** The address of the `Address:` line of the prompt, or null when the line is missing or fails X4. */
 function addressOf(prompt) {
@@ -57,9 +59,20 @@ function main(input) {
     if (address === null) return 0;
     const agentId = isObject(input.tool_response) ? input.tool_response.agentId : undefined;
     if (!validId('agent', agentId)) return 0;
-    const { task, attempt } = lookup(projectDir, address);
+    // A fixed address has no dispatch event, so the hook looks up no run for it (section 4b).
+    const { task, attempt } = address === ARCHITECT ? { task: null, attempt: null } : lookup(projectDir, address);
+    const body = {
+      address,
+      task,
+      attempt,
+      agentType: checked('agentType', input.tool_input.subagent_type),
+      parentSession: checked('session', input.session_id),
+      // agent_id is in the input only when a subagent made the call; the main session gives null.
+      parentAgent: checked('agent', input.agent_id),
+      at: new Date().toISOString(),
+    };
     // writeSignal creates the file with the flag wx: an existing dispatch.json throws and is not changed.
-    writeSignal(projectDir, { agentId }, DISPATCH_FILE, { address, task, attempt, at: new Date().toISOString() });
+    writeSignal(projectDir, { agentId }, DISPATCH_FILE, body);
   } catch {
     // Fail open: a record hook writes nothing more and prints nothing.
   }

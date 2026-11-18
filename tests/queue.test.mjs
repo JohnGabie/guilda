@@ -15,6 +15,7 @@ import {
   takeLock,
   ACK_TIMEOUT_MS,
   MAX_ATTEMPTS,
+  readBindings,
 } from '../scripts/lib/queue.mjs';
 import { SETUP_NOTICE } from '../scripts/lib/project.mjs';
 
@@ -95,8 +96,8 @@ test('pending to done', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(fold(events(dir), { now: at(5) }).tasks)), s.tasks);
   assert.equal(s.journalSeq, events(dir).at(-1).seq);
   assert.match(s.generator, /^guilda \d+\.\d+\.\d+/);
-  // Each event has seq, t and a type of the 0.3.0 vocabulary, and no field named time.
-  const types = ['plan', 'task', 'dispatch', 'agent', 'signal', 'state', 'decision', 'takeover'];
+  // Each event has seq, t and a type of the 0.3.0 vocabulary or of the binding table (4b), and no field named time.
+  const types = ['plan', 'task', 'dispatch', 'agent', 'signal', 'state', 'decision', 'takeover', 'join', 'session', 'unbind'];
   events(dir).forEach((e, i) => {
     assert.equal(e.seq, i + 1);
     assert.ok(types.includes(e.type), e.type);
@@ -706,4 +707,116 @@ test('a journal that is a hard link to another file is refused, and the other fi
   const r = spawnSync(process.execPath, [SCRIPT, dir, 'sync'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.equal(fs.readFileSync(outside, 'utf8'), 'keep\n');
+});
+
+const busDir = (dir) => path.join(dir, '.guilda', 'bus', 'signals');
+function busSignal(dir, name, body) {
+  fs.mkdirSync(busDir(dir), { recursive: true });
+  fs.writeFileSync(path.join(busDir(dir), name), `${JSON.stringify(body)}\n`);
+}
+
+test('sync folds the bus signals', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  busSignal(dir, 'join-ext-codex-voice-4592.json', { address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice', at: at(0.2) });
+  busSignal(dir, 'session-ext-codex-voice-4592-th.2.json', { address: 'ext-codex-voice-4592', session: 'th.2', source: 'hook', at: at(0.4) });
+  busSignal(dir, 'session-ext-codex-voice-4592-th-1.json', { address: 'ext-codex-voice-4592', session: 'th-1', source: 'hook', at: at(0.3) });
+  busSignal(dir, 'session-ext-codex-gone-0000-x.json', { address: 'ext-codex-gone-0000', session: 'x', source: 'hook', at: at(0.3) });
+  const before = readBindings(dir);
+  ok(q(dir, 1, 'sync'));
+  const evs = events(dir);
+  const joins = evs.filter((e) => e.type === 'join');
+  assert.deepEqual(joins.map(({ address, tool, name }) => ({ address, tool, name })), [
+    { address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice' },
+  ]);
+  const sessions = evs.filter((e) => e.type === 'session');
+  assert.deepEqual(sessions.map((e) => [e.address, e.session, e.source]), [
+    ['ext-codex-voice-4592', 'th-1', 'hook'],
+    ['ext-codex-voice-4592', 'th.2', 'hook'],
+  ]);
+  assert.ok(joins[0].seq < sessions[0].seq, 'the join folds before the sessions');
+  const b = stateFile(dir).bindings;
+  assert.deepEqual(b['ext-codex-voice-4592'].sessions, ['th-1', 'th.2']);
+  assert.deepEqual(Object.keys(b), ['ext-codex-voice-4592']);
+  assert.deepEqual(b, before, 'readBindings before sync equals the bindings key after sync');
+  assert.deepEqual(readBindings(dir), b);
+});
+
+test('a join signal folds one time', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  busSignal(dir, 'join-ext-codex-voice-4592.json', { address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice', at: at(0.2) });
+  busSignal(dir, 'session-ext-codex-voice-4592-s1.json', { address: 'ext-codex-voice-4592', session: 's1', source: 'hook', at: at(0.3) });
+  ok(q(dir, 1, 'sync'));
+  ok(q(dir, 2, 'sync'));
+  ok(q(dir, 3, 'sync'));
+  assert.equal(events(dir).filter((e) => e.type === 'join').length, 1);
+  assert.equal(events(dir).filter((e) => e.type === 'session').length, 1);
+  assert.deepEqual(stateFile(dir).bindings['ext-codex-voice-4592'].sessions, ['s1']);
+});
+
+test('sync unbinds the address of a done task and not the architect', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'one.plan.md', '--slots', '1'));
+  ok(q(dir, 0, 'sync'));
+  const address = dispatch(dir, 0, 'T1');
+  bind(dir, 'a1', address, 'T1', 1);
+  writeSignal(dir, { agentId: 'arc1' }, 'dispatch.json', {
+    address: 'architect', task: null, attempt: null, agentType: 'guilda:architect', parentSession: 's-1', parentAgent: null, at: at(0),
+  });
+  writeSignal(dir, { agentId: 'arc1' }, 'started', { at: at(0.2) });
+  busSignal(dir, 'join-ext-codex-voice-4592.json', { address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice', at: at(0.2) });
+  writeSignal(dir, { agentId: 'a1' }, 'started', { at: at(0.5) });
+  writeSignal(dir, { agentId: 'a1' }, 'done', { at: at(0.8), reason: 'finished', usage: null });
+  ok(q(dir, 1, 'sync'));
+  assert.equal(task(dir, 'T1').state, 'review');
+  assert.equal(events(dir).filter((e) => e.type === 'unbind').length, 0);
+  const archAgent = events(dir).filter((e) => e.type === 'agent' && e.address === 'architect');
+  assert.equal(archAgent.length, 1);
+  assert.equal(archAgent[0].task, null);
+  assert.equal(archAgent[0].attempt, null);
+  assert.equal(events(dir).filter((e) => e.type === 'signal' && e.agentId === 'arc1').length, 0, 'no signal event for task null');
+  ok(q(dir, 2, 'approve', 'T1'));
+  ok(q(dir, 3, 'sync'));
+  const unbinds = events(dir).filter((e) => e.type === 'unbind');
+  assert.deepEqual(unbinds.map((e) => e.address), [address]);
+  assert.deepEqual(Object.keys(unbinds[0]).sort(), ['address', 'seq', 't', 'type']);
+  const b = stateFile(dir).bindings;
+  assert.equal(b[address].state, 'unbound');
+  assert.equal(b.architect.state, 'bound');
+  assert.equal(b['ext-codex-voice-4592'].state, 'bound');
+  ok(q(dir, 4, 'sync'));
+  assert.equal(events(dir).filter((e) => e.type === 'unbind').length, 1);
+});
+
+test('makeAddress makes the ext form', () => {
+  const draws = [Buffer.from([0x45, 0x92]), Buffer.from([0x00, 0x01])];
+  let calls = 0;
+  const random = () => draws[Math.min(calls++, draws.length - 1)];
+  assert.equal(makeAddress('ext', { tool: 'codex', name: 'voice' }, new Set(), random), 'ext-codex-voice-4592');
+  calls = 0;
+  assert.equal(makeAddress('ext', { tool: 'codex', name: 'Voice9' }, ['ext-codex-Voice9-4592'], random), 'ext-codex-Voice9-0001');
+  assert.ok(validId('address', makeAddress('ext', { tool: 'a'.repeat(24), name: 'B'.repeat(24) }, [])));
+  calls = 0;
+  const same = () => {
+    calls++;
+    return Buffer.from([0x45, 0x92]);
+  };
+  assert.throws(() => makeAddress('ext', { tool: 'codex', name: 'voice' }, ['ext-codex-voice-4592'], same), /no free address/);
+  assert.equal(calls, 10);
+  for (const bad of [
+    { tool: 'Codex', name: 'voice' },
+    { tool: 'co-dex', name: 'voice' },
+    { tool: '../x', name: 'voice' },
+    { tool: 'a'.repeat(25), name: 'voice' },
+    { tool: '', name: 'voice' },
+    { tool: 'codex', name: 'vo-ice' },
+    { tool: 'codex', name: 'vo/ice' },
+    { tool: 'codex', name: 'B'.repeat(25) },
+    { tool: 'codex' },
+    null,
+  ]) {
+    assert.throws(() => makeAddress('ext', bad, []), /invalid ID/, JSON.stringify(bad));
+  }
+  assert.match(makeAddress('T3', 'exe', []), /^T3-exe-[0-9a-f]{4}$/);
 });
