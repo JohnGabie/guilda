@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The bus script (D24, R34, section 4h): the one writer of .guilda/bus. Agents and hooks run it; the user does not.
-// Usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver> [args]
+// Usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver|verify> [args]
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -9,6 +9,7 @@ import { projectState, busSettings, adapterSettings, SETUP_NOTICE } from './lib/
 import { ensureIgnored } from './lib/violations.mjs';
 import { validId, makeAddress, readBindings } from './lib/queue.mjs';
 import { deliverPlan } from './lib/router.mjs';
+import { verifyRecord } from './lib/records.mjs';
 import {
   BusError,
   MAX_TEXT_CHARS,
@@ -199,12 +200,30 @@ function cmdDeliver(root, args) {
   return deliverPlan(root, address).map(({ id, route, header }) => JSON.stringify({ id, route, header }));
 }
 
-const COMMANDS = { send: cmdSend, join: cmdJoin, who: cmdWho, pending: cmdPending, deliver: cmdDeliver };
+const SHOW_FLAG = '--show';
+
+/**
+ * Check one user record (R35, 4g). Exit 0 prints `ok`; with --show, then the kind, the question and the text, as they
+ * are. Exit 1 prints the reason. It never creates a key.
+ */
+function cmdVerify(root, args) {
+  const [id, ...rest] = args;
+  if (typeof id !== 'string' || id === '' || id === SHOW_FLAG) throw usage('bad id');
+  const show = rest.length === 1 && rest[0] === SHOW_FLAG;
+  if (rest.length > 0 && !show) throw usage(`bad argument ${rest[0]}`);
+  const result = verifyRecord(root, id, process.env);
+  if (!result.ok) throw new BusError(1, result.reason);
+  if (!show) return ['ok'];
+  const { kind, question, text } = result.record;
+  return ['ok', `kind: ${kind}`, `question: ${question === null || question === undefined ? 'none' : question}`, `text: ${text}`];
+}
+
+const COMMANDS = { send: cmdSend, join: cmdJoin, who: cmdWho, pending: cmdPending, deliver: cmdDeliver, verify: cmdVerify };
 
 /** Run the script; return { code, lines }. It never calls process.exit. */
 export function main(argv) {
   try {
-    if (argv.length < 2) throw usage('usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver> [args]');
+    if (argv.length < 2) throw usage('usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver|verify> [args]');
     const [projectDir, command, ...args] = argv;
     const root = path.resolve(projectDir);
     const project = projectState(root);

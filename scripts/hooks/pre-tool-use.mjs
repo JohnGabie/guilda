@@ -5,9 +5,12 @@ import { projectState } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
-import { findGitCommits, parseAddedLines, resolveDir } from '../lib/git-command.mjs';
+import { findGitCommits, parseAddedLines, resolveDir, splitCommands, stripPrefix, isVariable } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
 import { queueFileWrites, queueScriptCall, isQueueFile } from '../lib/queue-guard.mjs';
+import { busPaths, MAIN } from '../lib/bus.mjs';
+import { readBindings, validId, queuePaths } from '../lib/queue.mjs';
+import { keyFolder, TYPED_ENTRYPOINT } from '../lib/records.mjs';
 
 const PLANS_DIR = ['docs', 'superpowers', 'plans'];
 const PLAN_SUFFIX = '.plan.md';
@@ -31,7 +34,7 @@ const R32 = {
   },
   agent: {
     action: 'queue script call refused: not the writer role',
-    reason: 'R32: only the writer role calls the queue script; in 0.3.0 that is the Architect in the main session, not a subagent',
+    reason: 'R32: only the writer role calls the queue script; in 0.4.0 that is the Architect agent (guilda:architect)',
   },
   error: { action: 'hook error: cannot check the call', reason: 'R32: cannot check the call' },
   noSession: { action: 'queue script call refused: no --session', reason: 'R32: no --session' },
@@ -41,12 +44,183 @@ const R32 = {
   },
 };
 
-/** The R32 problem of a queue script call, or null. The 0.3.0 writer role: no agent_id (X2). */
+const ARCHITECT_TYPE = 'guilda:architect';
+const ARCHITECT = 'architect';
+const hasAgentId = (input) => input.agent_id !== undefined && input.agent_id !== null;
+
+/** The R32 problem of a queue script call, or null. The 0.4.0 writer role: the Architect agent, with an agent_id (X2). */
 function queueCallProblem(input, call) {
-  if (input.agent_id !== undefined && input.agent_id !== null) return 'agent';
+  if (input.agent_type !== ARCHITECT_TYPE || !hasAgentId(input)) return 'agent';
   if (call.sessions.some((s) => s === null)) return 'noSession';
   const own = typeof input.session_id === 'string' && input.session_id !== '' ? input.session_id : null;
   return call.sessions.every((s) => own !== null && s === own) ? null : 'session';
+}
+
+// R34 (4g): the bus law. A record never holds the command text, a path, a record text or a key byte.
+const R34 = {
+  write: {
+    action: 'bus file write refused',
+    reason: 'R34: write .guilda/bus/ only through the bus script (node scripts/bus.mjs)',
+  },
+  key: { action: 'key folder access refused', reason: 'R34: the key folder of guilda is not readable by tools' },
+  noRead: { action: 'bus send refused: cannot read the bindings', reason: 'R34: cannot read the bindings' },
+  noBinding: {
+    action: 'bus send refused: no address is bound to the agent',
+    reason: 'R34: no address is bound to this agent yet. Report to your controller in your reply.',
+  },
+  printMode: { action: 'bus send refused: a print-mode session', reason: 'R34: this print-mode session has no address' },
+  from: { action: 'bus send refused: the sender is not the caller' },
+};
+const BUS_SCRIPT = 'bus.mjs';
+const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
+const MAX_DEPTH = 8;
+const MAX_SHOWN = 64;
+// The text that names the key folder in any form: `~/.local/state/guilda/keys`, `$XDG_STATE_HOME/guilda/keys`, ...
+const KEY_FOLDER_NAMES = ['guilda/keys', 'guilda\\keys'];
+const PATH_FIELDS = ['file_path', 'path', 'notebook_path'];
+// The fields of a tool input that can name a path: the path fields, the Glob pattern, the Grep file filter and the
+// shell command. A file text (Write content, Edit strings) is not a path, so a text about the key folder can be written.
+const NAME_FIELDS = { Glob: ['pattern'], Grep: ['glob'], Bash: ['command'] };
+// The flags of `bus.mjs send` that take a value, as in scripts/bus.mjs; each other word is one argument.
+const SEND_VALUE_FLAGS = new Set(['--from', '--to', '--type', '--text', '--task', '--reply-to', '--record']);
+
+/** The real path of a path whose end may not exist: the real path of its nearest existing folder plus the rest. */
+function realish(abs) {
+  let dir = abs;
+  const tail = [];
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(dir), ...tail.reverse());
+    } catch {
+      const up = path.dirname(dir);
+      if (up === dir) return abs;
+      tail.push(path.basename(dir));
+      dir = up;
+    }
+  }
+}
+
+/** True when `abs` is `dir` or a path inside it. */
+function inside(abs, dir) {
+  const rel = path.relative(dir, abs);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/** True when the path, in its literal or real form, is inside one of the folders (each also in its real form). */
+function insideAny(abs, dirs) {
+  const forms = [path.resolve(abs), realish(path.resolve(abs))];
+  const targets = dirs.flatMap((d) => [d, realish(d)]);
+  return forms.some((f) => targets.some((d) => inside(f, d)));
+}
+
+/**
+ * True when a tool input names the key folder (L4-2 C4): a path field, the Glob pattern, the Grep file filter or the
+ * shell command holds its name or its path, or a path field resolves into it.
+ */
+function namesKeyFolder(toolName, toolInput, cwd) {
+  const folder = keyFolder(process.env);
+  const forms = [folder, realish(folder)];
+  const fields = [...PATH_FIELDS, ...(NAME_FIELDS[toolName] ?? [])];
+  const texts = fields.map((k) => toolInput[k]).filter((t) => typeof t === 'string' && t !== '');
+  if (texts.some((t) => KEY_FOLDER_NAMES.some((n) => t.includes(n)) || forms.some((f) => t.includes(f)))) return true;
+  return PATH_FIELDS.some((k) => typeof toolInput[k] === 'string' && toolInput[k] !== '' && insideAny(resolveDir(cwd, toolInput[k]), [folder]));
+}
+
+/** True when a shell command writes into `.guilda/bus/` in a form of R4: a redirection, tee, touch, cp or mv. */
+function commandWritesBus(projectDir, command, startCwd) {
+  const { bus } = busPaths(projectDir);
+  return findCreatedFiles(command, startCwd).some((entry) =>
+    [projectDir, entry.cwd].some((base) => insideAny(resolveDir(base, entry.path), [bus])),
+  );
+}
+
+/** The text that an `eval` or a `sh -c` simple command runs, or null. */
+function innerText(rest) {
+  const names = rest.map((w) => path.basename(w));
+  if (names[0] === 'eval') return rest.slice(1).join(' ');
+  const shellAt = names.findIndex((n) => SHELLS.has(n));
+  if (shellAt < 0) return null;
+  const flag = rest.findIndex((w, i) => i > shellAt && /^-[a-z]*c$/.test(w));
+  return flag > 0 && rest[flag + 1] !== undefined ? rest[flag + 1] : null;
+}
+
+const isBusScript = (word) => path.basename(word.replace(/\\/g, '/')) === BUS_SCRIPT;
+
+/**
+ * The `--from` value of each `bus.mjs send` call of a shell command, read from the command text only. A value is
+ * null when the call has no `--from`, or when a variable can stand for a flag (fail closed). A call whose command
+ * word is a variable counts as a send.
+ */
+function sendCalls(command, depth = 0, out = []) {
+  if (depth > MAX_DEPTH) return out;
+  for (const words of splitCommands(command)) {
+    const { rest } = stripPrefix(words);
+    const inner = innerText(rest);
+    if (inner !== null) sendCalls(inner, depth + 1, out);
+    let at = rest.length > 0 && isBusScript(rest[0]) ? 0 : -1;
+    if (at < 0) {
+      const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
+      if (nodeAt >= 0) at = rest.findIndex((w, i) => i > nodeAt && isBusScript(w));
+    }
+    if (at < 0) continue;
+    const args = rest.slice(at + 1);
+    const sendAt = [0, 1].find((i) => args[i] === 'send' || (args[i] !== undefined && isVariable(args[i])));
+    if (sendAt === undefined) continue;
+    let from = null;
+    let open = false;
+    for (let i = sendAt + 1; i < args.length; i += 1) {
+      if (args[i] === '--from') {
+        from = args[i + 1] ?? null;
+        i += 1;
+      } else if (SEND_VALUE_FLAGS.has(args[i])) {
+        i += 1;
+      } else if (isVariable(args[i])) {
+        open = true;
+      }
+    }
+    out.push(open ? null : from);
+  }
+  return out;
+}
+
+/** True when the queue files that the binding table comes from can be read. A missing file is no error. */
+function bindingsReadable(projectDir) {
+  const P = queuePaths(projectDir);
+  for (const file of [P.state, P.journal]) {
+    try {
+      fs.readFileSync(file);
+    } catch (err) {
+      if (err.code !== 'ENOENT') return false;
+    }
+  }
+  return true;
+}
+
+/** The address of the caller of a send (4g, part 1): { address } or { problem }. It comes from the hook input. */
+function callerOf(projectDir, input) {
+  if (!bindingsReadable(projectDir)) return { problem: 'noRead' };
+  if (hasAgentId(input)) {
+    if (input.agent_type === ARCHITECT_TYPE) return { address: ARCHITECT };
+    const bound = Object.values(readBindings(projectDir)).find((b) => b.state === 'bound' && b.agentId === input.agent_id);
+    return bound ? { address: bound.address } : { problem: 'noBinding' };
+  }
+  const own = process.env.GUILDA_ADDRESS;
+  if (typeof own === 'string' && validId('address', own)) return { address: own };
+  if (process.env.CLAUDE_CODE_ENTRYPOINT !== TYPED_ENTRYPOINT) return { problem: 'printMode' };
+  return { address: MAIN };
+}
+
+/** The R34 refusal of the sends of a shell command: { key } or { reason }, or null when each send is from the caller. */
+function sendProblem(projectDir, input, command) {
+  const froms = sendCalls(command);
+  if (froms.length === 0) return null;
+  const caller = callerOf(projectDir, input);
+  if (caller.problem) return { key: caller.problem };
+  const wrong = froms.find((f) => f !== caller.address);
+  if (wrong === undefined) return null;
+  const shown = wrong === null ? '(none)' : [...wrong].slice(0, MAX_SHOWN).join('');
+  return { key: 'from', reason: `R34: --from ${shown} is not your address (${caller.address})` };
 }
 
 function deny(reason) {
@@ -178,13 +352,23 @@ async function main(input) {
   // A seam for the fail-closed test only: no product path sets it.
   if (process.env.GUILDA_TEST_HOOK_THROW === '1') throw new Error('test error');
   const projectDir = resolveProjectDir(input);
+  const toolInput = input.tool_input && typeof input.tool_input === 'object' ? input.tool_input : {};
+  const startCwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : projectDir;
+  const record = (rule, action) =>
+    appendViolation(projectDir, { rule, level: 'law', source: 'pre-tool-use', action });
+  const refuse34 = (key, reason = R34[key].reason) => {
+    record('R34', R34[key].action);
+    deny(reason);
+    return 0;
+  };
+  // R34: the key folder is refused in each project, also one with no .guilda folder (the record needs one).
+  if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
+  if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
+
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
   const project = projectState(projectDir);
   if (project.state === 'none') return 0;
 
-  const toolInput = input.tool_input || {};
-  const record = (rule, action) =>
-    appendViolation(projectDir, { rule, level: 'law', source: 'pre-tool-use', action });
   const refuse32 = (key) => {
     record('R32', R32[key].action);
     deny(R32[key].reason);
@@ -193,7 +377,9 @@ async function main(input) {
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
-    const startCwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : projectDir;
+    if (commandWritesBus(projectDir, command, startCwd)) return refuse34('write');
+    const send = sendProblem(projectDir, input, command);
+    if (send) return refuse34(send.key, send.reason);
     if (queueFileWrites(command, startCwd, projectDir).length > 0) return refuse32('file');
     const call = queueScriptCall(command);
     if (call) {
@@ -229,6 +415,7 @@ async function main(input) {
   if (input.tool_name === 'Write' || input.tool_name === 'Edit') {
     const filePath = typeof toolInput.file_path === 'string' ? toolInput.file_path : '';
     const absPath = path.resolve(projectDir, filePath.replace(/\\/g, '/'));
+    if (filePath && insideAny(absPath, [busPaths(projectDir).bus])) return refuse34('write');
     if (filePath && isQueueFile(projectDir, absPath)) return refuse32('file');
     const problem = filePath ? planFileProblem(projectDir, absPath) : null;
     if (problem) {
@@ -239,28 +426,31 @@ async function main(input) {
   return 0;
 }
 
-/** The parsed hook input, or null when stdin is not a JSON object. */
+/** { value, text }: the parsed hook input, or null when stdin is not a JSON object, and the raw text. */
 async function readInput() {
   let text = '';
   try {
     process.stdin.setEncoding('utf8');
     for await (const chunk of process.stdin) text += chunk;
     const value = JSON.parse(text);
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+    return { value: value && typeof value === 'object' && !Array.isArray(value) ? value : null, text };
   } catch {
-    return null;
+    return { value: null, text };
   }
 }
 
-// A law fails closed (X9): an input that the hook cannot read is refused, in a project with a .guilda folder.
+// A law fails closed (X9): an input that the hook cannot read is refused, in a project with a .guilda folder. An input
+// whose text names the bus script can be a send, so it gets the R34 text (S4-14, case 7).
 let input = null;
 try {
-  input = await readInput();
+  const read = await readInput();
+  input = read.value;
   if (input === null) {
     const projectDir = resolveProjectDir(null);
     if (projectState(projectDir).state !== 'none') {
-      appendViolation(projectDir, { rule: 'R32', level: 'law', source: 'pre-tool-use', action: R32.input.action });
-      deny(R32.input.reason);
+      const [rule, refusal] = read.text.includes(BUS_SCRIPT) ? ['R34', R34.noRead] : ['R32', R32.input];
+      appendViolation(projectDir, { rule, level: 'law', source: 'pre-tool-use', action: refusal.action });
+      deny(refusal.reason);
     }
   } else {
     await main(input);

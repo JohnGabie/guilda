@@ -168,12 +168,12 @@ test('a write error of the audit log exits 0', () => {
   assert.equal(fs.readFileSync(target, 'utf8'), '');
 });
 
-test('hooks.json has the 0.3.0 entries of X6 and the 0.2.0 entries unchanged', () => {
+test('hooks.json has the 0.4.0 entries of X6 and the 0.2.0 entries unchanged', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const cmd = (file) => ({ type: 'command', command: 'node', args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/hooks/${file}`] });
   const entry = (matcher, file) => (matcher === null ? { hooks: [cmd(file)] } : { matcher, hooks: [cmd(file)] });
   assert.deepEqual(hooks.PreToolUse, [
-    entry('Bash|Write|Edit', 'pre-tool-use.mjs'),
+    entry('Bash|Write|Edit|Read|Grep|Glob', 'pre-tool-use.mjs'),
     entry('Write|Edit|MultiEdit|NotebookEdit', 'pre-architect-write.mjs'),
     entry('Agent', 'pre-agent.mjs'),
     entry('Skill', 'pre-skill.mjs'),
@@ -182,7 +182,7 @@ test('hooks.json has the 0.3.0 entries of X6 and the 0.2.0 entries unchanged', (
     entry('AskUserQuestion', 'pre-question.mjs'),
   ]);
   assert.deepEqual(hooks.PostToolUse, [
-    entry('Write|Edit', 'post-tool-use.mjs'),
+    entry('Write|Edit|AskUserQuestion|SendMessage', 'post-tool-use.mjs'),
     entry('Agent', 'post-agent.mjs'),
     entry('*', 'agent-trace.mjs'),
   ]);
@@ -193,5 +193,6 @@ test('hooks.json has the 0.3.0 entries of X6 and the 0.2.0 entries unchanged', (
   assert.deepEqual(hooks.SubagentStart, [entry(null, 'subagent-start.mjs')]);
   assert.deepEqual(hooks.SessionStart, [entry('startup|resume|clear|compact', 'session-start.mjs')]);
   assert.deepEqual(hooks.PreCompact, [entry('manual|auto', 'pre-compact.mjs')]);
-  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreCompact', 'PreToolUse', 'SessionStart', 'SubagentStart', 'SubagentStop']);
+  assert.deepEqual(hooks.UserPromptSubmit, [entry(null, 'user-prompt-submit.mjs')]);
+  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreCompact', 'PreToolUse', 'SessionStart', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit']);
 });

@@ -5,8 +5,70 @@ import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
 import { check as traceCheck, SPEC_DIR } from '../lib/trace.mjs';
 import { steCheck, checkScope, readGlossaries, DEFAULT_VAGUE } from '../lib/ste.mjs';
+import { MAX_TEXT_CHARS, MESSAGE_ID, MESSAGE_TYPES, MAIN, appendReceipt, pendingOf, readMailbox, knownAddress } from '../lib/bus.mjs';
+import { validId, readBindings } from '../lib/queue.mjs';
+import { isTypedSession, writeUserRecord, cutText } from '../lib/records.mjs';
 
 const MAX_LISTED = 15;
+const QUESTION_SEPARATOR = ' | ';
+// The header line of a relayed message (4d): `guilda-message: <id> from <address> type <type>`.
+const HEADER = /^guilda-message: (m-[0-9a-f]{8}) from (\S+) type (\S+)$/;
+
+/** The context line of a new user record. */
+function recordLine(id) {
+  process.stdout.write(
+    JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: `guilda user record: ${id}` } }) + '\n',
+  );
+}
+
+/**
+ * R35 (S4-16): one `answer` record for a question tool answer of the typed main session. The question is the
+ * question text of the tool input; the text is the whole tool response as JSON (L4-2 C8), cut to MAX_TEXT_CHARS.
+ */
+function answerRecord(projectDir, input) {
+  if (!isTypedSession(process.env, input)) return 0;
+  const toolInput = input.tool_input || {};
+  const questions = Array.isArray(toolInput.questions) ? toolInput.questions : [];
+  const texts = questions.map((q) => (q && typeof q.question === 'string' ? q.question : null)).filter((q) => q !== null);
+  const response = JSON.stringify(input.tool_response ?? null);
+  const record = writeUserRecord(projectDir, {
+    session: input.session_id,
+    kind: 'answer',
+    question: texts.length > 0 ? cutText(texts.join(QUESTION_SEPARATOR), MAX_TEXT_CHARS) : null,
+    text: cutText(response, MAX_TEXT_CHARS),
+  });
+  if (record) recordLine(record.id);
+  return 0;
+}
+
+/**
+ * S4-39: the `delivered` receipt of each relayed message. Each header line of the SendMessage text names a message
+ * ID; a receipt goes to the bound address whose mailbox has that message pending. Any other text writes no line.
+ */
+function deliveredReceipts(projectDir, input) {
+  const toolInput = input.tool_input || {};
+  const text = typeof toolInput.message === 'string' ? toolInput.message : '';
+  const ids = [];
+  for (const line of text.split('\n')) {
+    const m = HEADER.exec(line);
+    if (m && validId('address', m[2]) && MESSAGE_TYPES.includes(m[3]) && !ids.includes(m[1])) ids.push(m[1]);
+  }
+  if (ids.length === 0) return 0;
+  const bindings = readBindings(projectDir);
+  for (const address of Object.keys(bindings)) {
+    if (address === MAIN || !knownAddress(bindings, address)) continue;
+    const pending = pendingOf(readMailbox(projectDir, address));
+    for (const id of ids) {
+      if (!MESSAGE_ID.test(id) || !pending.some((m) => m.id === id)) continue;
+      try {
+        appendReceipt(projectDir, address, id, 'delivered', MAIN);
+      } catch {
+        // The message stays pending; the relay comes again.
+      }
+    }
+  }
+  return 0;
+}
 
 /** The SUSPECT and UNKNOWN lines after an edit of a spec file. A check error gives no line. */
 function specTraceLines(projectDir, rel) {
@@ -24,6 +86,9 @@ await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const loaded = loadConfig(projectDir);
   if (!loaded || !loaded.ok) return 0;
+
+  if (input.tool_name === 'AskUserQuestion') return answerRecord(projectDir, input);
+  if (input.tool_name === 'SendMessage') return deliveredReceipts(projectDir, input);
 
   const toolInput = input.tool_input || {};
   const filePath = typeof toolInput.file_path === 'string' ? toolInput.file_path : '';

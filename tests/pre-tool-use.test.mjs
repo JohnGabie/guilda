@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tempProject, runHook, MINIMAL_CONFIG, REPO_ROOT } from './helpers.mjs';
 
 const SCRIPT = 'scripts/hooks/pre-tool-use.mjs';
+const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
 // Fake secrets are built in code so this file holds no literal token.
 const GH = 'ghp_' + 'A'.repeat(36);
 
@@ -657,23 +659,25 @@ const rawHook = (dir, text) =>
 const queuePath = (dir, name) => path.join(dir, '.guilda', 'queue', name);
 
 // Each case of S16: a run of the hook, and the deny text (true for any R32 text) or null for a pass.
+// The writer role of 0.4.0 (S4-40): the Architect agent, with an agent_id.
+const ARC = { agent_type: 'guilda:architect', agent_id: 'a-arc' };
 const S16 = [
   ['1 Write of journal.jsonl, no agent_id', (d) => call(d, 'Write', { file_path: queuePath(d, 'journal.jsonl'), content: 'x' }), true],
   ['2 Edit of state.json', (d) => call(d, 'Edit', { file_path: queuePath(d, 'state.json') }), true],
   ['3 echo >> journal.jsonl', (d) => call(d, 'Bash', { command: 'echo x >> .guilda/queue/journal.jsonl' }), true],
   ['4 rm lock', (d) => call(d, 'Bash', { command: 'rm .guilda/queue/lock' }), true],
   ['5 queue sync from a subagent', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync' }, { agent_id: 'a1', session_id: 's1' }), true],
-  ['6 queue sync with its own --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s1' }, { session_id: 's1' }), null],
+  ['6 queue sync with its own --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s1' }, { session_id: 's1', ...ARC }), null],
   ['7 signal call from a subagent', (d) => call(d, 'Bash', { command: 'node scripts/signal.mjs . started T1 1' }, { agent_id: 'a1', session_id: 's1' }), null],
   ['8 cat journal.jsonl', (d) => call(d, 'Bash', { command: 'cat .guilda/queue/journal.jsonl' }), null],
   ['9 a path from a variable (the stated limit)', (d) => call(d, 'Bash', { command: 'P=.guilda/queue/journal.jsonl; echo x >> "$P"' }), null],
-  ['10 --session of another session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s2' }, { session_id: 's1' }), true],
+  ['10 --session of another session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync --session s2' }, { session_id: 's1', ...ARC }), true],
   ['11 Write of writer.json', (d) => call(d, 'Write', { file_path: queuePath(d, 'writer.json'), content: '{}' }), true],
   ['12 a hook input that is not JSON', (d) => {
     const r = rawHook(d, '{ not json');
     return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }, 'R32: cannot read the hook input'],
-  ['13 queue sync with no --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync' }, { session_id: 's1' }), 'R32: no --session'],
+  ['13 queue sync with no --session', (d) => call(d, 'Bash', { command: 'node scripts/queue.mjs . sync' }, { session_id: 's1', ...ARC }), 'R32: no --session'],
 ];
 
 S16.forEach(([name, run, expected]) => {
@@ -764,4 +768,164 @@ test('R32: an error in the check refuses the call with one record (fail closed)'
   assert.equal(v.length, 1);
   assert.equal(v[0].rule, 'R32');
   assert.equal(v[0].action.includes('ls'), false);
+});
+
+// R34 (S4-14): the bus law. A project with T3-exe-7f2a bound to the agent ID a-7.
+const BOUND = 'T3-exe-7f2a';
+const BUS_SCRIPT = path.join(REPO_ROOT, 'scripts', 'bus.mjs');
+const NO_BINDING = 'R34: no address is bound to this agent yet. Report to your controller in your reply.';
+const NO_READ = 'R34: cannot read the bindings';
+const KEY_TEXT = 'R34: the key folder of guilda is not readable by tools';
+function busProject() {
+  const dir = queueProject();
+  const evs = [
+    { type: 'task', task: 'T3', work: null, key: null, title: 'C', deps: [], uses: [], owns: [] },
+    { type: 'dispatch', task: 'T3', attempt: 1, address: BOUND, role: 'exe', tool: 'claude', inSession: true, check: false, tier: 'master' },
+    { type: 'agent', task: 'T3', attempt: 1, address: BOUND, agentId: 'a-7', agentType: 'guilda:executor', parentSession: 's1', parentAgent: null },
+  ];
+  const t0 = Date.parse('2026-11-17T10:00:00.000Z');
+  const text = evs.map((e, i) => JSON.stringify({ seq: i + 1, t: new Date(t0 + i * 1000).toISOString(), ...e })).join('\n');
+  fs.writeFileSync(queuePath(dir, 'journal.jsonl'), `${text}\n`);
+  return dir;
+}
+const sendCmd = (from) => `node "${BUS_SCRIPT}" . send --from ${from} --to architect --type notice --text "hi > there"`;
+/** Run the hook with exactly this entry point value ('none': no value) and this GUILDA_ADDRESS ('none': no value). */
+function hookEnv(dir, input, { entry = 'cli', address, env = {}, raw } = {}) {
+  const e = { ...process.env, ...env, CLAUDE_PROJECT_DIR: dir, CLAUDE_PLUGIN_ROOT: REPO_ROOT };
+  delete e.GUILDA_ADDRESS;
+  if (address !== undefined) e.GUILDA_ADDRESS = address;
+  if (entry === 'none') delete e.CLAUDE_CODE_ENTRYPOINT;
+  else e.CLAUDE_CODE_ENTRYPOINT = entry;
+  const r = spawnSync(process.execPath, [path.join(REPO_ROOT, SCRIPT)], {
+    input: raw ?? JSON.stringify(input),
+    encoding: 'utf8',
+    cwd: dir,
+    env: e,
+  });
+  return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+const sub = (dir, toolName, toolInput, extra = {}) => ({
+  hook_event_name: 'PreToolUse',
+  tool_name: toolName,
+  tool_input: toolInput,
+  cwd: dir,
+  session_id: 's1',
+  agent_id: 'a-7',
+  agent_type: 'guilda:executor',
+  ...extra,
+});
+
+const R34_CASES = [
+  ['1 Write to a mailbox', (d) => hookEnv(d, sub(d, 'Write', { file_path: path.join(d, '.guilda', 'bus', 'architect.jsonl'), content: 'x' })), /^R34: /],
+  ['2 echo >> a mailbox', (d) => hookEnv(d, sub(d, 'Bash', { command: 'echo x >> .guilda/bus/architect.jsonl' })), /^R34: /],
+  ['3 send --from main from a subagent', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('main') })), `R34: --from main is not your address (${BOUND})`],
+  ['4 send --from its own address', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) })), null],
+  ['5 send from an agent ID with no binding', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) }, { agent_id: 'a-9' })), NO_BINDING],
+  ['6 the Architect agent with no binding', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('architect') }, { agent_id: 'a-9', agent_type: 'guilda:architect' })), null],
+  ['7 an input that is not JSON', (d) => hookEnv(d, null, { raw: `{"tool_name":"Bash","tool_input":{"command":${JSON.stringify(sendCmd(BOUND))}}` }), NO_READ],
+  ['8 a state.json that cannot be read', (d) => {
+    fs.writeFileSync(queuePath(d, 'state.json'), '{}');
+    fs.chmodSync(queuePath(d, 'state.json'), 0o000);
+    return hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) }));
+  }, NO_READ],
+];
+
+test('R34', () => {
+  for (const [name, run, expected] of R34_CASES) {
+    if (name.startsWith('8') && isRoot) continue;
+    const dir = busProject();
+    const r = run(dir);
+    if (expected === null) {
+      assertAllow(r);
+      assert.equal(violations(dir).length, 0, name);
+      continue;
+    }
+    const reason = assertDeny(r);
+    if (expected instanceof RegExp) assert.match(reason, expected, name);
+    else assert.equal(reason, expected, name);
+    const v = violations(dir);
+    assert.equal(v.length, 1, name);
+    assert.deepEqual([v[0].rule, v[0].level, v[0].source], ['R34', 'law', 'pre-tool-use'], name);
+    for (const text of ['echo', 'bus.mjs', 'architect.jsonl', 'hi > there', '--from', BOUND]) {
+      assert.equal(v[0].action.includes(text), false, `${name}: the action holds ${text}`);
+    }
+  }
+});
+
+test('R34: the caller of the main session, print mode and GUILDA_ADDRESS', () => {
+  const dir = busProject();
+  const main = (command, opts) => hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir, session_id: 's1' }, opts);
+  assertAllow(main(sendCmd('main')));
+  assert.equal(assertDeny(main(sendCmd('architect'))), 'R34: --from architect is not your address (main)');
+  assert.equal(assertDeny(main(sendCmd('main'), { entry: 'sdk-cli' })), 'R34: this print-mode session has no address');
+  assert.equal(assertDeny(main(sendCmd('main'), { entry: 'none' })), 'R34: this print-mode session has no address');
+  assertAllow(main(sendCmd('T5-exe-1a2b'), { entry: 'sdk-cli', address: 'T5-exe-1a2b' }));
+  assert.equal(assertDeny(main(sendCmd('main'), { entry: 'sdk-cli', address: 'T5-exe-1a2b' })), 'R34: --from main is not your address (T5-exe-1a2b)');
+});
+
+test('R34: the --from value comes from the command text, not from a variable', () => {
+  const dir = busProject();
+  const run = (command) => hookEnv(dir, sub(dir, 'Bash', { command }), { env: { X: BOUND } });
+  assert.match(assertDeny(run(`node "${BUS_SCRIPT}" . send --from "$X" --to architect --type notice --text hi`)), /^R34: --from \$X is not your address/);
+  assert.match(assertDeny(run(`X=${BOUND}; node scripts/bus.mjs . send --from $X --to main --type notice --text hi`)), /^R34: /);
+  assert.match(assertDeny(run(`node scripts/bus.mjs . send --to main --type notice --text hi`)), /^R34: /);
+  assert.match(assertDeny(run(`node scripts/bus.mjs . send --from ${BOUND} --from main --to main --type notice --text hi`)), /^R34: --from main /);
+  assert.match(assertDeny(run(`sh -c "node scripts/bus.mjs . send --from main --to main --type notice --text hi"`)), /^R34: /);
+  assert.match(assertDeny(run(`true && node scripts/bus.mjs . send --from main --to main --type notice --text hi`)), /^R34: /);
+  assertAllow(run(`node scripts/bus.mjs . pending --address ${BOUND}`));
+  assertAllow(run(`cat .guilda/bus/${BOUND}.jsonl`));
+});
+
+test('R34: a bus write from the main session is refused too, and the bus script call is not a write', () => {
+  const dir = busProject();
+  const main = (toolName, toolInput) => hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: toolName, tool_input: toolInput, cwd: dir, session_id: 's1' });
+  assert.match(assertDeny(main('Edit', { file_path: '.guilda/bus/user.jsonl' })), /^R34: /);
+  assert.match(assertDeny(main('Bash', { command: 'tee -a .guilda/bus/user.jsonl < x' })), /^R34: /);
+  assert.match(assertDeny(main('Bash', { command: 'cd .guilda && touch bus/main.jsonl' })), /^R34: /);
+  assertAllow(main('Bash', { command: sendCmd('main') }));
+  assertAllow(main('Write', { file_path: path.join(dir, '.guilda', 'busy.txt'), content: 'x' }));
+});
+
+// S4-35: no agent reads the key.
+test('key folder', () => {
+  const dir = busProject();
+  const state = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda state '));
+  const keys = path.join(state, 'guilda', 'keys');
+  fs.mkdirSync(keys, { recursive: true, mode: 0o700 });
+  const keyFile = path.join(keys, '0123456789abcdef.key');
+  fs.writeFileSync(keyFile, Buffer.alloc(32, 1), { mode: 0o600 });
+  const env = { XDG_STATE_HOME: state };
+  const calls = [
+    ['Read', { file_path: keyFile }],
+    ['Grep', { pattern: '.', path: keys }],
+    ['Glob', { pattern: '*.key', path: keys }],
+    ['Bash', { command: `cat ${keyFile}` }],
+    ['Glob', { pattern: `${keys}/*` }],
+    ['Bash', { command: 'cat ~/.local/state/guilda/keys/*.key' }],
+    ['Read', { file_path: path.relative(dir, keyFile) }],
+  ];
+  for (const [toolName, toolInput] of calls) {
+    for (const extra of [{}, { agent_id: undefined, agent_type: undefined }]) {
+      const r = hookEnv(dir, sub(dir, toolName, toolInput, extra), { env });
+      assert.equal(assertDeny(r), KEY_TEXT, `${toolName} ${JSON.stringify(toolInput)}`);
+      assert.equal(r.stdout.includes(Buffer.alloc(32, 1).toString('hex')), false);
+    }
+  }
+  const v = violations(dir);
+  assert.equal(v.length, calls.length * 2);
+  assert.ok(v.every((x) => x.rule === 'R34' && !x.action.includes(keys) && !x.action.includes('cat')));
+  assertAllow(hookEnv(dir, sub(dir, 'Read', { file_path: path.join(dir, 'a.txt') }), { env }));
+  assertAllow(hookEnv(dir, sub(dir, 'Grep', { pattern: 'x', path: dir }), { env }));
+});
+
+// S4-40: the writer row of 0.4.0. Only the Architect agent calls the queue script.
+test('R32 role row of 0.4.0', () => {
+  const dir = queueProject();
+  const command = 'node scripts/queue.mjs . sync --session s1';
+  const q = (extra) => call(dir, 'Bash', { command }, { session_id: 's1', ...extra });
+  assertAllow(q({ agent_type: 'guilda:architect', agent_id: 'a-9' }));
+  assert.match(assertDeny(q({})), /^R32: /);
+  assert.match(assertDeny(q({ agent_type: 'guilda:executor', agent_id: 'a-7' })), /^R32: /);
+  assert.match(assertDeny(q({ agent_type: 'guilda:architect' })), /^R32: /);
+  assert.deepEqual(violations(dir).map((x) => x.rule), ['R32', 'R32', 'R32']);
 });
