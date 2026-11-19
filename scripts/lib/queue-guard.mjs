@@ -39,7 +39,7 @@ const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/te
 const QUOTED_MARK = /<<-?[ \t]*(?:'[^']*'|"[^"]*"|\\[A-Za-z0-9_]+)/g;
 // The first words that a part of a text may have when its quoted heredoc bodies are taken out: they copy or run
 // nothing from the body. `command` is allowed only before `cat` or `tee`.
-const SAFE_FIRST = new Set([...BODY_COPIERS, 'mkdir', 'touch', 'echo', 'cd', 'ls', 'true', 'node', 'git', 'npm']);
+const SAFE_FIRST = new Set([...BODY_COPIERS, 'mkdir', 'touch', 'echo', 'cd', 'ls', 'true']);
 // A plain word, or a plain word in one pair of quotes, or a redirection.
 const PLAIN = '[A-Za-z0-9._/:,@+%-]+';
 const PLAIN_WORD = new RegExp(`^(?:${PLAIN}|"${PLAIN}"|'${PLAIN}'|>>?)$`);

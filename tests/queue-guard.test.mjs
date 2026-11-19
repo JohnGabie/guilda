@@ -198,3 +198,11 @@ test('a text with an unsafe word or first word keeps every body', () => {
     assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
   }
 });
+
+test('a node, git or npm command after a body keeps the body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const run of ['node x.js', 'true && npm test', 'true && git commit']) {
+    assert.ok(queueFileWrites(`cat > x.js <<'EOF'${body}\n${run}`, dir, dir).includes('state.json'), run);
+  }
+});
