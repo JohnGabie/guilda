@@ -177,3 +177,12 @@ test('a PATH change by read, printf -v, +=, declare, export or a nameref keeps t
   }
   assert.deepEqual(queueFileWrites(`MYPATH=x\ncat <<'EOF'\nx => {${body}`, dir, dir), []);
 });
+
+test('a split or indirect variable name keeps the body; a plain cat heredoc still drops it', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const change of ['read P"A"TH', "eval 'PA''TH=x'", 'p=PA; read ${p}TH']) {
+    assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
+  }
+  assert.deepEqual(queueFileWrites(`cat <<'EOF'\nx => {${body}`, dir, dir), []);
+});

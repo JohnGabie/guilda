@@ -37,8 +37,11 @@ function flatten(command) {
 // other than these, after only the wrappers in BODY_WRAPPERS.
 const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/tee', '/usr/bin/tee']);
 const BODY_WRAPPERS = new Set(['command', 'exec', 'env']);
-// A text that can change what `cat` or `tee` runs: a function, an alias, PATH, or the hash table.
-const RENAMES = /\b(?:function|alias|hash|enable)\b|\bPATH\b|\b(?:cat|tee)\s*\(/;
+// A text that can change what `cat` or `tee` runs: a function, an alias, the word PATH, the hash table, or a builtin
+// that can set a variable by a computed name (eval, read, printf, declare and the like, or the dot command). Fail closed.
+const RENAMES = new RegExp(String.raw`\b(?:function|alias|hash|enable)\b|\bPATH\b|\b(?:cat|tee)\s*\(|` +
+  String.raw`\b(?:eval|read|printf|declare|typeset|export|local|readonly|getopts|mapfile|readarray|source)\b|` +
+  String.raw`(?:^|[;&|(){\n])\s*\.\s`);
 
 /**
  * The quoted heredoc marks of a line that starts outside quotes, in order, each with the simple command that gets it.
