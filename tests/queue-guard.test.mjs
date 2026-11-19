@@ -175,7 +175,6 @@ test('a PATH change by read, printf -v, +=, declare, export or a nameref keeps t
     'declare -n x=PATH']) {
     assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
   }
-  assert.deepEqual(queueFileWrites(`MYPATH=x\ncat <<'EOF'\nx => {${body}`, dir, dir), []);
 });
 
 test('a split or indirect variable name keeps the body; a plain cat heredoc still drops it', () => {
@@ -185,4 +184,17 @@ test('a split or indirect variable name keeps the body; a plain cat heredoc stil
     assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
   }
   assert.deepEqual(queueFileWrites(`cat <<'EOF'\nx => {${body}`, dir, dir), []);
+});
+
+test('any text that is not one cat or tee command keeps every body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const head of ["let PA'TH'=1\ncat <<'EOF'", "(( ${p}TH=1 ))\ncat <<'EOF'", "wait -p ${p}TH\ncat <<'EOF'",
+    "if true; then . ./f; cat <<'EOF'", "for x in a; do . ./f; cat <<'EOF'", "if false; then :; else . ./f; cat <<'EOF'",
+    "! . ./f; cat <<'EOF'", "cat <<'EOF'; echo a", "command cat <<'EOF'", "cat $f <<'EOF'"]) {
+    assert.ok(queueFileWrites(`${head}${body}`, dir, dir).includes('state.json'), head);
+  }
+  for (const head of ["cat <<'EOF'", "tee -a f.txt <<'EOF'", "cat > a.txt >> b.txt <<\"EOF\""]) {
+    assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
+  }
 });

@@ -2,9 +2,8 @@
 // This is a small reader, not a full shell parser. It fails closed: it reads each command twice, once with the shell
 // quotes and once with the quotes, the comments and the heredoc marks taken out. A write that either reading finds
 // counts. A path from a variable or a command substitution passes (the stated limit of R32).
-// For a write, the body of a quoted heredoc is taken out first only when `cat` or `tee` gets it as the first word of
-// a line with no pipe, group or substitution, and the text defines no function, alias or PATH. Each other body is
-// read as shell: an unquoted one, one that a shell or an interpreter gets, one after a delimiter word with `$`.
+// For a write, the body of a quoted heredoc is taken out first only when the whole text is one simple `cat` or `tee`
+// command (an allowlist: plain file names, -a, --append, >, >>, quoted heredoc marks). Any other text keeps every body.
 // A queue script call is any word whose base name is queue.mjs after a program `node` (or a program from a variable),
 // or a command word with that base name, in any folder; so no cd needs to be followed for a call.
 // Stated limits, which this reader does not see: a write through sed -i, dd, truncate, ln, find -delete, xargs, or
@@ -36,12 +35,10 @@ function flatten(command) {
 // The programs whose quoted heredoc body is text: they copy it and run nothing. Only as the first word, with no path
 // other than these, after only the wrappers in BODY_WRAPPERS.
 const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/tee', '/usr/bin/tee']);
-const BODY_WRAPPERS = new Set(['command', 'exec', 'env']);
-// A text that can change what `cat` or `tee` runs: a function, an alias, the word PATH, the hash table, or a builtin
-// that can set a variable by a computed name (eval, read, printf, declare and the like, or the dot command). Fail closed.
-const RENAMES = new RegExp(String.raw`\b(?:function|alias|hash|enable)\b|\bPATH\b|\b(?:cat|tee)\s*\(|` +
-  String.raw`\b(?:eval|read|printf|declare|typeset|export|local|readonly|getopts|mapfile|readarray|source)\b|` +
-  String.raw`(?:^|[;&|(){\n])\s*\.\s`);
+// A heredoc operator with a quoted delimiter word: <<'MARK', <<"MARK" or <<\MARK.
+const QUOTED_MARK = /<<-?[ \t]*(?:'[^']*'|"[^"]*"|\\[A-Za-z0-9_]+)/g;
+// A word that the single simple command may hold besides the program: a redirection or a plain file name.
+const PLAIN_WORD = /^(?:>>?|-a|--append|[A-Za-z0-9_][A-Za-z0-9_./+,:@%-]*|\.{1,2}\/[A-Za-z0-9_./+,:@%-]*|\/[A-Za-z0-9_./+,:@%-]*)$/;
 
 /**
  * The quoted heredoc marks of a line that starts outside quotes, in order, each with the simple command that gets it.
@@ -127,51 +124,44 @@ function readMark(line, start) {
   return { strip, delimiter, quoted, next: i };
 }
 
-/** True when the simple command that gets the heredoc is `cat` or `tee`, after only bare wrapper words. */
-function copiesBody(receiver) {
-  const commands = splitCommands(receiver);
-  if (commands.length !== 1) return false;
-  const words = commands[0];
-  let i = 0;
-  while (i < words.length && BODY_WRAPPERS.has(words[i])) i += 1;
-  return i < words.length && BODY_COPIERS.has(words[i]);
+/**
+ * True when the heredoc line is one simple command that only copies its input: the first word is `cat` or `tee` (a
+ * path in BODY_COPIERS), the other words are plain file names, `-a`, `--append` and the redirections `>`, `>>` and a
+ * quoted heredoc mark. No other operator, expansion or wrapper word is allowed (an allowlist, so it fails closed).
+ */
+function isCopierLine(line, markCount) {
+  let count = 0;
+  const rest = line.replace(QUOTED_MARK, () => { count += 1; return ' '; });
+  if (count !== markCount || /[;&|$`(){}=\\'"#<\n]/.test(rest)) return false;
+  const words = rest.split(/\s+/).filter(Boolean);
+  return words.length > 0 && BODY_COPIERS.has(words[0]) && words.slice(1).every((w) => PLAIN_WORD.test(w));
 }
 
 /**
- * The text with the body lines of each quoted heredoc taken out, when `cat` or `tee` gets it: bash reads such a body
- * as text, with no expansion, and these programs only copy it. The heredoc line and the end line stay. Each other body
- * is kept: an unquoted body (it can run `$(...)`), a body that another program gets (a shell or an interpreter can run
- * it), and each body after a line that this reader cannot follow. A quoted heredoc with no end line takes the rest of
- * the text, as in bash. With a text that can rename `cat` or `tee`, nothing is taken out.
+ * The text with the body lines of each quoted heredoc taken out, only when the whole text is one simple command of
+ * `cat` or `tee` (see isCopierLine) with quoted heredocs, and nothing else outside the bodies. Bash reads such a body
+ * as text, and these programs only copy it. The heredoc line and the end lines stay. Any other text keeps every body
+ * (fail closed). A quoted heredoc with no end line takes the rest of the text, as in bash.
  */
 function dropQuotedBodies(command) {
-  if (RENAMES.test(command)) return command;
   const lines = command.split('\n');
-  const out = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    out.push(line);
-    i += 1;
-    const scan = scanHeredocLine(line);
-    if (!scan.clean) {
-      // From a line that this reader cannot follow, the rest of the text is read as shell.
-      out.push(...lines.slice(i));
-      break;
-    }
-    for (const mark of scan.marks) {
-      const drop = mark.quoted && copiesBody(mark.receiver);
-      while (i < lines.length) {
-        const body = lines[i];
-        i += 1;
-        if ((mark.strip ? body.replace(/^\t+/, '') : body) === mark.delimiter) {
-          out.push(body);
-          break;
-        }
-        if (!drop) out.push(body);
+  const scan = scanHeredocLine(lines[0]);
+  if (!scan.clean || scan.marks.length === 0 || !scan.marks.every((m) => m.quoted)) return command;
+  if (!isCopierLine(lines[0], scan.marks.length)) return command;
+  const out = [lines[0]];
+  let i = 1;
+  for (const mark of scan.marks) {
+    while (i < lines.length) {
+      const body = lines[i];
+      i += 1;
+      if ((mark.strip ? body.replace(/^\t+/, '') : body) === mark.delimiter) {
+        out.push(body);
+        break;
       }
     }
   }
+  // A line after the last end line is another command: keep the whole text.
+  if (lines.slice(i).some((l) => l !== '')) return command;
   return out.join('\n');
 }
 
