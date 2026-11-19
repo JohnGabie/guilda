@@ -294,7 +294,7 @@ test('context of 0.4.0: the R34 law line, and the R33 and R35 headings with thei
   const lines = ctxOf('# Project rules\n').split('\n');
   assert.ok(lines.includes('### R34 — The bus changes only through the bus script (law — enforced by a hook)'));
   assert.ok(!lines.includes(RULE_BLOCKS.find((b) => b.id === 'R34').rule));
-  for (const [id, level] of [['R33', 'judgment'], ['R35', 'judgment']]) {
+  for (const [id, level] of [['R33', 'judgment'], ['R35', 'gate']]) {
     const b = RULE_BLOCKS.find((x) => x.id === id);
     assert.ok(b, id);
     const i = lines.indexOf(`### ${id} — ${b.title} (${level})`);

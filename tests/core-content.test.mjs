@@ -15,7 +15,7 @@ const LEVELS = {
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
-  R33: 'judgment', R34: 'law', R35: 'judgment',
+  R33: 'judgment', R34: 'law', R35: 'gate',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -72,16 +72,16 @@ test('R34 has the level law', () => {
   assert.equal(blocks(read('core/rules.md')).R34?.level, 'law');
 });
 
-test('R35 has the level judgment', () => {
-  assert.equal(blocks(read('core/rules.md')).R35?.level, 'judgment');
+test('R35 has the level gate', () => {
+  assert.equal(blocks(read('core/rules.md')).R35?.level, 'gate');
 });
 
 test('R34 Check line names the key folder', () => {
   assert.match(blocks(read('core/rules.md')).R34.text, /Check: law — .*and a read of the key folder\./);
 });
 
-test('R35 Check line says that no code checks the source', () => {
-  assert.match(blocks(read('core/rules.md')).R35.text, /Check: judgment — No code checks where an answer came from/);
+test('R35 Check line names the reading of the record', () => {
+  assert.match(blocks(read('core/rules.md')).R35.text, /Check: gate — The Reviewer runs `verify` on the record that each new `@decided` item cites, and reads the record\. It rejects the item on a failure, or when the record does not state it\./);
 });
 
 test('R28 Check line names the Skill part (S41)', () => {
