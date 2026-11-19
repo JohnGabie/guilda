@@ -8,7 +8,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-11-18
+## [0.3.0] - 2026-11-19
 
 ### Added
 
@@ -41,7 +41,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - The production approval rule R29: not in this release.
 - The cheaper tier for a role: lab L7 gave NO-GO, and the tiers stay as they are.
 
-## [0.2.0] - 2026-11-17
+## [0.2.0] - 2026-11-19
 
 ### Added
 
