@@ -38,7 +38,7 @@ function flatten(command) {
 const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/tee', '/usr/bin/tee']);
 const BODY_WRAPPERS = new Set(['command', 'exec', 'env']);
 // A text that can change what `cat` or `tee` runs: a function, an alias, PATH, or the hash table.
-const RENAMES = /\b(?:function|alias|hash|enable)\b|\bPATH=|\b(?:cat|tee)\s*\(/;
+const RENAMES = /\b(?:function|alias|hash|enable)\b|\bPATH\b|\b(?:cat|tee)\s*\(/;
 
 /**
  * The quoted heredoc marks of a line that starts outside quotes, in order, each with the simple command that gets it.

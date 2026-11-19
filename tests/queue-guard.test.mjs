@@ -167,3 +167,13 @@ test('a quoted body is text only for cat or tee', () => {
     assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
   }
 });
+
+test('a PATH change by read, printf -v, +=, declare, export or a nameref keeps the body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const change of ['read PATH', 'printf -v PATH %s bin', 'PATH+=:bin', 'declare PATH=bin', 'export PATH',
+    'declare -n x=PATH']) {
+    assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
+  }
+  assert.deepEqual(queueFileWrites(`MYPATH=x\ncat <<'EOF'\nx => {${body}`, dir, dir), []);
+});
