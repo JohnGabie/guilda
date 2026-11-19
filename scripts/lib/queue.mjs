@@ -151,7 +151,21 @@ export function parseJournal(text) {
 
 /** Read .guilda/queue/journal.jsonl: { events, skipped: [<line number>], partial }. A missing journal is empty. */
 export function readJournal(projectDir) {
-  return parseJournal(readJournalText(queuePaths(projectDir).journal));
+  let root;
+  try {
+    root = fs.realpathSync(path.resolve(projectDir));
+  } catch (err) {
+    if (err.code === 'ENOENT') return parseJournal('');
+    throw ioError(path.resolve(projectDir));
+  }
+  const P = queuePaths(root);
+  try {
+    fs.realpathSync(P.dir);
+  } catch (err) {
+    if (err.code === 'ENOENT') return parseJournal('');
+  }
+  assertQueueDirReal(P);
+  return parseJournal(readJournalText(P.journal));
 }
 
 function toMs(v) {
@@ -799,6 +813,16 @@ export function recover(P, events, emit, nowIso, headOf) {
   return { badSignals: bad };
 }
 
+/** Refuse a queue folder whose path goes through a link (.guilda or .guilda/queue). */
+function assertQueueDirReal(P) {
+  try {
+    if (fs.realpathSync(P.dir) !== P.dir) throw ioError(P.dir);
+  } catch (err) {
+    if (err instanceof QueueError) throw err;
+    throw ioError(P.dir);
+  }
+}
+
 /** The real paths of the queue of a project, with .guilda/queue created when missing (never .guilda itself). */
 export function openQueue(projectDir) {
   let rootReal;
@@ -814,12 +838,7 @@ export function openQueue(projectDir) {
   } catch (err) {
     if (err.code !== 'EEXIST') throw ioError(P.dir);
   }
-  try {
-    if (fs.realpathSync(P.dir) !== P.dir) throw ioError(P.dir);
-  } catch (err) {
-    if (err instanceof QueueError) throw err;
-    throw ioError(P.dir);
-  }
+  assertQueueDirReal(P);
   return { P, rootReal };
 }
 
