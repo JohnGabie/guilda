@@ -1,6 +1,8 @@
 // User records (D31, R35, section 4g, part 2). A hook writes one record for each typed prompt of the main session and
 // each answer to the question tool, signed with a key outside the project. `bus.mjs verify` checks a record.
 // The key never goes to a log, an error text or the hook output. No path is built from a record ID.
+// Limit: a process of the same OS user can still forge a record on purpose (for example, it reads the key in a form
+// that the hooks do not see). R35 guards against mistakes and casual forgery, not against a determined agent.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

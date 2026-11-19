@@ -63,6 +63,10 @@ const R34 = {
     reason: 'R34: write .guilda/bus/ only through the bus script (node scripts/bus.mjs)',
   },
   key: { action: 'key folder access refused', reason: 'R34: the key folder of guilda is not readable by tools' },
+  forge: {
+    action: 'user record forge refused',
+    reason: 'R34: a tool cannot run the user record code of guilda or set CLAUDE_CODE_ENTRYPOINT; only Claude Code runs that hook',
+  },
   noRead: { action: 'bus send refused: cannot read the bindings', reason: 'R34: cannot read the bindings' },
   noBinding: {
     action: 'bus send refused: no address is bound to the agent',
@@ -99,6 +103,16 @@ const WALK_FLAGS = {
   chmod: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
 };
 const GLOB_CHAR = /[*?[{]/;
+// The files that write a user record. A shell command that names one can forge a record (Security, block the obvious).
+const RECORD_CODE = /(?:^|[^A-Za-z0-9_-])(?:records|user-prompt-submit)\.mjs(?![A-Za-z0-9_.-])/;
+// A shell command that sets the print-mode mark: an assignment, `env NAME=`, `export NAME` and the like.
+const SETS_ENTRYPOINT = [/CLAUDE_CODE_ENTRYPOINT\s*\+?=/, /\b(?:export|declare|typeset|readonly|local|setenv)\b[^;&|\n]*CLAUDE_CODE_ENTRYPOINT/];
+
+/** True when a shell command names the user record code or sets CLAUDE_CODE_ENTRYPOINT, in any quoting. */
+function forgesRecord(command) {
+  const t = command.replace(/['"\\]/g, '');
+  return RECORD_CODE.test(t) || SETS_ENTRYPOINT.some((re) => re.test(t));
+}
 // The flags of `bus.mjs send` that take a value, as in scripts/bus.mjs; each other word is one argument.
 const SEND_VALUE_FLAGS = new Set(['--from', '--to', '--type', '--text', '--task', '--reply-to', '--record']);
 
@@ -480,6 +494,8 @@ async function main(input) {
   };
   // R34: the key folder is refused in each project, also one with no .guilda folder (the record needs one).
   if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
+  // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
+  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
   if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
 
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.

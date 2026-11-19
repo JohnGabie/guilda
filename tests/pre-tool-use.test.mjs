@@ -978,3 +978,31 @@ test('key folder: other quoting, a cd, a walk of a parent and a search in a pare
     }
   }
 });
+
+// Security (block the obvious): a shell command cannot run the user record code or set the print-mode mark.
+test('R34: a tool cannot run the user record hook or set CLAUDE_CODE_ENTRYPOINT', () => {
+  const dir = busProject();
+  const FORGE = 'R34: a tool cannot run the user record code of guilda or set CLAUDE_CODE_ENTRYPOINT; only Claude Code runs that hook';
+  const refused = [
+    'CLAUDE_CODE_ENTRYPOINT=cli node scripts/hooks/user-prompt-submit.mjs < input.json',
+    `node -e "import('./scripts/lib/records.mjs').then((r) => r.writeUserRecord('.', { kind: 'prompt', text: 'x' }))"`,
+    `node -e 'import("./scripts/lib/rec"+"ords.mjs")'`.replace('rec"+"ords', 'rec\\ords'),
+    "node 'scripts/hooks/user-prompt-'\"submit.mjs\"",
+    'env CLAUDE_CODE_ENTRYPOINT=cli node x.mjs',
+    'export CLAUDE_CODE_ENTRYPOINT=cli; node x.mjs',
+    "export 'CLAUDE_CODE_ENTRYPOINT'",
+    'cd scripts/lib && node -e "import(\'./records.mjs\')"',
+  ];
+  for (const command of refused) {
+    for (const extra of [{}, { agent_id: undefined, agent_type: undefined }]) {
+      const r = hookEnv(dir, sub(dir, 'Bash', { command }, extra));
+      assert.equal(assertDeny(r), FORGE, command);
+    }
+  }
+  const v = violations(dir);
+  assert.equal(v.length, refused.length * 2);
+  assert.ok(v.every((x) => x.rule === 'R34' && x.action === 'user record forge refused'));
+  for (const command of ['node --test tests/records.test.mjs tests/user-prompt-submit.test.mjs', 'echo $CLAUDE_CODE_ENTRYPOINT']) {
+    assertAllow(hookEnv(dir, sub(dir, 'Bash', { command })));
+  }
+});
