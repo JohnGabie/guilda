@@ -87,7 +87,7 @@ test('a 0.2.0 project layer works with 0.3.0', () => {
   const base = run('rev-parse', 'HEAD');
   // guilda:update sets the version.
   const config = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'config.json'), 'utf8'));
-  fs.writeFileSync(path.join(dir, '.guilda', 'config.json'), JSON.stringify({ ...config, guildaVersion: '0.3.0' }, null, 2));
+  fs.writeFileSync(path.join(dir, '.guilda', 'config.json'), JSON.stringify({ ...config, guildaVersion: JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'), 'utf8')).version }, null, 2));
   run('add', '--', '.guilda/config.json');
   run('commit', '-q', '-m', 'guilda 0.3.0');
   const briefText = fs.readFileSync(fixture('0.2.0', 'brief.md'), 'utf8').replace('__BASE__', base);

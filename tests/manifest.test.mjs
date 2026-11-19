@@ -196,8 +196,9 @@ test('T32: node scripts/changelog.mjs reads the changes from 0.1.1 to 0.2.0', as
 });
 
 // T23: the 0.3.0 release texts.
-test('T23: the four manifests have the version 0.3.0', () => {
-  for (const p of [CORE, EXT, IOS, PANEL]) assert.equal(readJson(p).version, '0.3.0', p);
+test('T23: the four manifests share the version of the core manifest', () => {
+  const v = readJson(CORE).version;
+  for (const p of [CORE, EXT, IOS, PANEL]) assert.equal(readJson(p).version, v, p);
 });
 
 test('T23: the 0.3.0 entry names R31 and R32, and R29 only when core/rules.md has R29', () => {
@@ -211,11 +212,12 @@ test('T23: the 0.3.0 entry names R31 and R32, and R29 only when core/rules.md ha
   assert.match(e, /not in this release/);
 });
 
-test('T23: the changelog has an empty Unreleased entry and the 0.3.0 link references', () => {
+test('T23: the changelog has an empty Unreleased entry, then the entry and the links of the core version', () => {
   const text = changelogText();
-  assert.match(text, /^## \[Unreleased\]\n\n## \[0\.3\.0\] - \d{4}-\d{2}-\d{2}$/m);
-  assert.match(text, /^\[unreleased\]: .*compare\/guilda--v0\.3\.0\.\.\.HEAD$/m);
-  assert.match(text, /^\[0\.3\.0\]: .*compare\/guilda--v0\.2\.0\.\.\.guilda--v0\.3\.0$/m);
+  const q = readJson(CORE).version.replace(/\./g, '\\.');
+  assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
+  assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + q + '\\.\\.\\.HEAD$', 'm'));
+  assert.match(text, new RegExp('^\\[' + q + '\\]: .*compare/guilda--v[0-9.]+\\.\\.\\.guilda--v' + q + '$', 'm'));
 });
 
 test('T23: .guilda/config.json has guildaVersion 0.3.0', () => {
