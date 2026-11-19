@@ -151,13 +151,7 @@ export function parseJournal(text) {
 
 /** Read .guilda/queue/journal.jsonl: { events, skipped: [<line number>], partial }. A missing journal is empty. */
 export function readJournal(projectDir) {
-  let text = '';
-  try {
-    text = fs.readFileSync(queuePaths(projectDir).journal, 'utf8');
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
-  }
-  return parseJournal(text);
+  return parseJournal(readJournalText(queuePaths(projectDir).journal));
 }
 
 function toMs(v) {

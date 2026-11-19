@@ -707,3 +707,26 @@ test('a journal that is a hard link to another file is refused, and the other fi
   assert.equal(r.status, 2);
   assert.equal(fs.readFileSync(outside, 'utf8'), 'keep\n');
 });
+
+test('readJournal refuses a symbolic link at the journal and does not read the target', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const target = path.join(tempProject(), 'secret.jsonl');
+  fs.writeFileSync(target, '{"event":"secret"}\n');
+  fs.mkdirSync(qdir(dir), { recursive: true });
+  fs.symlinkSync(target, path.join(qdir(dir), 'journal.jsonl'));
+  assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});
+
+test('readJournal refuses a hard-linked journal', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const outside = path.join(tempProject(), 'outside.jsonl');
+  fs.writeFileSync(outside, '{"event":"x"}\n');
+  fs.mkdirSync(qdir(dir), { recursive: true });
+  fs.linkSync(outside, path.join(qdir(dir), 'journal.jsonl'));
+  assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});
+
+test('readJournal returns no events when the journal is missing', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.deepEqual(readJournal(dir).events, []);
+});
