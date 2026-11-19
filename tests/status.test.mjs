@@ -301,3 +301,17 @@ test('status --agent reads the audit lines that the hooks of T7 wrote', () => {
   assert.ok(lines.includes('audit: 2 tool calls; files: src/a.js'), lines.join('\n'));
   assert.ok(lines.includes(`transcript: ${transcript} (copy: .guilda/transcripts/T1/a1.jsonl)`), lines.join('\n'));
 });
+
+test('a link at the journal prints one io-error prefix', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const target = path.join(tempProject(), 'secret.jsonl');
+  fs.writeFileSync(target, '{"event":"secret"}\n');
+  const q = path.join(dir, '.guilda', 'queue');
+  fs.mkdirSync(q, { recursive: true });
+  fs.symlinkSync(target, path.join(q, 'journal.jsonl'));
+  const r = run(STATUS, [dir, '--now', NOW]);
+  assert.equal(r.status, 2);
+  assert.equal(r.stdout.split('io-error: ').length - 1, 1, r.stdout);
+  assert.ok(r.stdout.startsWith('io-error: '), r.stdout);
+  assert.ok(!r.stdout.includes('io-error: io-error:'), r.stdout);
+});

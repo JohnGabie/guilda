@@ -10,12 +10,17 @@ function explained(text, index) {
   return TWO_WORDS.test(text.slice(0, open));
 }
 
+/** True when the ID at `index` is a part of a file name: a "/" right before it, or a "." and a letter right after it. */
+function inFileName(text, index, id) {
+  return text[index - 1] === '/' || /^\.[A-Za-z]/.test(text.slice(index + id.length));
+}
+
 /** The IDs in `text` that are not inside parentheses after at least two words, in order, with no repeat. */
 export function bareIds(text) {
   const found = [];
   if (typeof text !== 'string') return found;
   for (const m of text.matchAll(ID)) {
-    if (!explained(text, m.index) && !found.includes(m[0])) found.push(m[0]);
+    if (!explained(text, m.index) && !inFileName(text, m.index, m[0]) && !found.includes(m[0])) found.push(m[0]);
   }
   return found;
 }
