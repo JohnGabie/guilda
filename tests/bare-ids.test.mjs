@@ -26,3 +26,12 @@ test('no ID', () => {
 test('a word like Dx or T-shirt is not an ID', () => {
   assert.deepEqual(bareIds('Dx is fine, a T-shirt, R and XR2000, D5X'), []);
 });
+
+test('an ID in a file name is not bare', () => {
+  assert.deepEqual(bareIds('Read S3.md, docs/T2.md and ./R4.txt'), []);
+});
+
+test('a bare ID at the end of a sentence is still bare', () => {
+  assert.deepEqual(bareIds('see R4.'), ['R4']);
+  assert.deepEqual(bareIds('see R4. Then go'), ['R4']);
+});

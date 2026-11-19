@@ -167,3 +167,42 @@ test('a quoted body is text only for cat or tee', () => {
     assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
   }
 });
+
+test('a PATH change by read, printf -v, +=, declare, export or a nameref keeps the body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const change of ['read PATH', 'printf -v PATH %s bin', 'PATH+=:bin', 'declare PATH=bin', 'export PATH',
+    'declare -n x=PATH']) {
+    assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
+  }
+});
+
+test('a split or indirect variable name keeps the body; a plain cat heredoc still drops it', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const change of ['read P"A"TH', "eval 'PA''TH=x'", 'p=PA; read ${p}TH']) {
+    assert.ok(queueFileWrites(`${change}\ncat <<'EOF'${body}`, dir, dir).includes('state.json'), change);
+  }
+  assert.deepEqual(queueFileWrites(`cat <<'EOF'\nx => {${body}`, dir, dir), []);
+});
+
+test('a text with an unsafe word or first word keeps every body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const head of ["let PA'TH'=1\ncat <<'EOF'", "(( ${p}TH=1 ))\ncat <<'EOF'", "wait -p ${p}TH\ncat <<'EOF'",
+    "if true; then . ./f; cat <<'EOF'", "for x in a; do . ./f; cat <<'EOF'", "if false; then :; else . ./f; cat <<'EOF'",
+    "! . ./f; cat <<'EOF'", "cat $f <<'EOF'"]) {
+    assert.ok(queueFileWrites(`${head}${body}`, dir, dir).includes('state.json'), head);
+  }
+  for (const head of ["cat <<'EOF'", "tee -a f.txt <<'EOF'", "cat > a.txt >> b.txt <<\"EOF\""]) {
+    assert.deepEqual(queueFileWrites(`${head}\nx => {${body}`, dir, dir), [], head);
+  }
+});
+
+test('a node, git or npm command after a body keeps the body', () => {
+  const dir = project();
+  const body = "\necho x > .guilda/queue/state.json\nEOF";
+  for (const run of ['node x.js', 'true && npm test', 'true && git commit']) {
+    assert.ok(queueFileWrites(`cat > x.js <<'EOF'${body}\n${run}`, dir, dir).includes('state.json'), run);
+  }
+});

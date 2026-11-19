@@ -2,9 +2,8 @@
 // This is a small reader, not a full shell parser. It fails closed: it reads each command twice, once with the shell
 // quotes and once with the quotes, the comments and the heredoc marks taken out. A write that either reading finds
 // counts. A path from a variable or a command substitution passes (the stated limit of R32).
-// For a write, the body of a quoted heredoc is taken out first only when `cat` or `tee` gets it as the first word of
-// a line with no pipe, group or substitution, and the text defines no function, alias or PATH. Each other body is
-// read as shell: an unquoted one, one that a shell or an interpreter gets, one after a delimiter word with `$`.
+// For a write, the body of a quoted heredoc is taken out first only when each line outside the bodies holds only
+// simple commands with a safe first word and plain words (an allowlist, see isSafeLine). Any other text keeps every body.
 // A queue script call is any word whose base name is queue.mjs after a program `node` (or a program from a variable),
 // or a command word with that base name, in any folder; so no cd needs to be followed for a call.
 // Stated limits, which this reader does not see: a write through sed -i, dd, truncate, ln, find -delete, xargs, or
@@ -36,9 +35,14 @@ function flatten(command) {
 // The programs whose quoted heredoc body is text: they copy it and run nothing. Only as the first word, with no path
 // other than these, after only the wrappers in BODY_WRAPPERS.
 const BODY_COPIERS = new Set(['cat', 'tee', '/bin/cat', '/usr/bin/cat', '/bin/tee', '/usr/bin/tee']);
-const BODY_WRAPPERS = new Set(['command', 'exec', 'env']);
-// A text that can change what `cat` or `tee` runs: a function, an alias, PATH, or the hash table.
-const RENAMES = /\b(?:function|alias|hash|enable)\b|\bPATH=|\b(?:cat|tee)\s*\(/;
+// A heredoc operator with a quoted delimiter word: <<'MARK', <<"MARK" or <<\MARK.
+const QUOTED_MARK = /<<-?[ \t]*(?:'[^']*'|"[^"]*"|\\[A-Za-z0-9_]+)/g;
+// The first words that a part of a text may have when its quoted heredoc bodies are taken out: they copy or run
+// nothing from the body. `command` is allowed only before `cat` or `tee`.
+const SAFE_FIRST = new Set([...BODY_COPIERS, 'mkdir', 'touch', 'echo', 'cd', 'ls', 'true']);
+// A plain word, or a plain word in one pair of quotes, or a redirection.
+const PLAIN = '[A-Za-z0-9._/:,@+%-]+';
+const PLAIN_WORD = new RegExp(`^(?:${PLAIN}|"${PLAIN}"|'${PLAIN}'|>>?)$`);
 
 /**
  * The quoted heredoc marks of a line that starts outside quotes, in order, each with the simple command that gets it.
@@ -124,40 +128,42 @@ function readMark(line, start) {
   return { strip, delimiter, quoted, next: i };
 }
 
-/** True when the simple command that gets the heredoc is `cat` or `tee`, after only bare wrapper words. */
-function copiesBody(receiver) {
-  const commands = splitCommands(receiver);
-  if (commands.length !== 1) return false;
-  const words = commands[0];
-  let i = 0;
-  while (i < words.length && BODY_WRAPPERS.has(words[i])) i += 1;
-  return i < words.length && BODY_COPIERS.has(words[i]);
+/**
+ * True when the line holds only simple commands joined by `&&`, `;` or the line end, each with a safe first word
+ * (SAFE_FIRST) and only plain words, quoted plain words and the redirections `>`, `>>`, `2>&1` and quoted heredoc
+ * marks. An allowlist, so each other form is refused and the bodies stay (fail closed).
+ */
+function isSafeLine(line, markCount) {
+  let count = 0;
+  const rest = line.replace(QUOTED_MARK, () => { count += 1; return ' '; }).replace(/\b2>&1(?![\w])/g, ' ');
+  if (count !== markCount || /[$`(){}=|!\\#<\n]/.test(rest)) return false;
+  return rest.split(/&&|;/).every((part) => {
+    if (part.includes('&')) return false;
+    const words = part.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return true;
+    const first = words[0] === 'command' ? words[1] : words[0];
+    const copier = words[0] === 'command' ? BODY_COPIERS.has(first) : SAFE_FIRST.has(first);
+    return copier && words.every((w) => PLAIN_WORD.test(w));
+  });
 }
 
 /**
- * The text with the body lines of each quoted heredoc taken out, when `cat` or `tee` gets it: bash reads such a body
- * as text, with no expansion, and these programs only copy it. The heredoc line and the end line stay. Each other body
- * is kept: an unquoted body (it can run `$(...)`), a body that another program gets (a shell or an interpreter can run
- * it), and each body after a line that this reader cannot follow. A quoted heredoc with no end line takes the rest of
- * the text, as in bash. With a text that can rename `cat` or `tee`, nothing is taken out.
+ * The text with the body lines of each quoted heredoc taken out, only when each line outside the bodies passes
+ * isSafeLine and each heredoc is quoted. Bash reads such a body as text, and the safe commands only copy it. The
+ * heredoc lines and the end lines stay. Any other text keeps every body (fail closed). A quoted heredoc with no end
+ * line takes the rest of the text, as in bash.
  */
 function dropQuotedBodies(command) {
-  if (RENAMES.test(command)) return command;
   const lines = command.split('\n');
   const out = [];
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    const scan = scanHeredocLine(line);
+    if (!scan.clean || !scan.marks.every((m) => m.quoted) || !isSafeLine(line, scan.marks.length)) return command;
     out.push(line);
     i += 1;
-    const scan = scanHeredocLine(line);
-    if (!scan.clean) {
-      // From a line that this reader cannot follow, the rest of the text is read as shell.
-      out.push(...lines.slice(i));
-      break;
-    }
     for (const mark of scan.marks) {
-      const drop = mark.quoted && copiesBody(mark.receiver);
       while (i < lines.length) {
         const body = lines[i];
         i += 1;
@@ -165,7 +171,6 @@ function dropQuotedBodies(command) {
           out.push(body);
           break;
         }
-        if (!drop) out.push(body);
       }
     }
   }

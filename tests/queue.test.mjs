@@ -820,3 +820,47 @@ test('makeAddress makes the ext form', () => {
   }
   assert.match(makeAddress('T3', 'exe', []), /^T3-exe-[0-9a-f]{4}$/);
 });
+
+test('readJournal refuses a symbolic link at the journal and does not read the target', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const target = path.join(tempProject(), 'secret.jsonl');
+  fs.writeFileSync(target, '{"event":"secret"}\n');
+  fs.mkdirSync(qdir(dir), { recursive: true });
+  fs.symlinkSync(target, path.join(qdir(dir), 'journal.jsonl'));
+  assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});
+
+test('readJournal refuses a hard-linked journal', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const outside = path.join(tempProject(), 'outside.jsonl');
+  fs.writeFileSync(outside, '{"event":"x"}\n');
+  fs.mkdirSync(qdir(dir), { recursive: true });
+  fs.linkSync(outside, path.join(qdir(dir), 'journal.jsonl'));
+  assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});
+
+test('readJournal returns no events when the journal is missing', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.deepEqual(readJournal(dir).events, []);
+});
+
+test('readJournal refuses a symbolic link at .guilda/queue or at .guilda, and does not read the target', () => {
+  const outside = fs.mkdtempSync(path.join(tempProject(), 'out-'));
+  fs.writeFileSync(path.join(outside, 'journal.jsonl'), '{"event":"secret"}\n');
+  const a = tempProject({ config: MINIMAL_CONFIG });
+  fs.symlinkSync(outside, path.join(qdir(a)));
+  assert.throws(() => readJournal(a), /io-error|queue/);
+  const b = tempProject();
+  fs.mkdirSync(path.join(outside, 'queue'));
+  fs.writeFileSync(path.join(outside, 'queue', 'journal.jsonl'), '{"event":"secret"}\n');
+  fs.symlinkSync(outside, path.join(b, '.guilda'));
+  assert.throws(() => readJournal(b), /io-error|queue/);
+});
+
+test('readJournal refuses a FIFO at the journal', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(qdir(dir), { recursive: true });
+  const r = spawnSync('mkfifo', [path.join(qdir(dir), 'journal.jsonl')]);
+  assert.equal(r.status, 0);
+  assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});

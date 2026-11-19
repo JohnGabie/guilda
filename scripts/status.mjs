@@ -35,6 +35,12 @@ function parseArgs(argv) {
 
 const GIT_TIMEOUT_MS = 10000;
 
+/** The io-error line of a failure, with one "io-error: " prefix. */
+function ioErrorLine(err) {
+  const msg = String(err && err.message).split('\n')[0];
+  return msg.startsWith('io-error: ') ? msg : `io-error: ${msg}`;
+}
+
 /** The count of `git rev-list <base>..<head>` (no shell), or null with no repository or an error. */
 function countCommits(projectDir, base, head) {
   if (!COMMIT_ID.test(base) || !COMMIT_ID.test(head)) return null;
@@ -101,7 +107,7 @@ export function main(argv) {
       if (text === null) return { code: 1, lines: [`status: no agent ${flags.agent}`] };
       return { code: 0, lines: [text.trimEnd()] };
     } catch (err) {
-      return { code: 2, lines: [`io-error: ${String(err && err.message).split('\n')[0]}`] };
+      return { code: 2, lines: [ioErrorLine(err)] };
     }
   }
   if (!fs.existsSync(P.journal) && !fs.existsSync(P.state)) return { code: 0, lines: ['guilda status: no queue yet'] };
@@ -111,7 +117,7 @@ export function main(argv) {
     if (flags.json) return { code: 0, lines: [JSON.stringify(statusJson(state, events, { now, count }), null, 2)] };
     return { code: 0, lines: [renderStatus(state, events, { now, count }).trimEnd()] };
   } catch (err) {
-    return { code: 2, lines: [`io-error: ${String(err && err.message).split('\n')[0]}`] };
+    return { code: 2, lines: [ioErrorLine(err)] };
   }
 }
 
