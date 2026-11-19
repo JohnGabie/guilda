@@ -8,7 +8,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-11-17
+## [0.2.0] - 2026-11-19
 
 ### Added
 
