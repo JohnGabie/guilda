@@ -201,10 +201,17 @@ function cmdDeliver(root, args) {
 }
 
 const SHOW_FLAG = '--show';
+// The signs that JSON.stringify leaves as they are but a terminal reads: DEL, the C1 controls, the line and paragraph
+// separators and the bidi controls.
+const RAW_CONTROLS = /[\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+/** A record field as one line of JSON, with each control sign escaped, so a field cannot fake a line or a colour. */
+const shown = (value) =>
+  JSON.stringify(value ?? null).replace(RAW_CONTROLS, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
 /**
- * Check one user record (R35, 4g). Exit 0 prints `ok`; with --show, then the kind, the question and the text, as they
- * are. Exit 1 prints the reason. It never creates a key.
+ * Check one user record (R35, 4g). Exit 0 prints `ok`; with --show, then the kind, the question (`none` when there is
+ * none) and the text, each as JSON on one line. Exit 1 prints the reason. It never creates a key.
  */
 function cmdVerify(root, args) {
   const [id, ...rest] = args;
@@ -215,7 +222,7 @@ function cmdVerify(root, args) {
   if (!result.ok) throw new BusError(1, result.reason);
   if (!show) return ['ok'];
   const { kind, question, text } = result.record;
-  return ['ok', `kind: ${kind}`, `question: ${question === null || question === undefined ? 'none' : question}`, `text: ${text}`];
+  return ['ok', `kind: ${shown(kind)}`, `question: ${question === null || question === undefined ? 'none' : shown(question)}`, `text: ${shown(text)}`];
 }
 
 const COMMANDS = { send: cmdSend, join: cmdJoin, who: cmdWho, pending: cmdPending, deliver: cmdDeliver, verify: cmdVerify };

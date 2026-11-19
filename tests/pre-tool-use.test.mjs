@@ -869,6 +869,7 @@ test('R34: the --from value comes from the command text, not from a variable', (
   assert.match(assertDeny(run(`node "${BUS_SCRIPT}" . send --from "$X" --to architect --type notice --text hi`)), /^R34: --from \$X is not your address/);
   assert.match(assertDeny(run(`X=${BOUND}; node scripts/bus.mjs . send --from $X --to main --type notice --text hi`)), /^R34: /);
   assert.match(assertDeny(run(`node scripts/bus.mjs . send --to main --type notice --text hi`)), /^R34: /);
+  assert.match(assertDeny(run(`F=--from; node scripts/bus.mjs . send $F main --from ${BOUND} --to main --type notice --text hi`)), /^R34: --from \(none\) /);
   assert.match(assertDeny(run(`node scripts/bus.mjs . send --from ${BOUND} --from main --to main --type notice --text hi`)), /^R34: --from main /);
   assert.match(assertDeny(run(`sh -c "node scripts/bus.mjs . send --from main --to main --type notice --text hi"`)), /^R34: /);
   assert.match(assertDeny(run(`true && node scripts/bus.mjs . send --from main --to main --type notice --text hi`)), /^R34: /);
@@ -894,7 +895,8 @@ test('key folder', () => {
   fs.mkdirSync(keys, { recursive: true, mode: 0o700 });
   const keyFile = path.join(keys, '0123456789abcdef.key');
   fs.writeFileSync(keyFile, Buffer.alloc(32, 1), { mode: 0o600 });
-  const env = { XDG_STATE_HOME: state };
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda home '));
+  const env = { XDG_STATE_HOME: state, HOME: home };
   const calls = [
     ['Read', { file_path: keyFile }],
     ['Grep', { pattern: '.', path: keys }],
@@ -928,4 +930,51 @@ test('R32 role row of 0.4.0', () => {
   assert.match(assertDeny(q({ agent_type: 'guilda:executor', agent_id: 'a-7' })), /^R32: /);
   assert.match(assertDeny(q({ agent_type: 'guilda:architect' })), /^R32: /);
   assert.deepEqual(violations(dir).map((x) => x.rule), ['R32', 'R32', 'R32']);
+});
+
+// S4-35, the robust forms (Security, round 1): other quoting, a cd, a walk of a parent, a search in a parent.
+test('key folder: other quoting, a cd, a walk of a parent and a search in a parent', () => {
+  const dir = busProject();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda home '));
+  const state = path.join(home, '.local', 'state');
+  const keys = path.join(state, 'guilda', 'keys');
+  fs.mkdirSync(keys, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(keys, '0123456789abcdef.key'), Buffer.alloc(32, 2), { mode: 0o600 });
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda xdg '));
+  for (const env of [{ HOME: home }, { HOME: home, XDG_STATE_HOME: other }]) {
+    const refused = [
+      ['Bash', { command: `cd "${state}/guilda"; cat keys/*` }],
+      ['Bash', { command: 'cd ~/.local/state/guilda && cat keys/*' }],
+      ['Bash', { command: "cat ~/.local/state/guil'da/keys'/x.key" }],
+      ['Bash', { command: 'cat ~/.local/state/gui\\lda/ke\\ys/x.key' }],
+      ['Bash', { command: "find ~/.local/state -name '*.key'" }],
+      ['Bash', { command: `find "${home}"` }],
+      ['Bash', { command: 'grep -r . "$HOME/.local"' }],
+      ['Bash', { command: `rg -a . "${state}"` }],
+      ['Bash', { command: `ls -R "${state}"` }],
+      ['Bash', { command: `tar -czf x.tgz "${path.join(state, 'guilda')}"` }],
+      ['Bash', { command: `cp -r "${state}" ./copy` }],
+      ['Bash', { command: `cd "${state}/guilda/keys" && cat ./*` }],
+      ['Grep', { pattern: '.', path: path.join(state, 'guilda') }],
+      ['Grep', { pattern: '.', path: home }],
+      ['Grep', { pattern: '.' }, home],
+      ['Glob', { pattern: '**/*.key', path: home }],
+      ['Glob', { pattern: `${state}/**` }],
+    ];
+    for (const [toolName, toolInput, cwd] of refused) {
+      const r = hookEnv(dir, sub(dir, toolName, toolInput, cwd ? { cwd } : {}), { env });
+      assert.equal(assertDeny(r), KEY_TEXT, `${toolName} ${JSON.stringify(toolInput)} ${JSON.stringify(env)}`);
+    }
+    const passed = [
+      ['Bash', { command: 'find . -name "*.md"' }],
+      ['Bash', { command: 'grep -r keys src' }],
+      ['Bash', { command: `ls "${home}"` }],
+      ['Grep', { pattern: 'keys', path: dir }],
+      ['Glob', { pattern: '**/*.md', path: dir }],
+      ['Write', { file_path: path.join(dir, 'notes.md'), content: 'the key folder is ~/.local/state/guilda/keys' }],
+    ];
+    for (const [toolName, toolInput] of passed) {
+      assertAllow(hookEnv(dir, sub(dir, toolName, toolInput), { env }));
+    }
+  }
 });

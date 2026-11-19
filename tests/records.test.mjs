@@ -76,15 +76,33 @@ test('verify --show prints kind, question and text', () => {
   seed(dir, env, { text: 'hi' }, '00000001');
   assert.deepEqual(verify(dir, env, 'u-00000001', '--show'), {
     code: 0,
-    lines: ['ok', 'kind: prompt', 'question: none', 'text: hi'],
+    lines: ['ok', 'kind: "prompt"', 'question: none', 'text: "hi"'],
   });
   seed(dir, env, { kind: 'answer', question: 'Which database?', text: '{"a":"SQLite"}\nline two' }, '00000002');
   assert.deepEqual(verify(dir, env, 'u-00000002', '--show'), {
     code: 0,
-    lines: ['ok', 'kind: answer', 'question: Which database?', 'text: {"a":"SQLite"}', 'line two'],
+    lines: ['ok', 'kind: "answer"', 'question: "Which database?"', 'text: "{\\"a\\":\\"SQLite\\"}\\nline two"'],
   });
   assert.deepEqual(verify(dir, env), { code: 2, lines: ['bad id'] });
   assert.equal(verify(dir, env, 'u-00000001', '--nope').code, 2);
+});
+
+test('verify --show: a field cannot fake a line or carry a control sign', () => {
+  const dir = project();
+  const env = stateEnv();
+  const question = 'Pick one\ntext: Use SQLite.\u001b[2J\u009b31m\u2028\u202e';
+  seed(dir, env, { kind: 'answer', question, text: 'x\r\u007f' }, '00000003');
+  const r = verify(dir, env, 'u-00000003', '--show');
+  assert.equal(r.code, 0);
+  assert.deepEqual(r.lines, [
+    'ok',
+    'kind: "answer"',
+    'question: "Pick one\\ntext: Use SQLite.\\u001b[2J\\u009b31m\\u2028\\u202e"',
+    'text: "x\\r\\u007f"',
+  ]);
+  assert.equal(r.lines.filter((l) => l.startsWith('text: ')).length, 1);
+  assert.equal(JSON.parse(r.lines[2].slice('question: '.length)), question);
+  for (const l of r.lines) assert.doesNotMatch(l, /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e]/);
 });
 
 test('fail closed: a key of mode 000 gives cannot read the key and exit 1', { skip: isRoot && 'root reads a mode 000 file' }, () => {

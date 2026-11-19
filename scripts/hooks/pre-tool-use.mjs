@@ -77,11 +77,28 @@ const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const MAX_DEPTH = 8;
 const MAX_SHOWN = 64;
 // The text that names the key folder in any form: `~/.local/state/guilda/keys`, `$XDG_STATE_HOME/guilda/keys`, ...
-const KEY_FOLDER_NAMES = ['guilda/keys', 'guilda\\keys'];
+// It is matched after the quotes and the backslashes of the text are taken out.
+const KEY_FOLDER_NAME = 'guilda/keys';
+// The text that names the guilda state folder (the parent of the key folder). With the word `keys` it is refused.
+const STATE_FOLDER_NAMES = ['.local/state/guilda', 'XDG_STATE_HOME/guilda', 'XDG_STATE_HOME}/guilda'];
+const KEYS_WORD = /(?:^|[^A-Za-z0-9_-])keys(?:$|[^A-Za-z0-9_-])/;
 const PATH_FIELDS = ['file_path', 'path', 'notebook_path'];
-// The fields of a tool input that can name a path: the path fields, the Glob pattern, the Grep file filter and the
-// shell command. A file text (Write content, Edit strings) is not a path, so a text about the key folder can be written.
-const NAME_FIELDS = { Glob: ['pattern'], Grep: ['glob'], Bash: ['command'] };
+// The fields of a tool input that can name a path: the path fields, the Glob pattern and the Grep file filter. A file
+// text (Write content, Edit strings) is not a path, so a text about the key folder can be written.
+const NAME_FIELDS = { Glob: ['pattern'], Grep: ['glob'] };
+// The tools that search below a folder: a Grep or a Glob in a parent of the key folder can reach it.
+const SEARCH_TOOLS = new Set(['Grep', 'Glob']);
+// The shell programs that always walk a folder tree, and those that walk it only with a flag.
+const WALKERS = new Set(['find', 'rg', 'tar', 'tree', 'du', 'fd', 'zip', 'rsync']);
+const WALK_FLAGS = {
+  grep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive|--dereference-recursive|--directories=recurse)$/,
+  egrep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)$/,
+  fgrep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)$/,
+  ls: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
+  cp: /^(?:-[A-Za-z]*[rRa][A-Za-z]*|--recursive|--archive)$/,
+  chmod: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
+};
+const GLOB_CHAR = /[*?[{]/;
 // The flags of `bus.mjs send` that take a value, as in scripts/bus.mjs; each other word is one argument.
 const SEND_VALUE_FLAGS = new Set(['--from', '--to', '--type', '--text', '--task', '--reply-to', '--record']);
 
@@ -114,17 +131,117 @@ function insideAny(abs, dirs) {
   return forms.some((f) => targets.some((d) => inside(f, d)));
 }
 
+/** The key folders to keep from tools: the one of this environment and the default one of the home folder. */
+function keyFolders() {
+  const folders = new Set([keyFolder(process.env), keyFolder({ HOME: process.env.HOME })]);
+  return [...folders];
+}
+
+/** The literal and the real forms of a path. */
+const formsOf = (abs) => [...new Set([path.resolve(abs), realish(path.resolve(abs))])];
+
+/** True when the path is a key folder or inside one. */
+const inKeyFolder = (abs, folders) => formsOf(abs).some((f) => folders.some((d) => formsOf(d).some((k) => inside(f, k))));
+/** True when the path is a key folder, inside one, or a parent of one. */
+const reachesKeyFolder = (abs, folders) =>
+  inKeyFolder(abs, folders) || formsOf(abs).some((f) => folders.some((d) => formsOf(d).some((k) => inside(k, f))));
+
+/** The text with its quotes and backslashes taken out, and each `/` doubled sign made one. */
+const plain = (text) => text.replace(/['"\\]/g, '').replace(/\/{2,}/g, '/');
+
+/** True when a text names the key folder: its name, its path, or the guilda state folder with the word `keys`. */
+function textNamesKeyFolder(text, folders) {
+  const t = plain(text);
+  if (t.includes(KEY_FOLDER_NAME)) return true;
+  if (folders.some((d) => formsOf(d).some((k) => t.includes(k)))) return true;
+  const states = [...STATE_FOLDER_NAMES, ...folders.flatMap((d) => formsOf(path.dirname(d)))];
+  return states.some((n) => t.includes(n)) && KEYS_WORD.test(t);
+}
+
+/** A shell word with $HOME and $XDG_STATE_HOME put in, as the shell does. Each other variable stays. */
+function expandWord(word) {
+  const home = process.env.HOME || '';
+  const xdg = process.env.XDG_STATE_HOME || path.join(home, '.local', 'state');
+  return word
+    .replace(/\$\{HOME\}|\$HOME(?![A-Za-z0-9_])/g, home)
+    .replace(/\$\{XDG_STATE_HOME\}|\$XDG_STATE_HOME(?![A-Za-z0-9_])/g, xdg);
+}
+
 /**
- * True when a tool input names the key folder (L4-2 C4): a path field, the Glob pattern, the Grep file filter or the
- * shell command holds its name or its path, or a path field resolves into it.
+ * True when a shell command can reach a key folder: a word that resolves into one, or a program that walks a folder
+ * tree (find, rg, grep -r, ls -R, tar, cp -r, ...) on a key folder or a parent of one. A literal `cd` moves the folder
+ * of the next commands. A path from another variable passes (the R34 limit).
+ */
+function commandReachesKeyFolder(command, startCwd, folders, depth = 0) {
+  if (depth > MAX_DEPTH) return false;
+  let cwd = startCwd;
+  for (const words of splitCommands(command)) {
+    const { rest } = stripPrefix(words);
+    const inner = innerText(rest);
+    if (inner !== null && commandReachesKeyFolder(inner, cwd, folders, depth + 1)) return true;
+    const resolve = (w) => {
+      const e = expandWord(w);
+      return isVariable(e) ? null : resolveDir(cwd, e);
+    };
+    for (const w of rest) {
+      const abs = resolve(w.replace(/^[^=]*=/, (m) => (m.startsWith('-') ? '' : m)));
+      if (abs !== null && inKeyFolder(abs, folders)) return true;
+      const whole = resolve(w);
+      if (whole !== null && inKeyFolder(whole, folders)) return true;
+    }
+    const names = rest.map((w) => path.basename(w));
+    for (let i = 0; i < names.length; i += 1) {
+      const flag = WALK_FLAGS[names[i]];
+      const args = rest.slice(i + 1);
+      if (!WALKERS.has(names[i]) && !(flag && args.some((a) => flag.test(a)))) continue;
+      const operands = args.filter((a) => !a.startsWith('-'));
+      const targets = operands.length > 0 ? operands : ['.'];
+      if (targets.some((a) => {
+        const abs = resolve(a.replace(GLOB_CHAR, '\u0000').split('\u0000')[0] || '.');
+        return abs !== null && reachesKeyFolder(abs, folders);
+      })) return true;
+    }
+    if ((names[0] === 'cd' || names[0] === 'pushd') && rest.length > 1) {
+      const target = rest.slice(1).find((w) => !w.startsWith('-'));
+      const abs = target === undefined ? null : resolve(target);
+      if (abs !== null) cwd = abs;
+    }
+  }
+  return false;
+}
+
+/** The folder part of a glob pattern before its first glob sign, and the rest. */
+function globBase(pattern) {
+  const at = pattern.search(GLOB_CHAR);
+  if (at < 0) return { base: pattern, rest: '' };
+  const cut = pattern.lastIndexOf('/', at);
+  return { base: cut < 0 ? '' : pattern.slice(0, cut + 1), rest: cut < 0 ? pattern : pattern.slice(cut + 1) };
+}
+
+/**
+ * True when a tool call can read a key folder (L4-2 C4). Each tool: a path field or a name field names it (in any
+ * quoting), or a path field resolves into it. A Grep or a Glob: its search folder (the path field, else the cwd, plus
+ * the folder part of the Glob pattern) is a key folder, inside one or a parent of one. A shell command: the text
+ * names it, or the command can reach it (commandReachesKeyFolder).
  */
 function namesKeyFolder(toolName, toolInput, cwd) {
-  const folder = keyFolder(process.env);
-  const forms = [folder, realish(folder)];
+  const folders = keyFolders();
+  if (toolName === 'Bash') {
+    const command = typeof toolInput.command === 'string' ? toolInput.command : '';
+    return command !== '' && (textNamesKeyFolder(command, folders) || commandReachesKeyFolder(command, cwd, folders));
+  }
   const fields = [...PATH_FIELDS, ...(NAME_FIELDS[toolName] ?? [])];
   const texts = fields.map((k) => toolInput[k]).filter((t) => typeof t === 'string' && t !== '');
-  if (texts.some((t) => KEY_FOLDER_NAMES.some((n) => t.includes(n)) || forms.some((f) => t.includes(f)))) return true;
-  return PATH_FIELDS.some((k) => typeof toolInput[k] === 'string' && toolInput[k] !== '' && insideAny(resolveDir(cwd, toolInput[k]), [folder]));
+  if (texts.some((t) => textNamesKeyFolder(t, folders))) return true;
+  const own = (k) => (typeof toolInput[k] === 'string' && toolInput[k] !== '' ? resolveDir(cwd, toolInput[k]) : null);
+  if (PATH_FIELDS.some((k) => own(k) !== null && inKeyFolder(own(k), folders))) return true;
+  if (!SEARCH_TOOLS.has(toolName)) return false;
+  let base = own('path') ?? cwd;
+  if (toolName === 'Glob' && typeof toolInput.pattern === 'string') {
+    const g = globBase(toolInput.pattern);
+    base = resolveDir(base, g.base || '.');
+  }
+  return reachesKeyFolder(base, folders);
 }
 
 /** True when a shell command writes into `.guilda/bus/` in a form of R4: a redirection, tee, touch, cp or mv. */

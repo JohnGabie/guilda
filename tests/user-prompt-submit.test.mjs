@@ -104,14 +104,27 @@ test('a long prompt is cut to the text limit', () => {
 test('a write error adds no context line and prints no key', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const env = stateEnv();
+  // The key is made first, then the append fails: the user file is a folder.
+  fs.mkdirSync(userFile(dir), { recursive: true });
+  const r = run(dir, prompt(dir), { env });
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+  const key = fs.readFileSync(keyPath(dir, env));
+  assert.equal(key.length, 32);
+  for (const form of [key.toString('hex'), key.toString('base64'), key.toString('latin1')]) {
+    assert.equal(r.stdout.includes(form), false);
+    assert.equal(r.stderr.includes(form), false);
+  }
+  assert.equal(r.stderr.includes('Use SQLite.'), false);
+  assert.equal(fs.statSync(userFile(dir)).isDirectory(), true);
+});
+
+test('a bus path that is not a folder adds no context line', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
   fs.writeFileSync(path.join(dir, '.guilda', 'bus'), 'not a folder');
   const r = run(dir, prompt(dir), { env });
   assert.equal(r.code, 0);
   assert.equal(r.stdout, '');
-  const file = keyPath(dir, env);
-  if (fs.existsSync(file)) {
-    const hex = fs.readFileSync(file).toString('hex');
-    assert.equal(r.stderr.includes(hex), false);
-  }
   assert.equal(r.stderr.includes('Use SQLite.'), false);
 });
