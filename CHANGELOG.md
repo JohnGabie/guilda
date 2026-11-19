@@ -8,6 +8,15 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- R32: the queue-file check takes out a heredoc body only for a plain chain. Each part of the chain starts with
+  cat, tee, mkdir, touch, echo, cd, ls or true. Any other text keeps the body, so a PATH change cannot hide a write.
+- R32: the read of the queue journal refuses a symbolic link, a hard link and a FIFO. The check also covers the
+  .guilda and .guilda/queue folders, as the writers do.
+- `status.mjs` prints the io-error prefix one time.
+- R13: the bare-ID check of a question skips an ID-like part of a file name, for example S3.md.
+
 ## [0.3.0] - 2026-11-18
 
 ### Added
