@@ -8,6 +8,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-19
+
 ### Fixed
 
 - R32: the queue-file check takes out a heredoc body only for a plain chain. Each part of the chain starts with
@@ -17,7 +19,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - `status.mjs` prints the io-error prefix one time.
 - R13: the bare-ID check of a question skips an ID-like part of a file name, for example S3.md.
 
-## [0.3.0] - 2026-11-18
+## [0.3.0] - 2026-11-19
 
 ### Added
 
@@ -50,7 +52,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - The production approval rule R29: not in this release.
 - The cheaper tier for a role: lab L7 gave NO-GO, and the tiers stay as they are.
 
-## [0.2.0] - 2026-11-17
+## [0.2.0] - 2026-11-19
 
 ### Added
 
@@ -137,7 +139,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - Core rules, roles, hooks, `guilda:architect`, `guilda:init` and `guilda:update`. New rule IDs: R1 to R25, and ARC1
   to ARC6 in `guilda:architect`. The brief check of the Executor dispatch cites ARC6, not R3.
 
-[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.0...HEAD
+[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.1...HEAD
+[0.3.1]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.0...guilda--v0.3.1
 [0.3.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.2.0...guilda--v0.3.0
 [0.2.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.1.1...guilda--v0.2.0
 [0.1.1]: https://github.com/JohnGabie/guilda/releases/tag/guilda--v0.1.1
