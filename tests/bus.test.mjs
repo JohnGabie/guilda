@@ -708,3 +708,14 @@ test('a send to a joined address works before the fold', () => {
   assert.equal(prod.code, 0, prod.out);
   assert.match(prod.first, /^\{"address":"ext-codex-other-[0-9a-f]{4}"\}$/);
 });
+
+test('takeBusLock accepts the name <address>.deliver and refuses a bad name', () => {
+  const dir = project();
+  fs.mkdirSync(busDir(dir));
+  const held = takeBusLock(dir, `${TASK_ADDRESS}.deliver`);
+  assert.equal(fs.existsSync(path.join(busDir(dir), `${TASK_ADDRESS}.deliver.lock`)), true);
+  releaseBusLock(held);
+  for (const bad of ['.deliver', '../x.deliver', `${TASK_ADDRESS}.deliver.deliver`, `${TASK_ADDRESS}.other`, 'bad name.deliver']) {
+    assert.throws(() => takeBusLock(dir, bad), (e) => e instanceof BusError && e.exitCode === 2, bad);
+  }
+});

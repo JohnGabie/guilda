@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The bus script (D24, R34, section 4h): the one writer of .guilda/bus. Agents and hooks run it; the user does not.
-// Usage: node scripts/bus.mjs <projectDir> <send|join|who|pending> [args]
+// Usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver> [args]
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 import { projectState, busSettings, adapterSettings, SETUP_NOTICE } from './lib/project.mjs';
 import { ensureIgnored } from './lib/violations.mjs';
 import { validId, makeAddress, readBindings } from './lib/queue.mjs';
+import { deliverPlan } from './lib/router.mjs';
 import {
   BusError,
   MAX_TEXT_CHARS,
@@ -190,12 +191,20 @@ function cmdPending(root, args) {
   return out;
 }
 
-const COMMANDS = { send: cmdSend, join: cmdJoin, who: cmdWho, pending: cmdPending };
+/** List the pending messages of one address with their routes. It starts nothing and writes no receipt (4d). */
+function cmdDeliver(root, args) {
+  const f = parseFlags(args, ['--address']);
+  const address = need(f, 'address', isAddress);
+  if (!knownAddress(readBindings(root), address)) throw usage(`unknown address ${address}`);
+  return deliverPlan(root, address).map(({ id, route, header }) => JSON.stringify({ id, route, header }));
+}
+
+const COMMANDS = { send: cmdSend, join: cmdJoin, who: cmdWho, pending: cmdPending, deliver: cmdDeliver };
 
 /** Run the script; return { code, lines }. It never calls process.exit. */
 export function main(argv) {
   try {
-    if (argv.length < 2) throw usage('usage: node scripts/bus.mjs <projectDir> <send|join|who|pending> [args]');
+    if (argv.length < 2) throw usage('usage: node scripts/bus.mjs <projectDir> <send|join|who|pending|deliver> [args]');
     const [projectDir, command, ...args] = argv;
     const root = path.resolve(projectDir);
     const project = projectState(root);

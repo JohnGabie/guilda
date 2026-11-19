@@ -150,10 +150,18 @@ function staleOf(file, text, nowMs) {
   return { stale: nowMs - mtime > STALE_LOCK_MS, pid: UNKNOWN_PID };
 }
 
+const DELIVER_SUFFIX = '.deliver';
+
+/** A lock name is `join`, an address, or `<address>.deliver` (the delivery lock of 4d). */
+function validLockName(name) {
+  if (name === 'join' || validId('address', name)) return true;
+  return typeof name === 'string' && name.endsWith(DELIVER_SUFFIX) && validId('address', name.slice(0, -DELIVER_SUFFIX.length));
+}
+
 const pollPause = () => LOCK_POLL_MIN_MS + crypto.randomInt(LOCK_POLL_MAX_MS - LOCK_POLL_MIN_MS + 1);
 
 /**
- * Take the lock `.guilda/bus/<name>.lock`, where `name` is an address or `join`. The content { pid, time } goes to
+ * Take the lock `.guilda/bus/<name>.lock`, where `name` is an address, `join` or `<address>.deliver`. The content { pid, time } goes to
  * a temp file first, and a hard link makes the lock, so a lock is never empty. A live holder: poll for 2 s, then
  * BusError 3 'busy'. A stale lock is replaced under the guard `<name>.lock.takeover.<old pid>`: the sender re-reads
  * the lock and replaces it only when the bytes did not change. The result: { file, body, stalePid } with stalePid
@@ -161,7 +169,7 @@ const pollPause = () => LOCK_POLL_MIN_MS + crypto.randomInt(LOCK_POLL_MAX_MS - L
  * the stale check and before the takeover.
  */
 export function takeBusLock(projectDir, name, { beforeTakeover } = {}) {
-  if (name !== 'join' && !validId('address', name)) throw bad('address');
+  if (!validLockName(name)) throw bad('address');
   const P = openBus(projectDir);
   const file = path.join(P.bus, `${name}.lock`);
   const body = `${JSON.stringify({ pid: process.pid, time: Date.now() })}\n`;
