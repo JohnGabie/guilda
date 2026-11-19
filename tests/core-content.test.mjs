@@ -15,6 +15,7 @@ const LEVELS = {
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
+  R33: 'judgment', R34: 'law', R35: 'judgment',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -35,10 +36,10 @@ test('R15 mechanism names the ste-check report', () => {
   assert.match(blocks(read('core/rules.md')).R15.text, /Check: gate — .*ste-check/);
 });
 
-test('the full files have 150 lines or fewer', () => {
-  // core/rules.md + core/writing.md; the limit of 0.3.0 (spec X1).
+test('the full files have 162 lines or fewer', () => {
+  // core/rules.md + core/writing.md; the limit of 0.4.0 (spec X1).
   const n = nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md'));
-  assert.ok(n <= 150, `got ${n} lines`);
+  assert.ok(n <= 162, `got ${n} lines`);
 });
 
 test('R28 has the level law', () => {
@@ -63,6 +64,26 @@ test('R32 has the level law', () => {
   assert.equal(blocks(read('core/rules.md')).R32?.level, 'law');
 });
 
+test('R33 has the level judgment', () => {
+  assert.equal(blocks(read('core/rules.md')).R33?.level, 'judgment');
+});
+
+test('R34 has the level law', () => {
+  assert.equal(blocks(read('core/rules.md')).R34?.level, 'law');
+});
+
+test('R35 has the level judgment', () => {
+  assert.equal(blocks(read('core/rules.md')).R35?.level, 'judgment');
+});
+
+test('R34 Check line names the key folder', () => {
+  assert.match(blocks(read('core/rules.md')).R34.text, /Check: law — .*and a read of the key folder\./);
+});
+
+test('R35 Check line says that no code checks the source', () => {
+  assert.match(blocks(read('core/rules.md')).R35.text, /Check: judgment — No code checks where an answer came from/);
+});
+
 test('R28 Check line names the Skill part (S41)', () => {
   assert.match(blocks(read('core/rules.md')).R28.text, /Check: law — SessionStart, and PreToolUse on a guilda skill or a `guilda:\*` agent, print the set-up notice\./);
 });
@@ -71,20 +92,20 @@ test('R27 has the level judgment (S38)', () => {
   assert.equal(blocks(read('core/rules.md')).R27.level, 'judgment');
 });
 
-test('core/subagent.md has 60 lines or fewer', () => {
-  assert.ok(nonBlank(read('core/subagent.md')) <= 60);
+test('core/subagent.md has 70 lines or fewer', () => {
+  assert.ok(nonBlank(read('core/subagent.md')) <= 70);
 });
 
 test('lintRules(core/rules.md) is empty', () => {
   assert.deepEqual(lintRules(read('core/rules.md'), { prefix: 'R' }), []);
 });
 
-test('core/subagent.md holds R5, R6, R15, R16 exactly as core/rules.md', () => {
+test('core/subagent.md holds R5, R6, R15, R16, R34, R35 exactly as core/rules.md', () => {
   const sub = read('core/subagent.md');
   assert.deepEqual(lintRules(sub, { prefix: 'R' }), []);
   const core = blocks(read('core/rules.md'));
   const found = blocks(sub);
-  assert.deepEqual(Object.keys(found), ['R5', 'R6', 'R15', 'R16']);
+  assert.deepEqual(Object.keys(found), ['R5', 'R6', 'R15', 'R16', 'R34', 'R35']);
   for (const id of Object.keys(found)) assert.equal(found[id].text, core[id].text, id);
 });
 
