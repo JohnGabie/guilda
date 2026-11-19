@@ -280,7 +280,7 @@ test('the architect address writes task null', () => {
   assert.equal(b.role, 'arc');
 });
 
-test('hooks.json has the PostToolUse Agent entry, and the Write|Edit entry is unchanged', () => {
+test('hooks.json has the PostToolUse Agent entry, and the post-tool-use entry has the 0.4.0 matcher', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const post = hooks.PostToolUse;
   const agent = post.filter((e) => e.matcher === 'Agent');
@@ -290,10 +290,10 @@ test('hooks.json has the PostToolUse Agent entry, and the Write|Edit entry is un
     hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-agent.mjs'] }],
   });
   assert.deepEqual(
-    post.filter((e) => e.matcher === 'Write|Edit'),
+    post.filter((e) => e.matcher === 'Write|Edit|AskUserQuestion|SendMessage'),
     [
       {
-        matcher: 'Write|Edit',
+        matcher: 'Write|Edit|AskUserQuestion|SendMessage',
         hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-tool-use.mjs'] }],
       },
     ],
