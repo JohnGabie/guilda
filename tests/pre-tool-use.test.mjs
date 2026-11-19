@@ -992,6 +992,10 @@ test('R34: a tool cannot run the user record hook or set CLAUDE_CODE_ENTRYPOINT'
     'export CLAUDE_CODE_ENTRYPOINT=cli; node x.mjs',
     "export 'CLAUDE_CODE_ENTRYPOINT'",
     'cd scripts/lib && node -e "import(\'./records.mjs\')"',
+    './scripts/hooks/user-prompt-submit.mjs < input.json',
+    'X=1 scripts/lib/records.mjs',
+    'bun scripts/lib/records.mjs',
+    'node --import ./scripts/lib/records.mjs x.mjs',
   ];
   for (const command of refused) {
     for (const extra of [{}, { agent_id: undefined, agent_type: undefined }]) {
@@ -1002,7 +1006,14 @@ test('R34: a tool cannot run the user record hook or set CLAUDE_CODE_ENTRYPOINT'
   const v = violations(dir);
   assert.equal(v.length, refused.length * 2);
   assert.ok(v.every((x) => x.rule === 'R34' && x.action === 'user record forge refused'));
-  for (const command of ['node --test tests/records.test.mjs tests/user-prompt-submit.test.mjs', 'echo $CLAUDE_CODE_ENTRYPOINT']) {
+  for (const command of [
+    'node --test tests/records.test.mjs tests/user-prompt-submit.test.mjs',
+    'echo $CLAUDE_CODE_ENTRYPOINT',
+    'git add scripts/lib/records.mjs',
+    'git diff scripts/lib/records.mjs',
+    'cat scripts/lib/records.mjs',
+    'git add scripts/hooks/user-prompt-submit.mjs && git status',
+  ]) {
     assertAllow(hookEnv(dir, sub(dir, 'Bash', { command })));
   }
 });

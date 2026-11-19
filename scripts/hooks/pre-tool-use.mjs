@@ -103,15 +103,32 @@ const WALK_FLAGS = {
   chmod: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
 };
 const GLOB_CHAR = /[*?[{]/;
-// The files that write a user record. A shell command that names one can forge a record (Security, block the obvious).
+// The files that write a user record. A shell command that runs one can forge a record (Security, block the obvious).
+// A command that only names one (git add, git diff, cat) passes, so guilda can be built with guilda.
 const RECORD_CODE = /(?:^|[^A-Za-z0-9_-])(?:records|user-prompt-submit)\.mjs(?![A-Za-z0-9_.-])/;
+const RECORD_FILE_WORD = /(?:^|\/)(?:records|user-prompt-submit)\.mjs$/;
+// The run forms: an interpreter word, a module load, or the file as the first word of the command.
+const INTERPRETER = /(?:^|[\s(`=])(?:[^\s()`]*\/)?(?:node|nodejs|bun|deno|npx|tsx|sh|bash)(?=[\s)`]|$)/;
+const MODULE_LOAD = /(?:^|[^A-Za-z0-9_])import(?![A-Za-z0-9_])|require\s*\(|--import|--require/;
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 // A shell command that sets the print-mode mark: an assignment, `env NAME=`, `export NAME` and the like.
 const SETS_ENTRYPOINT = [/CLAUDE_CODE_ENTRYPOINT\s*\+?=/, /\b(?:export|declare|typeset|readonly|local|setenv)\b[^;&|\n]*CLAUDE_CODE_ENTRYPOINT/];
 
-/** True when a shell command names the user record code or sets CLAUDE_CODE_ENTRYPOINT, in any quoting. */
+/** True when one part of a command runs the user record code: it names the file and has a run form. */
+function runsRecordCode(part) {
+  if (!RECORD_CODE.test(part)) return false;
+  if (INTERPRETER.test(part) || MODULE_LOAD.test(part)) return true;
+  const first = part.trim().split(/\s+/).find((w) => !ASSIGNMENT.test(w));
+  return first !== undefined && RECORD_FILE_WORD.test(first);
+}
+
+/**
+ * True when a shell command runs the user record code or sets CLAUDE_CODE_ENTRYPOINT, in any quoting. The text is
+ * read with its quotes and backslashes taken out, one part between `;`, `&`, `|` and line ends at a time.
+ */
 function forgesRecord(command) {
   const t = command.replace(/['"\\]/g, '');
-  return RECORD_CODE.test(t) || SETS_ENTRYPOINT.some((re) => re.test(t));
+  return SETS_ENTRYPOINT.some((re) => re.test(t)) || t.split(/[;&|\n]+/).some(runsRecordCode);
 }
 // The flags of `bus.mjs send` that take a value, as in scripts/bus.mjs; each other word is one argument.
 const SEND_VALUE_FLAGS = new Set(['--from', '--to', '--type', '--text', '--task', '--reply-to', '--record']);
