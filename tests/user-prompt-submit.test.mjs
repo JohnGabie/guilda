@@ -128,3 +128,140 @@ test('a bus path that is not a folder adds no context line', () => {
   assert.equal(r.stdout, '');
   assert.equal(r.stderr.includes('Use SQLite.'), false);
 });
+
+// The @mention step (D49, section 4l).
+const T = Date.parse('2026-11-20T10:00:00.000Z');
+const writeJournal = (dir, evs) => {
+  const folder = path.join(dir, '.guilda', 'queue');
+  fs.mkdirSync(folder, { recursive: true });
+  const lines = evs.map((e, i) => JSON.stringify({ seq: i + 1, t: new Date(T + i * 1000).toISOString(), ...e }));
+  fs.writeFileSync(path.join(folder, 'journal.jsonl'), `${lines.join('\n')}\n`);
+};
+const bind = (address, role, agentId) => [
+  { type: 'task', task: address.split('-')[0], work: null, key: null, title: 'C', deps: [], uses: [], owns: [] },
+  { type: 'dispatch', task: address.split('-')[0], attempt: 1, address, role, tool: 'claude', inSession: true, check: false, tier: 'master' },
+  ...(agentId ? [{ type: 'agent', address, agentId, agentType: 'guilda:x' }] : []),
+];
+const mentionDir = (evs) => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  writeJournal(dir, evs);
+  return dir;
+};
+const twoBound = () => mentionDir([...bind('T3-exe-7f2a', 'exe', 'a-3'), ...bind('T5-sec-1b2c', 'sec', 'a-5')]);
+const contextOf = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+const relay = (address, agent, id) =>
+  `guilda D49: the user addressed ${address} directly. Call SendMessage to it (agent ${agent}) with \`Record: ${id}\` and the text after the mention. Write no text in this turn. When the reply arrives, show it word for word, with no text before or after it.`;
+const withPrompt = (dir, text, env = stateEnv(), opts = {}) => run(dir, prompt(dir, { prompt: text }), { env, ...opts });
+
+test('mention: a bound address gets the relay line word for word', () => {
+  const dir = twoBound();
+  const r = withPrompt(dir, '@T3-exe-7f2a which storage?');
+  assert.equal(r.code, 0, r.stderr);
+  const lines = contextOf(r).split('\n');
+  const id = lines[0].match(CONTEXT)[1];
+  assert.equal(lines.length, 2);
+  assert.equal(lines[1], relay('T3-exe-7f2a', 'a-3', id));
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', 'queue', 'state.json')), false);
+});
+
+test('mention: architect gets no relay text', () => {
+  const dir = twoBound();
+  const r = withPrompt(dir, '@architect which storage?');
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(contextOf(r), CONTEXT);
+});
+
+test('mention: an unknown target gets the list of live addresses', () => {
+  const dir = twoBound();
+  const lines = contextOf(withPrompt(dir, '@nobody hi')).split('\n');
+  assert.equal(
+    lines[1],
+    'guilda D49: the user addressed nobody, which is not a live address. The live addresses are: T3-exe-7f2a, T5-sec-1b2c. Ask the user which one. Start no agent.',
+  );
+});
+
+test('mention: an unknown target with no bound entry lists none, and an unbound entry is not listed', () => {
+  const dir = mentionDir([...bind('T3-exe-7f2a', 'exe', 'a-3'), { type: 'unbind', address: 'T3-exe-7f2a' }]);
+  const lines = contextOf(withPrompt(dir, '@nobody hi')).split('\n');
+  assert.match(lines[1], /The live addresses are: none\. Ask the user which one\. Start no agent\.$/);
+  assert.equal(contextOf(withPrompt(dir, '@T3-exe-7f2a hi')).includes('Call SendMessage'), false);
+});
+
+test('mention: an email address and a file mention get no text', () => {
+  const dir = twoBound();
+  for (const text of ['me@example.com see this', '@src/x.py fix it', '@x.py fix it', 'hi @T3-exe-7f2a which?', '@T3-exe-7f2a', '@T3-exe-7f2a   ', ' @T3-exe-7f2a hi']) {
+    const r = withPrompt(dir, text);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(contextOf(r), CONTEXT, text);
+  }
+});
+
+test('mention: a tab after the target is a mention', () => {
+  const dir = twoBound();
+  const lines = contextOf(withPrompt(dir, '@T3-exe-7f2a\twhich storage?')).split('\n');
+  assert.equal(lines[1], relay('T3-exe-7f2a', 'a-3', lines[0].match(CONTEXT)[1]));
+});
+
+test('security-lead: the role code sec resolves to its one bound address', () => {
+  const dir = twoBound();
+  const lines = contextOf(withPrompt(dir, '@security-lead check T3')).split('\n');
+  assert.equal(lines[1], relay('T5-sec-1b2c', 'a-5', lines[0].match(CONTEXT)[1]));
+});
+
+test('mention: a role with two bound entries gets the list', () => {
+  const dir = mentionDir([...bind('T3-exe-7f2a', 'exe', 'a-3'), ...bind('T4-exe-9c9c', 'exe', 'a-4')]);
+  const lines = contextOf(withPrompt(dir, '@exe do it')).split('\n');
+  assert.equal(lines.length, 2);
+  assert.equal(
+    lines[1],
+    'guilda D49: the user addressed exe, which is not a live address. The live addresses are: T3-exe-7f2a, T4-exe-9c9c. Ask the user which one. Start no agent.',
+  );
+});
+
+test('mention: an ext target with no agentId gets the list', () => {
+  const dir = mentionDir([
+    ...bind('T3-exe-7f2a', 'exe', 'a-3'),
+    { type: 'join', address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice' },
+  ]);
+  const lines = contextOf(withPrompt(dir, '@ext-codex-voice-4592 hello')).split('\n');
+  assert.equal(
+    lines[1],
+    'guilda D49: the user addressed ext-codex-voice-4592, which is not a live address. The live addresses are: T3-exe-7f2a. Ask the user which one. Start no agent.',
+  );
+});
+
+test('mention: no text when no record is written (print mode)', () => {
+  const dir = twoBound();
+  const env = stateEnv();
+  for (const entry of ['sdk-cli', 'none']) assertNothing(dir, env, withPrompt(dir, '@T3-exe-7f2a hi', env, { entry }));
+  assertNothing(dir, env, run(dir, prompt(dir, { prompt: '@T3-exe-7f2a hi', turn_id: 't-1' }), { env }));
+  assertNothing(dir, env, run(dir, prompt(dir, { prompt: '@T3-exe-7f2a hi', agent_id: 'a-1' }), { env }));
+});
+
+test('mention: a readBindings error adds no text and exits 0', () => {
+  const dir = twoBound();
+  const tools = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda-loader-'));
+  fs.writeFileSync(
+    path.join(tools, 'hooks.mjs'),
+    `export async function load(url, ctx, next) {
+  const r = await next(url, ctx);
+  if (url.endsWith('/scripts/lib/queue.mjs')) {
+    r.source = String(r.source).replace('export function readBindings(', 'function readBindingsReal(') +
+      '\\nexport function readBindings() { throw new Error("boom"); }\\n';
+  }
+  return r;
+}
+`,
+  );
+  fs.writeFileSync(
+    path.join(tools, 'register.mjs'),
+    `import { register } from 'node:module';\nregister('./hooks.mjs', import.meta.url);\n`,
+  );
+  const env = { ...stateEnv(), NODE_OPTIONS: `--import=${path.join(tools, 'register.mjs')}` };
+  const r = withPrompt(dir, '@T3-exe-7f2a hi', env);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(contextOf(r), CONTEXT);
+  const r2 = withPrompt(dir, '@nobody hi', env);
+  assert.equal(r2.code, 0, r2.stderr);
+  assert.match(contextOf(r2), CONTEXT);
+});

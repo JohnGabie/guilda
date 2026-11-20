@@ -5,6 +5,38 @@ import { projectState } from '../lib/project.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { MAX_TEXT_CHARS } from '../lib/bus.mjs';
 import { isTypedSession, writeUserRecord, cutText } from '../lib/records.mjs';
+import { readBindings, ROLE_CODES } from '../lib/queue.mjs';
+
+// The @mention step (D49, section 4l). The hook only adds context: it starts no agent and calls no SendMessage.
+// A mention: `@`, a target token, a space or a tab, then at least one character of text. The token holds letters
+// (an address starts with an upper case task letter), digits and `-`; a `.` or `/` makes it no mention.
+const MENTION = /^@([A-Za-z0-9][A-Za-z0-9-]*)[ \t]+\S/;
+const MAIN_TARGET = 'architect';
+const ROLE_ALIASES = Object.freeze({ 'security-lead': 'sec' });
+
+function mentionText(projectDir, prompt, recordId) {
+  const match = MENTION.exec(prompt);
+  if (!match) return null;
+  const token = match[1];
+  if (token === MAIN_TARGET) return null;
+  let bound;
+  try {
+    bound = Object.values(readBindings(projectDir)).filter((b) => b && b.state === 'bound');
+  } catch {
+    return null;
+  }
+  let target = bound.find((b) => b.address === token);
+  if (!target) {
+    const code = ROLE_ALIASES[token] ?? (ROLE_CODES.includes(token) ? token : null);
+    const ofRole = code ? bound.filter((b) => b.role === code) : [];
+    if (ofRole.length === 1) target = ofRole[0];
+  }
+  if (target && target.agentId) {
+    return `guilda D49: the user addressed ${target.address} directly. Call SendMessage to it (agent ${target.agentId}) with \`Record: ${recordId}\` and the text after the mention. Write no text in this turn. When the reply arrives, show it word for word, with no text before or after it.`;
+  }
+  const live = bound.filter((b) => b.agentId).map((b) => b.address);
+  return `guilda D49: the user addressed ${token}, which is not a live address. The live addresses are: ${live.length ? live.join(', ') : 'none'}. Ask the user which one. Start no agent.`;
+}
 
 await runHookMain(async (input) => {
   if (!isTypedSession(process.env, input)) return 0;
@@ -18,9 +50,12 @@ await runHookMain(async (input) => {
     question: null,
   });
   if (!record) return 0;
+  const lines = [`guilda user record: ${record.id}`];
+  const mention = mentionText(projectDir, input.prompt, record.id);
+  if (mention) lines.push(mention);
   process.stdout.write(
     JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: `guilda user record: ${record.id}` },
+      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lines.join('\n') },
     }),
   );
   return 0;
