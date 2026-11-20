@@ -353,6 +353,24 @@ const JOURNAL_FILE = `${QUEUE_DIR}/journal.jsonl`
 const DOCTOR_FILE = '.guilda/.doctor-last.json'
 const INIT_FILE = '.guilda/.init-progress.json'
 
+// One entry of the `bindings` key of state.json, as the panel keeps it (section 4b).
+type PanelBinding = {
+  address: string
+  tool: string | null
+  name: string | null
+  role: string | null
+  inSession: boolean | null
+  agentId: string | null
+  lastSession: string | null
+  state: string
+  /** The state of the task of the entry, or null when the entry has no live run. */
+  taskState: string | null
+  /** The ID of the task of the entry. */
+  taskId: string | null
+}
+// The snapshot of the types file, with the binding entries. The types file is not in this task's file list.
+type PanelSnapshot = GuildaPanelSnapshot & { bindings?: PanelBinding[] }
+
 const EMPTY: GuildaPanelSnapshot = { at: 0, hasQueue: false, tasks: [], doctorFail: null, init: null }
 const NO_DIAGNOSTICS: GuildaPanelDiagnostics = { folder: '', at: 0, errors: [] }
 const NO_LOG: GuildaPanelLog = { address: null, isFound: false, lines: [] }
@@ -442,7 +460,9 @@ const num = (value: unknown): number | null => (typeof value === 'number' && Num
 
 // The tasks of the queue: state.json, or the fold of the journal when state.json is missing, bad, or older than
 // the journal (X7).
-async function readQueue($: EngineInterface, root: Root, now: number, errors: string[]): Promise<Record<string, unknown>> {
+type Queue = { tasks: Record<string, unknown>; bindings: unknown }
+
+async function readQueue($: EngineInterface, root: Root, now: number, errors: string[]): Promise<Queue> {
   let state: Record<string, unknown> | null = null
   let stateTime = 0
   try {
@@ -459,18 +479,20 @@ async function readQueue($: EngineInterface, root: Root, now: number, errors: st
     errors.push(errorText(error))
   }
   const journalPath = `${root.folder}/${JOURNAL_FILE}`
-  if (!(await $.fs.exists(journalPath))) return state?.tasks as Record<string, unknown> ?? {}
+  const fromState = (): Queue => ({ tasks: (state?.tasks as Record<string, unknown>) ?? {}, bindings: state?.bindings })
+  if (!(await $.fs.exists(journalPath))) return fromState()
   const journalTime = (await $.fs.stat(journalPath)).mtimeMs
-  if (state !== null && stateTime >= journalTime) return state.tasks as Record<string, unknown>
+  if (state !== null && stateTime >= journalTime) return fromState()
   try {
     const found = await readInside($, root, JOURNAL_FILE)
-    if (found === undefined) return {}
+    if (found === undefined) return { tasks: {}, bindings: undefined }
     const { events, skipped } = parseJournal(found.text)
     if (skipped.length > 0) errors.push(`${JOURNAL_FILE}: lines skipped: ${skipped.join(', ')}`)
-    return fold(events, { now, generator: GENERATOR }).tasks
+    const folded = fold(events, { now, generator: GENERATOR })
+    return { tasks: folded.tasks, bindings: folded.bindings }
   } catch (error) {
     errors.push(errorText(error))
-    return state?.tasks as Record<string, unknown> ?? {}
+    return fromState()
   }
 }
 
@@ -519,8 +541,42 @@ async function heartbeatTokens(
   }
 }
 
-async function readTasks($: EngineInterface, root: Root, now: number, errors: string[]): Promise<GuildaPanelTask[]> {
-  const raw = await readQueue($, root, now, errors)
+const text = (value: unknown): string | null => (typeof value === 'string' ? clean(value) : null)
+
+// The entries of the `bindings` key. No key gives no entry and no diagnostic (D40).
+function toBindings(raw: unknown, tasks: Record<string, unknown>): PanelBinding[] {
+  if (!isRecord(raw)) return []
+  const found: PanelBinding[] = []
+  for (const [address, value] of Object.entries(raw)) {
+    if (!validId('address', address) || !isRecord(value)) continue
+    const taskId = typeof value.task === 'string' && validId('task', value.task) ? value.task : null
+    const task = taskId !== null && Object.hasOwn(tasks, taskId) ? tasks[taskId] : null
+    const sessions = Array.isArray(value.sessions) ? value.sessions.filter(one => typeof one === 'string') : []
+    found.push({
+      address: clean(address),
+      tool: text(value.tool),
+      name: text(value.name),
+      role: text(value.role),
+      inSession: typeof value.inSession === 'boolean' ? value.inSession : null,
+      agentId: text(value.agentId),
+      lastSession: sessions.length > 0 ? clean(sessions.at(-1) as string) : null,
+      state: text(value.state) ?? 'unknown',
+      taskState: isRecord(task) ? text(task.state) : null,
+      taskId,
+    })
+  }
+  return found
+}
+
+async function readTasks(
+  $: EngineInterface,
+  root: Root,
+  now: number,
+  errors: string[],
+): Promise<{ tasks: GuildaPanelTask[]; bindings: PanelBinding[] }> {
+  const queue = await readQueue($, root, now, errors)
+  const raw = queue.tasks
+  const bindings = toBindings(queue.bindings, raw)
   const tasks: GuildaPanelTask[] = []
   for (const [id, value] of Object.entries(raw)) {
     if (!validId('task', id)) {
@@ -535,7 +591,7 @@ async function readTasks($: EngineInterface, root: Root, now: number, errors: st
     }
     tasks.push(one)
   }
-  return tasks
+  return { tasks, bindings }
 }
 
 // The check of the first FAIL line of .doctor-last.json. A missing file is no mark and no diagnostic.
@@ -657,13 +713,15 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
     const now = await $.clock.now()
     const errors: string[] = []
     const root = await findRoot($)
-    let next: GuildaPanelSnapshot = { ...EMPTY, at: now }
+    let next: PanelSnapshot = { ...EMPTY, at: now }
     if (root !== null) {
       const hasQueue = await $.fs.exists(`${root.folder}/${QUEUE_DIR}`)
+      const queue = hasQueue ? await readTasks($, root, now, errors) : { tasks: [], bindings: [] }
       next = {
         at: now,
         hasQueue,
-        tasks: hasQueue ? await readTasks($, root, now, errors) : [],
+        tasks: queue.tasks,
+        bindings: queue.bindings,
         doctorFail: await readDoctor($, root, errors),
         init: await readInit($, root, now, errors),
       }
@@ -712,6 +770,38 @@ export function visibleRows(snap: GuildaPanelSnapshot): GuildaPanelTask[] {
     if (ACTIVE_STATES.includes(task.state)) return true
     return FINISHED_STATES.includes(task.state) && task.since !== null && snap.at - task.since < LINGER_MS
   })
+}
+
+// The bound external agents that have a row: not in the session, state bound. An entry whose task already has a
+// task row has no second row.
+export function bindingRows(snap: PanelSnapshot): PanelBinding[] {
+  const shown = visibleRows(snap)
+  return (snap.bindings ?? []).filter(
+    one =>
+      one.state === 'bound' &&
+      one.inSession === false &&
+      !shown.some(task => task.address === one.address || (one.taskId !== null && task.id === one.taskId)),
+  )
+}
+
+// guilda:<role name>-<tool>, or guilda:<name>-<tool> for a joined agent.
+export function bindingLabel(one: PanelBinding): string {
+  const tool = one.tool ?? 'agent'
+  const who = one.role !== null ? (ROLE_NAMES[one.role] ?? one.role) : (one.name ?? one.address)
+  return `guilda:${who}-${tool}`
+}
+
+export function bindingRight(one: PanelBinding): string {
+  return one.taskState === 'running' ? 'running' : 'idle'
+}
+
+export function bindingLine(one: PanelBinding): string {
+  return [
+    one.address,
+    one.tool ?? '-',
+    one.agentId !== null ? `agent ${one.agentId}` : `session ${one.lastSession ?? '-'}`,
+    one.state,
+  ].join(' · ')
 }
 
 export function workText(tasks: readonly GuildaPanelTask[]): string {
@@ -835,8 +925,9 @@ export const register: Register = on => {
   // The detail pane: each task of the queue, of each tool.
   on('ui.render', { component: 'Pane', requestId: DETAIL_PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const snap = await read($, snapshot)
-    if (snap.tasks.length === 0) {
+    const snap: PanelSnapshot = await read($, snapshot)
+    const bound = snap.bindings ?? []
+    if (snap.tasks.length === 0 && bound.length === 0) {
       return (
         <Box flexDirection="column">
           <Text dimColor>No guilda tasks.</Text>
@@ -851,6 +942,11 @@ export const register: Register = on => {
         {snap.tasks.map(task => (
           <Text key={`task:${task.id}`} wrap="truncate-end">
             {detailLine(task, snap.at, withLabel)}
+          </Text>
+        ))}
+        {bound.map(one => (
+          <Text key={`binding:${one.address}`} wrap="truncate-end">
+            {bindingLine(one)}
           </Text>
         ))}
       </Box>
@@ -909,10 +1005,11 @@ export const register: Register = on => {
   // init row on a narrow terminal. The hint line stays as the engine draws it.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     if (e.viewport !== undefined) lastColumns = e.viewport.columns
-    const snap = await read($, snapshot)
+    const snap: PanelSnapshot = await read($, snapshot)
     const isPlaced = await read($, initPlaced)
     const rows = visibleRows(snap)
-    const showsBlock = snap.hasQueue && (rows.length > 0 || snap.doctorFail !== null)
+    const boundRows = bindingRows(snap)
+    const showsBlock = snap.hasQueue && (rows.length > 0 || boundRows.length > 0 || snap.doctorFail !== null)
     const init = snap.init
     const showsInit = init !== null && (lastColumns < INIT_PANE_COLUMNS || !isPlaced)
     if (!showsBlock && !showsInit) return next(e)
@@ -970,6 +1067,30 @@ export const register: Register = on => {
                 <Box flexShrink={0} hover={{ scope }}>
                   <Text dimColor hover={{ scope }}>
                     {rightText(task, snap.at)}
+                  </Text>
+                </Box>
+              </Box>
+            )
+          })}
+        {showsBlock &&
+          boundRows.map(one => {
+            const scope = `row-${one.address}`.slice(0, 64)
+            return (
+              <Box key={`binding:${one.address}`} flexDirection="row" gap={2} hover={{ scope }}>
+                <Box flexShrink={0} width={1} hover={{ scope }}>
+                  <Text dimColor hover={{ scope }}>
+                    {MARKER}
+                  </Text>
+                </Box>
+                <Box flexShrink={0} hover={{ scope }}>
+                  <Text dimColor hover={{ scope }}>
+                    {bindingLabel(one)}
+                  </Text>
+                </Box>
+                <Box flexGrow={1} flexShrink={1} minWidth={0} />
+                <Box flexShrink={0} hover={{ scope }}>
+                  <Text dimColor hover={{ scope }}>
+                    {bindingRight(one)}
                   </Text>
                 </Box>
               </Box>

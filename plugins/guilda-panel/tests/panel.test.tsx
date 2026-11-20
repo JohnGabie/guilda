@@ -508,3 +508,119 @@ test('file text with ESC sequences shows no control characters', async ($, on) =
   expect(ran.text).toContain('.doctor-last.json')
   expect(CONTROL_BUT_NEWLINE.test(ran.text ?? '')).toBe(false)
 })
+
+// S4-32: the `bindings` key of state.json. The fixture uses `tool: "codex"` as data; the mod runs no Codex code.
+type Binding = Record<string, unknown>
+
+function binding(fields: Binding): Binding {
+  return {
+    address: null,
+    tool: null,
+    inSession: false,
+    agentId: null,
+    agentType: null,
+    sessions: [],
+    parentSession: null,
+    parentAgent: null,
+    name: null,
+    role: null,
+    task: null,
+    state: 'bound',
+    ...fields,
+  }
+}
+
+function s432Bindings(joinedState: string): Record<string, Binding> {
+  return {
+    'ext-codex-voice-4592': binding({ address: 'ext-codex-voice-4592', tool: 'codex', name: 'voice', sessions: ['sess-9'], state: joinedState }),
+    'T5-exe-1a2b': binding({ address: 'T5-exe-1a2b', tool: 'codex', role: 'exe', agentId: 'a7c1', task: 'T5' }),
+    'T3-exe-7f2a': binding({ address: 'T3-exe-7f2a', tool: 'claude', inSession: true, role: 'exe', agentId: 'a1b2c3', task: 'T3' }),
+  }
+}
+
+// T5 is running and has no row of its own (inSession unknown), so the binding row stands for it.
+function s432State(bindings: Record<string, Binding> | undefined): string {
+  const tasks = { T5: task({ address: 'T5-exe-1a2b', tool: 'codex', inSession: null }) }
+  const body: Record<string, unknown> = { generator: 'guilda 0.4.0', journalSeq: 3, slots: 3, works: {}, tasks }
+  if (bindings !== undefined) body.bindings = bindings
+  return JSON.stringify(body)
+}
+
+const BINDING_ROW = (label: string, right: string) => ['◇', label, right]
+
+test('binding rows', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  engine(on, { [STATE_PATH]: fileOf(s432State(s432Bindings('bound'))) })
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(await textsOf(hint)).toEqual([
+    'engine',
+    'other models',
+    ...BINDING_ROW('guilda:voice-codex', 'idle'),
+    ...BINDING_ROW('guilda:executor-codex', 'running'),
+    'agent work: 0.0 h',
+  ])
+  await hint.unmount()
+
+  await $.command.run(RUN)
+  const wide = PANE('guilda-agents', 'guilda agents')
+  const pane = await $.ui.mount({ ...wide, props: { ...wide.props, bodyColumns: 100 }, surface: 'terminal' })
+  const lines = (await textsOf(pane)).filter(one => !one.startsWith('T5 ·'))
+  expect(lines).toEqual([
+    'ext-codex-voice-4592 · codex · session sess-9 · bound',
+    'T5-exe-1a2b · codex · agent a7c1 · bound',
+    'T3-exe-7f2a · claude · agent a1b2c3 · bound',
+  ])
+  await pane.unmount()
+})
+
+test('binding rows: an unbound entry has no row', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  engine(on, { [STATE_PATH]: fileOf(s432State(s432Bindings('unbound'))) })
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(await textsOf(hint)).toEqual(['engine', 'other models', ...BINDING_ROW('guilda:executor-codex', 'running'), 'agent work: 0.0 h'])
+  await hint.unmount()
+
+  await $.command.run(RUN)
+  const wide = PANE('guilda-agents', 'guilda agents')
+  const pane = await $.ui.mount({ ...wide, props: { ...wide.props, bodyColumns: 100 }, surface: 'terminal' })
+  expect(await textsOf(pane)).toContain('ext-codex-voice-4592 · codex · session sess-9 · unbound')
+  await pane.unmount()
+})
+
+test('binding rows: no bindings key, no row and no diagnostic', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  engine(on, { [STATE_PATH]: fileOf(s432State(undefined)) })
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(await textsOf(hint)).toEqual(['engine'])
+  await hint.unmount()
+  const ran = await $.command.run(RUN)
+  expect(ran.text).toContain('errors: none')
+})
+
+test('binding rows: the mod reads no file in .guilda/bus', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  const seen = engine(on, {
+    [STATE_PATH]: fileOf(s432State(s432Bindings('bound'))),
+    [`${PROJECT}/.guilda/bus/msg-1.json`]: fileOf('{"from":"ext-codex-voice-4592","text":"hello"}'),
+    [`${PROJECT}/.guilda/bus/inbox/msg-2.json`]: fileOf('{}'),
+  })
+  engineDraws(on)
+
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  await $.command.run(RUN)
+
+  expect(seen.reads).toContain(STATE_PATH)
+  expect(seen.touched.filter(path => path.includes('/.guilda/bus'))).toEqual([])
+})
