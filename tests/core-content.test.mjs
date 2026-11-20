@@ -15,7 +15,7 @@ const LEVELS = {
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
-  R33: 'judgment', R34: 'law', R35: 'gate',
+  R34: 'law', R35: 'gate',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -64,8 +64,9 @@ test('R32 has the level law', () => {
   assert.equal(blocks(read('core/rules.md')).R32?.level, 'law');
 });
 
-test('R33 has the level judgment', () => {
-  assert.equal(blocks(read('core/rules.md')).R33?.level, 'judgment');
+test('R33 is not in 0.4.0 (L4-1 NO-GO)', () => {
+  assert.equal(blocks(read('core/rules.md')).R33, undefined);
+  assert.ok(!/^### R33\b/m.test(read('core/rules.md')));
 });
 
 test('R34 has the level law', () => {

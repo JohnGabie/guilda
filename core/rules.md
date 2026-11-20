@@ -158,11 +158,6 @@ Rule:  Change the queue only through the queue script, as the writer role, and n
 Why:   A second writer or a hand edit breaks the journal, and then the state of the flow is a guess.
 Check: law — PreToolUse refuses a Write, an Edit or a common shell write to the queue files. It also refuses a queue script call from a caller that is not the writer role.
 
-### R33 — State questions go to the Architect or a file
-Rule:  In the main session, answer a question about the product state only from the Architect or a guilda file.
-Why:   In the D31 lab a light main session gave a wrong task count from an old summary, with confidence.
-Check: judgment — No hook sees where an answer came from, so L4-1 measures it and this rule is text only.
-
 ### R34 — The bus changes only through the bus script
 Rule:  Write `.guilda/bus/` only through `scripts/bus.mjs`, and send only from the address bound to you.
 Why:   Any process that writes the bus can send as any address, also as a user channel (lab `external-agent`).

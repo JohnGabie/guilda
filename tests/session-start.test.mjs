@@ -289,18 +289,19 @@ test('the context has the Full rule blocks: line with the path of core/rules.md'
   assert.ok(lines.includes('Full rule blocks: ' + REPO_ROOT.split(path.sep).join('/') + '/core/rules.md'));
 });
 
-// S4-38 (rules part): R34 is one law line; R33 and R35 have their heading and Rule: line.
-test('context of 0.4.0: the R34 law line, and the R33 and R35 headings with their Rule: lines', () => {
+// S4-38 (rules part): R34 is one law line; R35 has its heading and Rule: line; R33 is not in 0.4.0 (L4-1 NO-GO).
+test('context of 0.4.0: the R34 law line, the R35 heading with its Rule: line, and no R33', () => {
   const lines = ctxOf('# Project rules\n').split('\n');
   assert.ok(lines.includes('### R34 — The bus changes only through the bus script (law — enforced by a hook)'));
   assert.ok(!lines.includes(RULE_BLOCKS.find((b) => b.id === 'R34').rule));
-  for (const [id, level] of [['R33', 'judgment'], ['R35', 'gate']]) {
+  for (const [id, level] of [['R35', 'gate']]) {
     const b = RULE_BLOCKS.find((x) => x.id === id);
     assert.ok(b, id);
     const i = lines.indexOf(`### ${id} — ${b.title} (${level})`);
     assert.ok(i >= 0, id);
     assert.equal(lines[i + 1], b.rule);
   }
+  assert.ok(!ctxOf('# Project rules\n').includes('R33'));
 });
 
 // The S47 fixture with session_id 's-1': the version notice, the extension notice and the session line show.
