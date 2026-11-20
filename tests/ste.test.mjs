@@ -90,8 +90,8 @@ test('detail never longer than 60 characters', () => {
 test('parseGlossary reads the core/glossary.md format', () => {
   const text = fs.readFileSync(path.join(REPO_ROOT, 'core', 'glossary.md'), 'utf8');
   const glossary = parseGlossary(text);
-  // T13 added the eight 0.3.0 glossary terms (20 -> 28).
-  assert.equal(glossary.length, 28);
+  // T13 added the eight 0.3.0 glossary terms (20 -> 28). P10 added the four 0.4.0 terms (28 -> 32).
+  assert.equal(glossary.length, 32);
   assert.deepEqual(glossary[0], { term: 'brief', forbidden: ['ticket', 'assignment'] });
 });
 

@@ -8,6 +8,39 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+## 0.4.0 — Unreleased
+
+### Added
+
+- New rules: R34 and R35. R34: the bus changes only through `scripts/bus.mjs`. R35: a user decision needs a user
+  record, which `bus.mjs verify` checks.
+- The bus: the mailbox of each address in `.guilda/bus/`, and the commands `send`, `join`, `who` and `pending` of
+  `scripts/bus.mjs`.
+- The binding table, derived from the queue journal, with the new fields of `dispatch.json`.
+- User records: a hook writes one for each user prompt and each question answer. `bus.mjs verify` checks the code.
+- The R34 and R35 hooks, with the PreToolUse matcher that also refuses a read of the key folder.
+- The read-only router: `bus.mjs deliver` lists the pending messages of one address with their routes. It starts no
+  agent and writes no receipt.
+- The @mention: the UserPromptSubmit hook routes a prompt that starts with `@<target>`.
+- The `guilda-panel` mod: rows for external agents, the detail pane, the `/guilda-agents` command, the doctor mark
+  and the init progress. The mod also shows the binding rows of each address.
+- The config keys of 0.4.0 in `scripts/config-check.mjs`, with tolerant readers.
+
+### Changed
+
+- The line limits of `core/rules.md`, `core/writing.md` and `core/subagent.md`, and the pin of the session
+  context, move for R34 and R35.
+- Glossary: new terms mailbox, binding table, user channel and user record.
+
+### Not in this release
+
+- The Architect agent (P4, D31). The L4-1 lab is a NO-GO. ARC1 and the lines of architect, controller and main
+  session keep their 0.3.x text.
+- R33. The rule is removed from the 0.4.0 core rules.
+- The reply contract.
+- Codex: P6, gate G3, the Codex adapter and the codex adapter line of `doctor`.
+- Links in the chat (P8). The L4-5 lab is cut.
+
 ## [0.3.1] - 2026-11-19
 
 ### Fixed

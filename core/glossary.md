@@ -33,6 +33,10 @@ Source: guilda design, sections 6 and 7.
 - **block**: one part of a spec with a stable ID (a decision, a task, a scenario), the unit that a link and a hash cover. Forbidden: chunk, snippet.
 - **agent ID**: the identifier that the host gives one agent run, recorded in the queue journal. Forbidden: agent name, agent handle.
 - **address**: the name of one dispatch, one joined agent or one fixed role on the bus, that stays the same when the agent behind it changes. Forbidden: mailbox name, agent handle.
+- **mailbox**: the append-only file of one address in `.guilda/bus/`, with the messages to that address and their receipts. Forbidden: inbox, message box.
+- **binding table**: the table, derived from the queue journal, that maps each address to the agent and the sessions that run it. Forbidden: registry, agent map.
+- **user channel**: an address whose prompts count as the words of the user; in 0.4.0 only `main`. Forbidden: owner channel.
+- **user record**: one line that a hook writes for a user prompt or a question answer, with a code that `verify` checks. Forbidden: user log.
 - **queue journal**: the append-only file .guilda/queue/journal.jsonl that records each task, dispatch, signal and state change, with one writer. Forbidden: job log, task list.
 - **signal**: a file that a worker writes under .guilda/queue/signals/ to say that it started, that it is alive, or that it ended. Forbidden: ping, beacon.
 - **audit log**: the file .guilda/audit.jsonl with one line for each tool call of a subagent, with no command text and no file content. Forbidden: activity log, tool log.

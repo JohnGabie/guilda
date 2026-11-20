@@ -26,6 +26,8 @@
       "scripts/changelog.mjs",
       "scripts/config-write.mjs",
       "scripts/lib/project.mjs",
+      "scripts/lib/records.mjs",
+      "core/glossary.md",
       "scripts/lib/trace.mjs",
       "scripts/hooks/pre-tool-use.mjs",
       "agents/reviewer.md",

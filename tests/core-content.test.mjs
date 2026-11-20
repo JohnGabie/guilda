@@ -117,7 +117,8 @@ test('tiers.json has the three tier keys', () => {
 test('glossary has the process terms in the fixed line format', () => {
   const terms = ['brief', 'spec', 'plan', 'executor', 'reviewer', 'QA', 'security', 'architect', 'controller', 'lab',
     'verdict', 'process level', 'security zone', 'review unit', 'domain skill', 'triage', 'mutant', 'field report',
-    'lab report', 'Lab group', 'block', 'agent ID', 'address', 'queue journal', 'signal', 'audit log', 'block index',
+    'lab report', 'Lab group', 'block', 'agent ID', 'address', 'mailbox', 'binding table',
+    'user channel', 'user record', 'queue journal', 'signal', 'audit log', 'block index',
     'cost record'];
   const lines = read('core/glossary.md').split(/\r?\n/).filter((l) => l.startsWith('- **'));
   const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;

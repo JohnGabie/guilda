@@ -8,7 +8,7 @@ This repository has four plugins. They share one version.
 - `guilda-skills`: the extension, with eight skills: `data`, `ai-engineering`, `ai-evals`, `lab-experiment`,
   `devops`, `ai-data`, `agent-creator` and `security-zones`. It needs `superpowers` and `skill-creator`.
 - `ios-on-linux`: control a real iPhone from a Linux PC.
-- `guilda-panel`: the panel plugin for the queue and the agents of a project. Its panel module is not in 0.3.0.
+- `guilda-panel`: the panel plugin for the queue and the agents of a project. Its panel module is the `guilda-panel` mod. See "The bus and the panel".
 
 ## Install
 
@@ -48,6 +48,19 @@ To update by hand, run `claude plugin update guilda@guilda`. A running session k
 
 The queue script writes `.guilda/status.md`, a copy of the state of the queue. Other tools can read this file.
 Run `node scripts/status.mjs <project>` to see the state, or add `--agent <name>` to see one agent.
+
+## The bus and the panel
+
+- The bus: agents send messages to an address. Each address has a mailbox in `.guilda/bus/`. Only
+  `node scripts/bus.mjs <project> <command>` writes there. The commands are `send`, `join`, `who`, `pending`,
+  `deliver` and `verify`.
+- User records: a hook writes one record for each prompt or answer of the user. `bus.mjs verify <id>` checks a
+  record. A user decision needs a record (R35).
+- `bus.mjs deliver <address>` lists the pending messages of one address with their routes. It starts no agent.
+- The @mention: start a prompt with `@<target> <text>`. The hook adds the address to the context of the session.
+  The target is an address that is bound.
+- The `guilda-panel` mod shows each agent of the project as a row, with its binding. Run `/guilda-agents` to open
+  the detail pane. Run `/guilda-agents log <address>` to open the log of one agent.
 
 ## Update from 0.1.x
 

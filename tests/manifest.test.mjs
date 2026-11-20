@@ -23,6 +23,9 @@ test('marketplace entry name equals plugin name and source is "./"', () => {
 test('CHANGELOG top released entry equals plugin version', () => {
   const plugin = readJson('.claude-plugin/plugin.json');
   const text = fs.readFileSync(new URL('CHANGELOG.md', root), 'utf8');
+  // A version that is not released yet has the heading `## <version> — Unreleased` above the released entries.
+  const open = text.match(/^## (\d+\.\d+\.\d+) — Unreleased$/m);
+  if (open) return assert.equal(open[1], plugin.version);
   const m = text.match(/^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$/m);
   assert.ok(m, 'CHANGELOG has an entry heading');
   assert.equal(m[1], plugin.version);
@@ -212,9 +215,17 @@ test('T23: the 0.3.0 entry names R31 and R32, and R29 only when core/rules.md ha
   assert.match(e, /not in this release/);
 });
 
-test('T23: the changelog has an empty Unreleased entry, then the entry and the links of the core version', () => {
+test('T23: the changelog has the entry and the links of the core version', () => {
   const text = changelogText();
-  const q = readJson(CORE).version.replace(/\./g, '\\.');
+  const v = readJson(CORE).version;
+  const q = v.replace(/\./g, '\\.');
+  const open = new RegExp('^## \\[Unreleased\\]\\n\\n## ' + q + ' — Unreleased$', 'm').test(text);
+  if (open) {
+    // The version is not released: the Unreleased link starts at the latest release.
+    const last = text.match(/^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$/m)[1].replace(/\./g, '\\.');
+    assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + last + '\\.\\.\\.HEAD$', 'm'));
+    return;
+  }
   assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
   assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + q + '\\.\\.\\.HEAD$', 'm'));
   assert.match(text, new RegExp('^\\[' + q + '\\]: .*compare/guilda--v[0-9.]+\\.\\.\\.guilda--v' + q + '$', 'm'));
