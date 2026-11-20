@@ -1,0 +1,52 @@
+{"seq":1,"t":"2026-11-20T10:00:00.000Z","type":"plan","plan":"docs/login.plan.md","part":null,"work":"w-5c1e9a02","slots":3}
+{"seq":2,"t":"2026-11-20T10:00:00.000Z","type":"task","task":"T3","work":"w-5c1e9a02","key":"T3","title":"Plan the login","deps":[],"uses":["D14@3f2a9c1b"],"owns":[]}
+{"seq":3,"t":"2026-11-20T10:00:00.000Z","type":"task","task":"T5","work":"w-5c1e9a02","key":"T5","title":"Port the parser","deps":[],"uses":[],"owns":[]}
+{"seq":4,"t":"2026-11-20T10:00:00.000Z","type":"task","task":"T6","work":"w-5c1e9a02","key":"T6","title":"Write the docs","deps":[],"uses":[],"owns":[]}
+{"seq":5,"t":"2026-11-20T10:00:00.000Z","type":"task","task":"T7","work":"w-5c1e9a02","key":"T7","title":"Late done","deps":[],"uses":[],"owns":[]}
+{"seq":6,"t":"2026-11-20T10:00:00.000Z","type":"task","task":"T8","work":"w-5c1e9a02","key":"T8","title":"Old attempt","deps":["T7"],"uses":[],"owns":[]}
+{"seq":7,"t":"2026-11-20T10:00:01.000Z","type":"state","task":"T3","from":"pending","to":"ready","cause":"deps"}
+{"seq":8,"t":"2026-11-20T10:00:01.000Z","type":"state","task":"T5","from":"pending","to":"ready","cause":"deps"}
+{"seq":9,"t":"2026-11-20T10:00:01.000Z","type":"state","task":"T6","from":"pending","to":"ready","cause":"deps"}
+{"seq":10,"t":"2026-11-20T10:00:01.000Z","type":"state","task":"T7","from":"pending","to":"ready","cause":"deps"}
+{"seq":11,"t":"2026-11-20T10:00:02.000Z","type":"dispatch","task":"T3","attempt":1,"address":"T3-exe-7f2a","role":"exe","tool":"claude","inSession":true,"check":false,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":12,"t":"2026-11-20T10:00:02.000Z","type":"state","task":"T3","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":13,"t":"2026-11-20T10:00:02.000Z","type":"dispatch","task":"T5","attempt":1,"address":"T5-exe-19cd","role":"exe","tool":"codex","inSession":false,"check":false,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":14,"t":"2026-11-20T10:00:02.000Z","type":"state","task":"T5","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":15,"t":"2026-11-20T10:00:02.000Z","type":"dispatch","task":"T6","attempt":1,"address":"T6-exe-2a3b","role":"exe","tool":"claude","inSession":false,"check":false,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":16,"t":"2026-11-20T10:00:02.000Z","type":"state","task":"T6","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":17,"t":"2026-11-20T10:00:02.000Z","type":"dispatch","task":"T7","attempt":1,"address":"T7-exe-0b0b","role":"exe","tool":"codex","inSession":false,"check":false,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":18,"t":"2026-11-20T10:00:02.000Z","type":"state","task":"T7","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":19,"t":"2026-11-20T10:00:03.000Z","type":"agent","address":"T3-exe-7f2a","task":"T3","attempt":1,"agentId":"a1b2c3","agentType":"guilda:executor","parentSession":"s-main","parentAgent":null}
+{"seq":20,"t":"2026-11-20T10:00:04.000Z","type":"signal","address":"T3-exe-7f2a","task":"T3","attempt":1,"kind":"started","at":"2026-11-20T10:00:03.500Z"}
+{"seq":21,"t":"2026-11-20T10:00:04.000Z","type":"state","task":"T3","from":"dispatched","to":"running","cause":"started"}
+{"seq":22,"t":"2026-11-20T10:00:04.000Z","type":"signal","address":"T5-exe-19cd","task":"T5","attempt":1,"kind":"started","at":"2026-11-20T10:00:03.000Z"}
+{"seq":23,"t":"2026-11-20T10:00:04.000Z","type":"state","task":"T5","from":"dispatched","to":"running","cause":"started"}
+{"seq":24,"t":"2026-11-20T10:00:04.000Z","type":"signal","address":"T6-exe-2a3b","task":"T6","attempt":1,"kind":"started","at":"2026-11-20T10:00:03.000Z"}
+{"seq":25,"t":"2026-11-20T10:00:04.000Z","type":"state","task":"T6","from":"dispatched","to":"running","cause":"started"}
+{"seq":26,"t":"2026-11-20T10:00:04.000Z","type":"signal","address":"T7-exe-0b0b","task":"T7","attempt":1,"kind":"started","at":"2026-11-20T10:00:03.000Z"}
+{"seq":27,"t":"2026-11-20T10:00:04.000Z","type":"state","task":"T7","from":"dispatched","to":"running","cause":"started"}
+{"seq":28,"t":"2026-11-20T10:00:10.000Z","type":"signal","address":"T5-exe-19cd","task":"T5","attempt":1,"kind":"heartbeat","at":"2026-11-20T10:00:09.000Z","busyUntil":"2026-11-20T10:10:09.000Z","tokens":1200}
+{"seq":29,"t":"2026-11-20T10:00:10.000Z","type":"signal","address":"T6-exe-2a3b","task":"T6","attempt":1,"kind":"heartbeat","at":"2026-11-20T10:00:08.000Z","busyUntil":"2026-11-20T10:10:08.000Z","tokens":300}
+{"seq":30,"t":"2026-11-20T10:00:11.000Z","type":"dispatch","task":"T3","attempt":1,"address":"T3-rev-a9f0","role":"rev","tool":"claude","inSession":true,"check":true,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":31,"t":"2026-11-20T10:00:12.000Z","type":"agent","address":"T3-rev-a9f0","task":"T3","attempt":1,"agentId":"d4e5f6","agentType":"guilda:reviewer","parentSession":"s-main","parentAgent":null}
+{"seq":32,"t":"2026-11-20T10:00:13.000Z","type":"signal","address":"T3-rev-a9f0","task":"T3","attempt":1,"kind":"started","at":"2026-11-20T10:00:12.500Z"}
+{"seq":33,"t":"2026-11-20T10:30:00.000Z","type":"state","task":"T7","from":"running","to":"stalled","cause":"no-heartbeat"}
+{"seq":34,"t":"2026-11-20T10:31:00.000Z","type":"signal","address":"T7-exe-0b0b","task":"T7","attempt":1,"kind":"done","at":"2026-11-20T10:30:30.000Z","reason":"finished","usage":[{"model":"gpt-5","input":900,"cacheRead":100,"cacheCreation":0,"output":250}]}
+{"seq":35,"t":"2026-11-20T10:31:00.000Z","type":"state","task":"T7","from":"stalled","to":"review","cause":"late-done"}
+{"seq":36,"t":"2026-11-20T10:31:00.000Z","type":"decision","tasks":["T7"],"decision":"approve","by":"architect"}
+{"seq":37,"t":"2026-11-20T10:31:00.000Z","type":"state","task":"T7","from":"review","to":"done","cause":"approve"}
+{"seq":38,"t":"2026-11-20T10:31:01.000Z","type":"state","task":"T8","from":"pending","to":"ready","cause":"deps"}
+{"seq":39,"t":"2026-11-20T10:31:02.000Z","type":"dispatch","task":"T8","attempt":1,"address":"T8-exe-3c3c","role":"exe","tool":"codex","inSession":false,"check":false,"tier":"journeyman","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":40,"t":"2026-11-20T10:31:02.000Z","type":"state","task":"T8","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":41,"t":"2026-11-20T10:34:00.000Z","type":"state","task":"T8","from":"dispatched","to":"stalled","cause":"no-ack"}
+{"seq":42,"t":"2026-11-20T10:35:00.000Z","type":"decision","tasks":["T8"],"decision":"retry","by":"architect"}
+{"seq":43,"t":"2026-11-20T10:35:00.000Z","type":"state","task":"T8","from":"stalled","to":"ready","cause":"retry"}
+{"seq":44,"t":"2026-11-20T10:35:01.000Z","type":"dispatch","task":"T8","attempt":2,"address":"T8-exe-4d4d","role":"exe","tool":"codex","inSession":false,"check":false,"tier":"master","session":"s-main","briefFile":null,"baseCommit":"bc07ea7","uses":[]}
+{"seq":45,"t":"2026-11-20T10:35:01.000Z","type":"state","task":"T8","from":"ready","to":"dispatched","cause":"dispatch"}
+{"seq":46,"t":"2026-11-20T10:36:00.000Z","type":"signal","address":"T8-exe-3c3c","task":"T8","attempt":1,"kind":"done","at":"2026-11-20T10:35:30.000Z","reason":"finished","usage":null}
+{"seq":47,"t":"2026-11-20T10:36:00.000Z","type":"signal","address":"T8-exe-4d4d","task":"T8","attempt":2,"kind":"started","at":"2026-11-20T10:35:40.000Z"}
+{"seq":48,"t":"2026-11-20T10:36:00.000Z","type":"state","task":"T8","from":"dispatched","to":"running","cause":"started"}
+{"seq":49,"t":"2026-11-20T10:36:30.000Z","type":"join","address":"ext-codex-voice-4592","tool":"codex","name":"voice"}
+{"seq":50,"t":"2026-11-20T10:36:31.000Z","type":"session","address":"ext-codex-voice-4592","session":"s-codex-1"}
+{"seq":51,"t":"2026-11-20T10:36:32.000Z","type":"future-kind","note":"an unknown type is ignored"}
+{"seq":52,"t":"2026-11-20T10:37:00.000Z","type":"unbind","address":"T7-exe-0b0b"}

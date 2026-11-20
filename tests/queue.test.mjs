@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { stripTypeScriptTypes } from 'node:module';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import {
   makeAddress,
   readJournal,
   readState,
   fold,
+  parseJournal,
   writeSignal,
   validId,
   queuePaths,
@@ -863,4 +865,38 @@ test('readJournal refuses a FIFO at the journal', () => {
   const r = spawnSync('mkfifo', [path.join(qdir(dir), 'journal.jsonl')]);
   assert.equal(r.status, 0);
   assert.throws(() => readJournal(dir), /io-error|journal\.jsonl/);
+});
+
+// The guilda-panel mod cannot import a core script, so register.tsx holds a copy of the fold (section 4h). The copy
+// sits between two marker lines. The test strips its types and runs it on one fixture journal.
+const PANEL_DIR = path.join(REPO_ROOT, 'plugins', 'guilda-panel');
+const FOLD_BEGIN = '// fold copy: begin';
+const FOLD_END = '// fold copy: end';
+
+function panelFold() {
+  const source = fs.readFileSync(path.join(PANEL_DIR, 'hooks', 'register.tsx'), 'utf8');
+  const begin = source.indexOf(FOLD_BEGIN);
+  const end = source.indexOf(FOLD_END);
+  assert.ok(begin >= 0 && end > begin, 'register.tsx has the fold copy markers');
+  const code = stripTypeScriptTypes(source.slice(begin, end));
+  return new Function(`${code}\nreturn { fold, parseJournal };`)();
+}
+
+test('panel fold equals core fold', () => {
+  const text = fs.readFileSync(path.join(PANEL_DIR, 'tests', 'fixtures', 'journal.jsonl'), 'utf8');
+  const panel = panelFold();
+  const { events, skipped } = parseJournal(text);
+  assert.deepEqual(skipped, []);
+  assert.deepStrictEqual(panel.parseJournal(text), parseJournal(text));
+  // The fixture has a late done (T7), a done of an old attempt (T8), a check run, a join and an unknown type.
+  assert.ok(events.some((e) => e.cause === 'late-done'));
+  for (const now of [undefined, '2026-11-20T10:40:00.000Z']) {
+    const opts = { now, generator: 'guilda test' };
+    assert.deepStrictEqual(panel.fold(events, opts), fold(events, opts));
+  }
+  // Each prefix of the journal gives the same state too: the late done row and the old attempt fold the same.
+  const opts = { now: '2026-11-20T10:40:00.000Z', generator: 'guilda test' };
+  for (let n = 0; n <= events.length; n++) {
+    assert.deepStrictEqual(panel.fold(events.slice(0, n), opts), fold(events.slice(0, n), opts), `prefix ${n}`);
+  }
 });
