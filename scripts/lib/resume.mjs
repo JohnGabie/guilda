@@ -6,6 +6,12 @@ import { splitCommands, isVariable, resolveDir } from './git-command.mjs';
 
 /** Env var that points to a folder of stand-in programs (the test seam). */
 export const BIN_DIR_ENV = 'GUILDA_RESUME_BIN_DIR';
+/** The env var that must be set with the seam, so the seam never works by accident. */
+export const TEST_ENV = 'GUILDA_RESUME_TEST';
+/** The only form of a session id that the trigger accepts (it goes into the claude argv). */
+export const SESSION_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** An at job number. */
+export const JOB_ID = /^\d+$/;
 export const RECORD_VERSION = 1;
 export const RECORD_STATES = Object.freeze(['armed', 'resumed', 'removed', 'waiting-user']);
 /** The accuracy of the timer. */
@@ -67,6 +73,8 @@ export function checkRecord(r) {
   for (const k of ['id', 'projectPath', 'supervisorSession', 'unit', 'notBefore']) {
     if (typeof r[k] !== 'string' || r[k] === '') return `bad ${k}`;
   }
+  if (!SESSION_UUID.test(r.supervisorSession)) return 'bad supervisorSession';
+  if (Number.isNaN(Date.parse(r.notBefore))) return 'bad notBefore';
   if (!RECORD_STATES.includes(r.state)) return 'bad state';
   return null;
 }

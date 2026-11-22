@@ -9,7 +9,7 @@ import { projectState } from './lib/project.mjs';
 import { readUsage } from './lib/usage.mjs';
 import { paceOf } from './lib/pace.mjs';
 import {
-  BIN_DIR_ENV, RESUME_PROMPT, TIMER_ACCURACY, mainRoot, projectId, unitName, makeRecord, readRecord, writeRecord,
+  BIN_DIR_ENV, TEST_ENV, SESSION_UUID, JOB_ID, RESUME_PROMPT, TIMER_ACCURACY, mainRoot, projectId, unitName, makeRecord, readRecord, writeRecord,
 } from './lib/resume.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
@@ -37,14 +37,21 @@ function findBin(name) {
   return null;
 }
 
-const call = (bin, args, input) => spawnSync(bin, args, { encoding: 'utf8', shell: false, input, timeout: 30000 });
+/** The env of each child: no seam variable reaches a timer or an at job. */
+const cleanEnv = () => {
+  const env = { ...process.env };
+  delete env[BIN_DIR_ENV];
+  delete env[TEST_ENV];
+  return env;
+};
+const call = (bin, args, input) => spawnSync(bin, args, { encoding: 'utf8', shell: false, input, timeout: 30000, env: cleanEnv() });
 
-/** Stop the trigger of a record, by its own method. Never throws. */
-function stopTrigger(record) {
+/** Stop the trigger of a record, by its own method. It stops only the unit of this project. Never throws. */
+function stopTrigger(record, id) {
   if (record.method === 'systemd') {
     const bin = findBin('systemctl');
-    if (bin) call(bin, ['--user', 'stop', `${record.unit}.timer`]);
-  } else if (record.method === 'at' && record.job) {
+    if (bin) call(bin, ['--user', 'stop', `${unitName(id)}.timer`]);
+  } else if (record.method === 'at' && JOB_ID.test(String(record.job ?? ''))) {
     const bin = findBin('atrm');
     if (bin) call(bin, [String(record.job)]);
   }
@@ -60,7 +67,8 @@ function setTrigger(projectDir, id, whenMs) {
     if (r.status === 0) return { method: 'systemd', job: null };
   }
   const at = findBin('at');
-  if (at) {
+  // The at job runs through sh: a path with $, a backtick or a newline could expand. Refuse it.
+  if (at && !cmd.some((w) => /[$`\n]/.test(w))) {
     const d = new Date(whenMs);
     const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const quoted = cmd.map((w) => `'${w.replace(/'/g, `'\\''`)}'`).join(' ');
@@ -76,8 +84,9 @@ function setTrigger(projectDir, id, whenMs) {
 function arm(projectDir, root, id, session, at) {
   const ms = Date.parse(at ?? '');
   if (!session || !at || !ZONE.test(at) || Number.isNaN(ms)) fail(1, 'invalid arguments: need --session and --at with a zone');
+  if (!SESSION_UUID.test(session)) fail(1, 'invalid session id');
   const old = readRecord(projectDir, id);
-  if (old && old.state === 'armed') stopTrigger(old);
+  if (old && old.state === 'armed') stopTrigger(old, id);
   const trig = setTrigger(projectDir, id, ms);
   if (!trig) fail(1, 'refused: no trigger');
   writeRecord(projectDir, makeRecord({ id, projectPath: root, session, notBefore: ms, method: trig.method, job: trig.job, now: Date.now() }));
@@ -87,7 +96,7 @@ function arm(projectDir, root, id, session, at) {
 function remove(projectDir, id) {
   const rec = readRecord(projectDir, id);
   if (!rec) fail(5, 'refused: no armed record');
-  if (rec.state === 'armed') stopTrigger(rec);
+  if (rec.state === 'armed') stopTrigger(rec, id);
   writeRecord(projectDir, { ...rec, state: 'removed' });
   out(`removed ${id}`);
 }
@@ -105,9 +114,15 @@ function lastStopIsLimit(projectDir) {
 
 function run(projectDir, root, id) {
   // Steps 1 to 3 (R41): the record belongs to this folder, the folder exists, the state is armed. A read error refuses.
+  if (id !== projectId(projectDir)) fail(5, 'refused: project mismatch');
   const rec = readRecord(projectDir, id);
   if (!rec || rec.state !== 'armed') fail(5, 'refused: no armed record');
-  if (rec.projectPath !== root || rec.id !== id || id !== projectId(projectDir)) fail(5, 'refused: project mismatch');
+  if (rec.projectPath !== root || rec.id !== id || rec.unit !== unitName(id)) fail(5, 'refused: project mismatch');
+  // The at fallback can fire early: do nothing before notBefore.
+  if (Date.now() < Date.parse(rec.notBefore)) {
+    out(`too early ${id} ${rec.notBefore}`);
+    return;
+  }
   // Step 4: a restart is not a limit stop.
   let limit = false;
   try { limit = lastStopIsLimit(projectDir); } catch { limit = false; }
@@ -116,12 +131,12 @@ function run(projectDir, root, id) {
   const st = projectState(projectDir);
   const cswap = findBin('cswap');
   const usage = readUsage(st.config, cswap && process.env[BIN_DIR_ENV]
-    ? { run: (_f, a, o) => spawnSync(cswap, a, { ...o, shell: false, encoding: 'utf8' }) }
+    ? { run: (_f, a, o) => spawnSync(cswap, a, { ...o, shell: false, encoding: 'utf8', env: cleanEnv() }) }
     : undefined);
   const pace = paceOf(usage, { planSlots: 1 });
   if (pace.slots === 0) {
     const when = Date.parse(pace.resumeAt);
-    stopTrigger(rec);
+    stopTrigger(rec, id);
     const trig = setTrigger(projectDir, id, when);
     if (!trig) fail(1, 'refused: no trigger');
     writeRecord(projectDir, { ...rec, method: trig.method, job: trig.job, notBefore: new Date(when).toISOString() });
@@ -131,9 +146,9 @@ function run(projectDir, root, id) {
   // Step 6: resume the session of the record (the same session_id, L5-2), then remove the trigger.
   const claude = findBin('claude');
   writeRecord(projectDir, { ...rec, state: 'resumed' });
-  stopTrigger(rec);
+  stopTrigger(rec, id);
   const r = claude
-    ? spawnSync(claude, ['--resume', rec.supervisorSession, '-p', RESUME_PROMPT], { cwd: root, shell: false, stdio: 'ignore' })
+    ? spawnSync(claude, ['--resume', rec.supervisorSession, '-p', RESUME_PROMPT], { cwd: root, shell: false, stdio: 'ignore', env: cleanEnv() })
     : { status: 1 };
   if (r.status !== 0) {
     writeRecord(projectDir, { ...rec, state: 'waiting-user' });
@@ -146,6 +161,7 @@ function run(projectDir, root, id) {
 function main(argv) {
   const [dir, cmd, ...rest] = argv;
   if (!dir || !cmd) fail(1, USAGE);
+  if (process.env[BIN_DIR_ENV] && process.env[TEST_ENV] !== '1') fail(1, 'refused: test seam');
   const flag = (n) => {
     const i = rest.indexOf(n);
     return i >= 0 ? rest[i + 1] : undefined;
@@ -158,7 +174,7 @@ function main(argv) {
   try {
     if (cmd === 'arm') arm(projectDir, root, id, flag('--session'), flag('--at'));
     else if (cmd === 'remove') {
-      if (!flag('--session')) fail(1, USAGE);
+      if (!SESSION_UUID.test(flag('--session') ?? '')) fail(1, 'invalid session id');
       remove(projectDir, id);
     } else if (cmd === 'status') {
       const r = readRecord(projectDir, id);
