@@ -25,7 +25,10 @@ Names in this text:
 - `<session id>` is the ID in the line `guilda session: <id>` of your context.
 - `S` is `node <plugin root>/scripts`.
 
-1. Run `S/queue.mjs <dir> claim --session <session id>`. Run `S/queue.mjs <dir> sync --session <session id>`. Run `S/tick.mjs <dir> --json --session <session id>`.
+1. Run `git branch --show-current` in `<dir>`. If the branch is `main`, `master` or empty (a detached HEAD), run `git switch -c work/<work id>`.
+   The work ID comes from the output of `queue init` or from the `plan` event of the journal. If no work exists yet, use `work/<date YYYYMMDD-HHMM>`.
+   On any other branch, use that branch. It is your work branch. Never switch to main.
+   Then run `S/queue.mjs <dir> claim --session <session id>`. Run `S/queue.mjs <dir> sync --session <session id>`. Run `S/tick.mjs <dir> --json --session <session id>`.
 2. Read the `step` of the tick output. Do the action of the step:
    - `pause`: run `S/tick.mjs <dir> --record sleep --until <until of the step> --session <session id>`. Then do the `watch` action with that `until`.
    - `save-request`: send "commit your work in progress now" with `SendMessage` to the agent of the `address` of the step. Run `S/tick.mjs <dir> --record save-request --task <task> --attempt <attempt> --session <session id>`.
@@ -33,8 +36,10 @@ Names in this text:
    - `needs-user`: run `S/tick.mjs <dir> --record needs-user --task <task> --attempt <attempt> --reason <reason> --session <session id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to architect --type question --task <task> --text <text>` (SUP1, SUP2).
    - `retry`: run `S/queue.mjs <dir> retry <task> --session <session id>`. The next tick gives `dispatch`.
    - `dispatch-check`: run `S/queue.mjs <dir> dispatch <task> --check --role rev --tool claude --tier <tier> --session <session id>`. Start `guilda:reviewer` with the Agent tool in the background. Give it the brief, the spec path and the diff range. The range is `<base>..task/<task>`. Take `<base>` from your dispatch command. If you lost it, read `baseCommit` in the `dispatch` event of `.guilda/queue/journal.jsonl`, because no queue command prints it. On its verdict, run `S/queue.mjs <dir> approve <task> --session <session id>` or `S/queue.mjs <dir> reject <task> --session <session id>`.
-     After an approve, run `git merge --no-ff task/<task> -m "merge task/<task>"` in `<dir>`. This merges into your own work branch, never into main.
+     After an approve, run `git merge --no-ff task/<task> -m "merge task/<task>"` in `<dir>`. This merges into your work branch only.
+     Then run `S/queue.mjs <dir> sync --session <session id>` before the next `tick --json`. Without the sync, tick does not see the next task as ready.
      On a merge conflict, run `git merge --abort`. Run `tick --record needs-user` with `--task <task> --attempt <attempt> --reason "merge conflict"`. Send one message to `architect` as in `needs-user`.
+     The task stays `done`. The conflict shows in the summary and in the message to `architect`.
      A later task then starts at `git rev-parse HEAD` with the work of its dependencies.
    - `read-bus`: run `S/bus.mjs <dir> pending --address supervisor`. Answer each request: `S/bus.mjs <dir> send --from supervisor --to <from of the message> --type reply --reply-to <message id> --text <text>`. Then run `S/tick.mjs <dir> --record read --ids <the ids of the read-bus step> --session <session id>`.
    - `set-slots`: run `S/queue.mjs <dir> slots <slots of the step> --session <session id>`.
@@ -50,7 +55,7 @@ Names in this text:
 ## Does not
 
 - Talk to the user, or ask the user a question.
-- Merge into main, tag or push. The only merge is a task branch into your own work branch, after an approve.
+- Switch to main, merge into main, tag or push. The only merge is a task branch into your work branch, after an approve.
 - Run Codex.
 - Use `tmux send-keys`.
 - Run `cswap switch`.

@@ -72,7 +72,10 @@ The supervisor is a session that runs the queue of a build at the pace of your b
    The `<id>` is in the line `guilda session: <id>` of the session start.
 
 The supervisor claims the queue and dispatches each task of the plan. It saves the work of an agent
-before it stops that agent. It sends each message for you to the Architect. It never merges, tags or pushes.
+before it stops that agent. It sends each message for you to the Architect. It never merges into `main`, tags or pushes.
+
+The supervisor works on its own branch, `work/<work id>`, and never touches `main`. If the project folder is on
+another branch, the supervisor uses that branch. You merge the branch of the supervisor yourself.
 
 The supervisor stops at the 5% floor of the budget. It also stops when only items for you are left.
 The summary of the run is in `.guilda/supervisor-summary.md`.
