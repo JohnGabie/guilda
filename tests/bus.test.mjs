@@ -6,7 +6,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { ensureIgnored, IGNORED } from '../scripts/lib/violations.mjs';
 import { SETUP_NOTICE } from '../scripts/lib/project.mjs';
-import { readJournal } from '../scripts/lib/queue.mjs';
+import { readJournal, writeClaimFile, queuePaths } from '../scripts/lib/queue.mjs';
 import {
   readMailbox,
   receiptState,
@@ -718,4 +718,40 @@ test('takeBusLock accepts the name <address>.deliver and refuses a bad name', ()
   for (const bad of ['.deliver', '../x.deliver', `${TASK_ADDRESS}.deliver.deliver`, `${TASK_ADDRESS}.other`, 'bad name.deliver']) {
     assert.throws(() => takeBusLock(dir, bad), (e) => e instanceof BusError && e.exitCode === 2, bad);
   }
+});
+
+const SUPERVISOR_SEND = ['send', '--from', 'main', '--to', 'supervisor', '--type', 'request', '--text', 'status?'];
+const plantClaim = (dir, aliveAt, ttlSec = 60) => {
+  fs.mkdirSync(queuePaths(dir).dir, { recursive: true });
+  writeClaimFile(dir, { session: 's-1', ttlSec, aliveAt, pid: process.pid });
+};
+
+test('send to supervisor passes while a claim is live', () => {
+  const dir = project();
+  plantClaim(dir, new Date().toISOString());
+  const r = run(dir, ...SUPERVISOR_SEND);
+  assert.equal(r.code, 0, r.first);
+  assert.equal(rawLines(dir, 'supervisor').length, 1);
+  const d = run(dir, 'deliver', '--address', 'supervisor');
+  assert.equal(d.code, 0, d.first);
+});
+
+test('send to supervisor exits 2 with no live claim', () => {
+  const dir = project();
+  const r = run(dir, ...SUPERVISOR_SEND);
+  assert.equal(r.code, 2);
+  assert.equal(r.first, 'unknown address supervisor');
+  fs.mkdirSync(queuePaths(dir).dir, { recursive: true });
+  fs.writeFileSync(queuePaths(dir).writer, '{not json');
+  const bad = run(dir, ...SUPERVISOR_SEND);
+  assert.equal(bad.code, 2);
+  assert.equal(bad.first, 'unknown address supervisor');
+});
+
+test('send to supervisor exits 2 with an expired claim', () => {
+  const dir = project();
+  plantClaim(dir, new Date(Date.now() - 120000).toISOString(), 60);
+  const r = run(dir, ...SUPERVISOR_SEND);
+  assert.equal(r.code, 2);
+  assert.equal(r.first, 'unknown address supervisor');
 });

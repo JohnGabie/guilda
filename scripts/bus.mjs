@@ -87,7 +87,7 @@ function cmdSend(root, args, config) {
   if (textChars(f.text) > MAX_TEXT_CHARS) throw usage(`text over ${MAX_TEXT_CHARS} characters; send a file path in the text`);
   const interrupt = f.interrupt === true;
   if (interrupt && !LEAD_ROLES.includes(from)) throw usage(`interrupt needs a lead role (${LEAD_ROLES.join(' or ')})`);
-  if (!knownAddress(readBindings(root), to)) throw usage(`unknown address ${to}`);
+  if (!knownAddress(readBindings(root), to, root)) throw usage(`unknown address ${to}`);
   const hops = computeHops(root, from, replyTo);
   const { maxHops } = busSettings(config);
   ensureIgnored(path.join(root, '.guilda'));
@@ -196,7 +196,7 @@ function cmdPending(root, args) {
 function cmdDeliver(root, args) {
   const f = parseFlags(args, ['--address']);
   const address = need(f, 'address', isAddress);
-  if (!knownAddress(readBindings(root), address)) throw usage(`unknown address ${address}`);
+  if (!knownAddress(readBindings(root), address, root)) throw usage(`unknown address ${address}`);
   return deliverPlan(root, address).map(({ id, route, header }) => JSON.stringify({ id, route, header }));
 }
 

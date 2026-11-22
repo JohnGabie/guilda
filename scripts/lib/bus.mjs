@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { validId, TASK_ID } from './queue.mjs';
+import { validId, TASK_ID, readClaim } from './queue.mjs';
 
 /** The longest message text, in characters (4c). */
 export const MAX_TEXT_CHARS = 8000;
@@ -423,9 +423,13 @@ export function makeMessageId(random = crypto.randomBytes) {
   return `m-${Buffer.from(random(MESSAGE_ID_BYTES)).toString('hex')}`;
 }
 
-/** True when a send may go to `to` (4a): main and architect always, else a bound task or ext address. */
-export function knownAddress(bindings, to) {
+/**
+ * True when a send may go to `to` (4a): main and architect always, supervisor while a claim is live in `root`
+ * (no root or a claim read error: unknown), else a bound task or ext address.
+ */
+export function knownAddress(bindings, to, root = null) {
   if (FIXED_ADDRESSES.includes(to)) return true;
+  if (to === 'supervisor') return root !== null && readClaim(root)?.live === true;
   if (RESERVED_ADDRESS.test(to)) return false;
   return Object.hasOwn(bindings, to) && bindings[to].state === 'bound';
 }
