@@ -1145,3 +1145,20 @@ test('a claim call hidden next to a sync in a substitution is refused during ano
   const command = `node scripts/que''ue.mjs . claim --session s1; echo "$(node scripts/queue.mjs . sync --session s1)"`;
   assert.equal(assertDeny(queueCall(dir, command, {})), CLAIM_REASON);
 });
+
+// T2 review 2: the claim exemption is for literal words only.
+test('a claim call with a variable word is refused during another live claim', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's9');
+  for (const command of [
+    `X='--now 2099-01-01T00:00:00Z'; node scripts/queue.mjs . claim $X --session s1`,
+    'node scripts/queue.mjs . claim "$(echo --ttl) 300" --session s1',
+    'node scripts/queue.mjs . cl* --session s1',
+    'echo . | xargs node scripts/queue.mjs claim --session s1',
+    'env node scripts/queue.mjs . claim --session s1',
+  ]) {
+    assert.equal(assertDeny(queueCall(dir, command, {})), CLAIM_REASON, command);
+  }
+  // A literal claim call still passes.
+  assertAllow(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', {}));
+});

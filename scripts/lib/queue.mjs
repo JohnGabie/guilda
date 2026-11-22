@@ -1198,13 +1198,34 @@ export function writeClaimFile(projectDir, claim) {
  * Write aliveAt (and pid, when given) of the claim of `session`. False, with nothing written, when there is no claim
  * or the claim is of another session.
  */
-export function touchClaim(projectDir, session, { now, pid } = {}) {
-  const claim = readClaim(projectDir, { now });
-  if (!claim || claim.session !== session) return false;
+export function touchClaim(projectDir, session, { pid } = {}) {
+  // The write holds the queue lock, as claim and unclaim do, so a claim or an unclaim cannot come back from the
+  // dead. A busy lock or any error gives false and writes nothing.
+  let held = null;
+  try {
+    held = openQueue(projectDir);
+    takeLock(held.P, held.rootReal, session, new Date().toISOString());
+  } catch {
+    return false;
+  }
+  try {
+    return touchClaimLocked(held.rootReal, session, { pid });
+  } catch {
+    return false;
+  } finally {
+    releaseLock(held.P, held.rootReal);
+  }
+}
+
+/** touchClaim for a caller that holds the queue lock. An ended claim (not live) is never touched. */
+function touchClaimLocked(projectDir, session, { pid } = {}) {
+  // The real clock only: aliveAt is always the real time, whatever --now a caller gave (R32).
+  const claim = readClaim(projectDir);
+  if (!claim || !claim.live || claim.session !== session) return false;
   writeClaimFile(projectDir, {
     session: claim.session,
     ttlSec: claim.ttlSec,
-    aliveAt: now === undefined ? new Date().toISOString() : now,
+    aliveAt: new Date().toISOString(),
     pid: Number.isInteger(pid) ? pid : claim.pid,
   });
   return true;
@@ -1221,8 +1242,8 @@ export function runWriter(projectDir, { now, session = null } = {}, work = null)
   const takeover = takeLock(P, rootReal, session, now);
   try {
     if (session !== null) {
-      const claim = readClaim(rootReal, { now });
-      if (claim?.live && claim.session === session) touchClaim(rootReal, session, { now });
+      const claim = readClaim(rootReal);
+      if (claim?.live && claim.session === session) touchClaimLocked(rootReal, session);
     }
     const text = readJournalText(P.journal);
     const { events, skipped } = parseJournal(text);

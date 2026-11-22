@@ -419,12 +419,23 @@ function callsIn(commands) {
   return calls;
 }
 
+// The words that run another command (a wrapper): a call through one is not read as a literal claim call.
+const WRAPPER_WORDS = new Set(['xargs', 'env', 'command', 'exec', 'eval', 'sudo', 'nice', 'nohup', 'time', 'timeout', 'sh', 'bash', 'zsh', 'dash', 'source']);
+// A character that expands, runs or hides a word: a variable, a substitution, a glob, a redirect, an escape, a new line.
+const NON_LITERAL = /[$`*?[\]{}()<>\\\n\r]/;
+
+/** True when the command has only literal words: no expansion, no substitution, no glob and no wrapper program. */
+function isLiteralText(command) {
+  if (NON_LITERAL.test(command)) return false;
+  return !command.split(/[\s;&|'"]+/).some((w) => WRAPPER_WORDS.has(w));
+}
+
 /**
  * True when each queue script call of the command is a `queue.mjs ... claim` call (R32: the script decides a claim,
  * exit 3). Both readings must find the same calls, and each call must be a claim call.
  */
 export function queueClaimOnly(command) {
-  if (typeof command !== 'string' || command === '') return false;
+  if (typeof command !== 'string' || command === '' || !isLiteralText(command)) return false;
   const quoted = callsIn(quotedCommands(command));
   const flat = callsIn(splitCommands(flatten(command)));
   return quoted.length > 0 && flat.length === quoted.length && quoted.every((c) => c.claim) && flat.every((c) => c.claim);

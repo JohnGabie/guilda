@@ -357,11 +357,12 @@ function cmdClaim({ args, flags, root, session }) {
     ttlSec = Number(flags.ttl);
     if (ttlSec < MIN_TTL_SEC || ttlSec > MAX_TTL_SEC) throw refuse('invalid ttl');
   }
-  return ({ emit, now }) => {
-    const old = readClaim(root, { now });
+  // A claim decision uses the real clock, never --now: a caller cannot make a live claim look old (R32).
+  return ({ emit }) => {
+    const old = readClaim(root);
     if (old?.live && old.session !== session) throw new QueueError(3, `claimed by session ${old.session}`);
     const takeover = old !== null && !old.live;
-    writeClaimFile(root, { session, ttlSec, aliveAt: now, pid: null });
+    writeClaimFile(root, { session, ttlSec, aliveAt: new Date().toISOString(), pid: null });
     emit({ type: 'claim', session, ttlSec, takeover });
     return [`claim: session ${session} ttl ${ttlSec}${takeover ? ' takeover' : ''}`];
   };
@@ -370,10 +371,10 @@ function cmdClaim({ args, flags, root, session }) {
 /** unclaim: only the claim session. The file stays, with an aliveAt that makes the claim not live. */
 function cmdUnclaim({ args, root, session }) {
   if (args.length !== 0 || session === null) throw refuse(USAGE);
-  return ({ emit, now }) => {
-    const old = readClaim(root, { now });
+  return ({ emit }) => {
+    const old = readClaim(root);
     if (old === null || old.session !== session) throw refuse('refused: not the claim session');
-    const aliveAt = new Date(Date.parse(now) - old.ttlSec * MS_PER_SECOND).toISOString();
+    const aliveAt = new Date(Date.now() - old.ttlSec * MS_PER_SECOND).toISOString();
     writeClaimFile(root, { session, ttlSec: old.ttlSec, aliveAt, pid: old.pid });
     emit({ type: 'unclaim', session });
     return [`unclaim: session ${session}`];
