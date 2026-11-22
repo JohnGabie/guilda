@@ -34,6 +34,7 @@ test('rule 2: at the floor the pace is 0 until the first reset', () => {
 
 test('rule 3: blocked gives 0 and the next usable time, else the first reset', () => {
   const budget = JSON.parse(fx('blocked.json'));
+  assert.notEqual(budget.fleet.nextUsableAt, budget.resets[0].at);
   const r = pace({ state: 'ok', budget });
   assert.deepEqual(r, { slots: 0, lowTier: false, why: 'blocked', resumeAt: budget.fleet.nextUsableAt });
   budget.fleet.nextUsableAt = null;
@@ -86,6 +87,7 @@ test('exit 3, a timeout and bad JSON give error, not slots 0', () => {
   const cfg = { usage: { source: 'cswap' } };
   const cases = [
     () => ({ status: 3, stdout: '' }),
+    () => ({ status: 3, stdout: fx('ok.json') }),
     () => { throw Object.assign(new Error('spawnSync cswap ETIMEDOUT'), { code: 'ETIMEDOUT' }); },
     () => { throw Object.assign(new Error('spawn cswap ENOENT'), { code: 'ENOENT' }); },
     () => ({ status: 0, stdout: fx('bad.txt') }),
@@ -121,4 +123,47 @@ test('pace.mjs --json prints the result and writes nothing', () => {
   const bad = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /usage/i);
+});
+
+test('the default run calls cswap with exactly budget --json and no shell', () => {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda fake cswap '));
+  const fake = path.join(bin, 'cswap');
+  const body = `#!/usr/bin/env node
+const b = ${fx('ok.json').trim()};
+b.fakeArgs = process.argv.slice(2);
+b.fakeParentIsTest = process.ppid === Number(process.env.TEST_PID);
+process.stdout.write(JSON.stringify(b));
+`;
+  fs.writeFileSync(fake, body, { mode: 0o755 });
+  const saved = { PATH: process.env.PATH, TEST_PID: process.env.TEST_PID };
+  process.env.PATH = bin + path.delimiter + saved.PATH;
+  process.env.TEST_PID = String(process.pid);
+  try {
+    const u = readUsage({ usage: { source: 'cswap' } });
+    assert.equal(u.state, 'ok', u.reason);
+    assert.deepEqual(u.budget.fakeArgs, ['budget', '--json']);
+    assert.equal(u.budget.fakeParentIsTest, true);
+  } finally {
+    process.env.PATH = saved.PATH;
+    if (saved.TEST_PID === undefined) delete process.env.TEST_PID;
+    else process.env.TEST_PID = saved.TEST_PID;
+  }
+});
+
+test('pace.mjs with no --plan-slots flag uses plan slots 1', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda pace '));
+  fs.mkdirSync(path.join(dir, '.guilda'));
+  const cfg = {
+    guildaVersion: '0.5.0',
+    languages: { replies: 'en', docs: 'en' },
+    tiers: { master: 'opus', journeyman: 'sonnet', apprentice: 'haiku' },
+    writing: { free: [], exceptions: [] },
+    security: { enabled: false, riskAreas: [] },
+    checks: [],
+    usage: { source: 'off' },
+  };
+  fs.writeFileSync(path.join(dir, '.guilda', 'config.json'), JSON.stringify(cfg));
+  const r = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'pace.mjs'), dir, '--json'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).slots, 1);
 });
