@@ -195,7 +195,7 @@ test('watch writes pace-last.json with the pace result', { timeout: TIMEOUT }, a
   assert.equal(r.code, 0, r.out);
   const got = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
   assert.equal(got.schemaVersion, 1);
-  assert.equal(got.source, 'ok');
+  assert.equal(got.source, 'cswap');
   assert.equal(got.fetchedAt, '2026-11-22T10:00:00Z');
   assert.equal(got.slots, 2);
   assert.equal(got.lowTier, false);
@@ -212,6 +212,46 @@ test('watch does not rewrite an unchanged fresh file', { timeout: TIMEOUT }, asy
   const first = fs.readFileSync(paceFile(dir), 'utf8');
   await runFor(dir, env);
   assert.equal(fs.readFileSync(paceFile(dir), 'utf8'), first);
+});
+
+const tmpLeft = (dir) => fs.readdirSync(path.join(dir, '.guilda')).filter((n) => n.startsWith('pace-last') && n.endsWith('.tmp'));
+
+test('watch rewrites the file when slots or why change', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  await runFor(dir, fakeCswap('ok'));
+  const first = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  await runFor(dir, fakeCswap('can_speed_up'));
+  const second = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  assert.equal(first.slots, 2);
+  assert.equal(second.slots, 3);
+  assert.equal(second.why, 'can_speed_up');
+});
+
+test('a pace write error gives io-error and exit 2, with no temp file left', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  fs.mkdirSync(path.join(paceFile(dir), 'keep'), { recursive: true });
+  const r = await watch(dir, [], fakeCswap('ok')).exited;
+  assert.equal(r.code, 2);
+  assert.equal(r.out, `io-error ${paceFile(dir)}\n`);
+  assert.deepEqual(tmpLeft(dir), []);
+});
+
+test('a FIFO at pace-last.json does not hang watch and is replaced', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  assert.equal(spawnSync('mkfifo', [paceFile(dir)]).status, 0);
+  const r = await runFor(dir, fakeCswap('ok'));
+  assert.equal(r.code, 0, r.out);
+  assert.ok(fs.lstatSync(paceFile(dir)).isFile());
+  assert.equal(JSON.parse(fs.readFileSync(paceFile(dir), 'utf8')).slots, 2);
+});
+
+test('watch writes source off when usage is off', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject();
+  const r = await runFor(dir, {});
+  assert.equal(r.code, 0, r.out);
+  const got = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  assert.equal(got.source, 'off');
+  assert.equal(got.why, 'off');
 });
 
 test('watch rewrites a file older than 15 min', { timeout: TIMEOUT }, async () => {

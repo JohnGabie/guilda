@@ -4,6 +4,7 @@
 // It keeps the claim alive and prints one line when the next step is not `watch`, then exits.
 // Exit codes: 0 a line was printed (or SIGTERM), 1 refused, 2 I/O error, 3 claim lost.
 import { setTimeout as sleep } from 'node:timers/promises';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -61,7 +62,7 @@ function cachedRun() {
 function writePace(file, facts, now) {
   const next = {
     schemaVersion: 1,
-    source: facts.usage.state,
+    source: facts.usage.state === 'ok' ? 'cswap' : 'off',
     fetchedAt: facts.usage.budget?.fetchedAt ?? null,
     slots: facts.pace.slots,
     lowTier: facts.pace.lowTier,
@@ -71,16 +72,26 @@ function writePace(file, facts, now) {
   };
   let old = null;
   try {
-    old = JSON.parse(fs.readFileSync(file, 'utf8'));
+    // Only a regular file counts: a link, a folder or a FIFO is missing, and the rename replaces it.
+    if (fs.lstatSync(file).isFile()) old = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
     old = null;
   }
   const writtenMs = Date.parse(old?.writtenAt);
   const fresh = old !== null && Number.isFinite(writtenMs) && Date.parse(now) - writtenMs < PACE_MAX_AGE_MS;
   if (fresh && old.schemaVersion === 1 && PACE_FIELDS.every((k) => old[k] === next[k])) return;
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(next)}\n`);
-  fs.renameSync(tmp, file);
+  const tmp = `${file}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, `${JSON.stringify(next)}\n`, { flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      // The temp file was never created.
+    }
+    throw err;
+  }
 }
 
 const TOUCH_TRIES = 3;
