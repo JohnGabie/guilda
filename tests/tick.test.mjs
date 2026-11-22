@@ -728,6 +728,31 @@ test('queue hold of a task held by hold-all writes held to held with cause hold'
   assert.equal(stateOf(dir).T1, 'held');
 });
 
+test('tick --json gives no retry and no dispatch while hold-all is in force', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, [
+    { type: 'plan', slots: 4, work: 'w-00000001' },
+    { type: 'task', task: 'T1', work: 'w-00000001', title: 'a' },
+    { type: 'task', task: 'T2', work: 'w-00000001', title: 'b' },
+    { type: 'state', task: 'T1', from: 'pending', to: 'ready', cause: 'deps-done' },
+    { type: 'dispatch', task: 'T1', attempt: 1, address: 'T1-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree: 'wt/T1' },
+    { type: 'state', task: 'T1', from: 'ready', to: 'dispatched', cause: 'dispatch' },
+    { type: 'state', task: 'T1', from: 'dispatched', to: 'stalled', cause: 'no-ack' },
+  ]);
+  claim(dir);
+  const step = (min) => JSON.parse(tick(dir, min, '--json').out).step;
+  assert.equal(step(1), 'retry');
+  assert.equal(tick(dir, 2, '--record', 'hold-all').code, 0);
+  // A task that becomes ready while the hold-all is in force.
+  seed(dir, [{ type: 'state', task: 'T2', from: 'held', to: 'ready', cause: 'deps-done' }]);
+  assert.notEqual(step(3), 'retry');
+  assert.notEqual(step(3), 'dispatch');
+  assert.equal(tick(dir, 4, '--record', 'release-all').code, 0);
+  assert.equal(step(5), 'retry');
+  seed(dir, [{ type: 'state', task: 'T1', from: 'stalled', to: 'held', cause: 'hold' }]);
+  assert.equal(step(6), 'dispatch');
+});
+
 test('during hold-all a stalled task gives no retry and a ready task no dispatch', () => {
   const hold = { type: 'decision', decision: 'hold-all', tasks: [], by: 'sup' };
   const after = { type: 'decision', decision: 'release-all', by: 'sup' };
