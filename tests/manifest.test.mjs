@@ -226,7 +226,8 @@ test('T23: the changelog has the entry and the links of the core version', () =>
     assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + last + '\\.\\.\\.HEAD$', 'm'));
     return;
   }
-  assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
+  // The Unreleased section may hold the entries of the next version (0.5.0 supervisor) above the released entry.
+  assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n(?:[^\\n]*\\n)*?## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
   assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + q + '\\.\\.\\.HEAD$', 'm'));
   assert.match(text, new RegExp('^\\[' + q + '\\]: .*compare/guilda--v[0-9.]+\\.\\.\\.guilda--v' + q + '$', 'm'));
 });

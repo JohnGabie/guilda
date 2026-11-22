@@ -168,7 +168,7 @@ test('a write error of the audit log exits 0', () => {
   assert.equal(fs.readFileSync(target, 'utf8'), '');
 });
 
-test('hooks.json has the 0.4.0 entries of X6 and the 0.2.0 entries unchanged', () => {
+test('hooks.json has the 0.4.0 entries of X6, the 0.5.0 Stop entry of T6 and the 0.2.0 entries unchanged', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const cmd = (file) => ({ type: 'command', command: 'node', args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/hooks/${file}`] });
   const entry = (matcher, file) => (matcher === null ? { hooks: [cmd(file)] } : { matcher, hooks: [cmd(file)] });
@@ -194,5 +194,6 @@ test('hooks.json has the 0.4.0 entries of X6 and the 0.2.0 entries unchanged', (
   assert.deepEqual(hooks.SessionStart, [entry('startup|resume|clear|compact', 'session-start.mjs')]);
   assert.deepEqual(hooks.PreCompact, [entry('manual|auto', 'pre-compact.mjs')]);
   assert.deepEqual(hooks.UserPromptSubmit, [entry(null, 'user-prompt-submit.mjs')]);
-  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreCompact', 'PreToolUse', 'SessionStart', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit']);
+  assert.deepEqual(hooks.Stop, [entry(null, 'stop.mjs')]);
+  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreCompact', 'PreToolUse', 'SessionStart', 'Stop', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit']);
 });
