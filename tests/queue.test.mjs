@@ -915,10 +915,36 @@ test('dispatch --worktree with .. or an absolute path exits 1', () => {
   const dir = project();
   ok(q(dir, 0, 'init', 'simple.plan.md', '--slots', '2'));
   ok(q(dir, 0, 'sync'));
-  for (const bad of ['../x', 'a/../b', '/abs/path', '']) {
+  for (const bad of ['../x', 'a/../b', '/abs/path', '', '.', './', 'a/./b', 'a\\b', 'a\nb', 'a\tb', 'a\x01b']) {
     const r = q(dir, 1, 'dispatch', 'T1', '--role', 'exe', '--tool', 'claude', '--tier', 'journeyman', '--worktree', bad);
     assert.equal(r.code, 1, `${bad}: ${r.out}`);
     assert.match(r.out, /invalid worktree/);
   }
   assert.equal(task(dir, 'T1').state, 'ready');
+});
+
+test('a retry sets task.worktree to null', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'simple.plan.md', '--slots', '2'));
+  ok(q(dir, 0, 'sync'));
+  const address = dispatch(dir, 1, 'T1', '--worktree', 'wt/t1');
+  bind(dir, 'a1', address, 'T1', 1);
+  writeSignal(dir, { agentId: 'a1' }, 'started', { at: at(1.5) });
+  writeSignal(dir, { agentId: 'a1' }, 'failed', { at: at(2), reason: 'error', usage: null });
+  ok(q(dir, 3, 'sync'));
+  assert.equal(task(dir, 'T1').state, 'failed');
+  assert.equal(task(dir, 'T1').worktree, 'wt/t1');
+  ok(q(dir, 4, 'retry', 'T1'));
+  assert.equal(task(dir, 'T1').attempt, 2);
+  assert.equal(task(dir, 'T1').worktree, null);
+});
+
+test('slots 0 makes dispatch refuse with no free slot', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'simple.plan.md', '--slots', '2'));
+  ok(q(dir, 0, 'sync'));
+  ok(q(dir, 1, 'slots', '0', '--session', 's1'));
+  const r = q(dir, 2, 'dispatch', 'T1', '--role', 'exe', '--tool', 'claude', '--tier', 'journeyman');
+  assert.equal(r.code, 1);
+  assert.match(r.out, /no free slot/);
 });

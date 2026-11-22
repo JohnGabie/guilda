@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { readClaim, touchClaim, readJournal, runWriter } from '../scripts/lib/queue.mjs';
@@ -107,4 +108,44 @@ test('runWriter refreshes aliveAt for the claim session', () => {
   assert.equal(touchClaim(dir, 's1', { now: at(8), pid: 42 }), true);
   assert.deepEqual(readClaim(dir, { now: at(8) }).pid, 42);
   assert.equal(touchClaim(dir, 's2', { now: at(8) }), false);
+});
+
+const GOOD_CLAIM = { session: 's1', ttlSec: 600, aliveAt: at(0), pid: null };
+
+test('readClaim of a ttlSec of 0 or -1 is null', () => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  for (const ttlSec of [0, -1]) {
+    fs.writeFileSync(writerFile(dir), JSON.stringify({ ...GOOD_CLAIM, ttlSec }));
+    assert.equal(readClaim(dir, { now: at(1) }), null, `ttlSec ${ttlSec}`);
+  }
+});
+
+test('readClaim of a symlink is null, and touchClaim writes through no symlink', () => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'claim-out-'));
+  const target = path.join(outside, 'target.json');
+  fs.writeFileSync(target, JSON.stringify(GOOD_CLAIM));
+  fs.symlinkSync(target, writerFile(dir));
+  assert.equal(readClaim(dir, { now: at(1) }), null);
+  assert.equal(touchClaim(dir, 's1', { now: at(2) }), false);
+  assert.equal(JSON.parse(fs.readFileSync(target, 'utf8')).aliveAt, at(0));
+});
+
+test('readClaim of a folder is null', () => {
+  const dir = project();
+  fs.mkdirSync(writerFile(dir), { recursive: true });
+  assert.equal(readClaim(dir, { now: at(1) }), null);
+});
+
+test('readClaim of a FIFO is null', (t) => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  const mk = spawnSync('mkfifo', [writerFile(dir)]);
+  if (mk.error || mk.status !== 0) {
+    t.skip('mkfifo is not available');
+    return;
+  }
+  assert.equal(readClaim(dir, { now: at(1) }), null);
 });

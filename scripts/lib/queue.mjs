@@ -1155,7 +1155,15 @@ function checkStateTarget(file) {
  */
 export function readClaim(projectDir, { now } = {}) {
   try {
-    const raw = JSON.parse(fs.readFileSync(queuePaths(projectDir).writer, 'utf8'));
+    // openPlain refuses a link, a folder and a FIFO, as the journal read does; it throws, and the catch gives null.
+    const fd = openPlain(queuePaths(projectDir).writer, fs.constants.O_RDONLY);
+    if (fd === null) return null;
+    let raw;
+    try {
+      raw = JSON.parse(fs.readFileSync(fd, 'utf8'));
+    } finally {
+      fs.closeSync(fd);
+    }
     const aliveMs = Date.parse(raw?.aliveAt);
     if (typeof raw?.session !== 'string' || !SESSION_ID.test(raw.session)) return null;
     if (!Number.isFinite(raw.ttlSec) || raw.ttlSec <= 0 || Number.isNaN(aliveMs)) return null;

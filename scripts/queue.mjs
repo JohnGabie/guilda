@@ -255,7 +255,9 @@ function cmdDispatch({ args, flags, root, session }) {
   let worktree = null;
   if (flags.worktree !== undefined) {
     const w = flags.worktree;
-    if (w === '' || w.includes('\0') || path.isAbsolute(w) || path.win32.isAbsolute(w) || w.split(/[\\/]/).includes('..')) {
+    // A subfolder of the project: no control character, no backslash, no absolute path, no `.` or `..` part.
+    const bad = w === '' || /[\x00-\x1f\x7f\\]/.test(w) || path.isAbsolute(w) || w.split('/').some((p) => p === '.' || p === '..' || p === '');
+    if (bad) {
       throw refuse('invalid worktree');
     }
     worktree = w;
