@@ -162,6 +162,9 @@ function checkPath(text, glob, ctx, { write = false } = {}) {
     const canMatchEnv = lastLiteral.startsWith('.') && ('.env'.startsWith(lastLiteral) || lastLiteral.startsWith('.env'));
     if (canMatchEnv || lastSeg.startsWith('.env')) refuse(REASONS.envFile);
     if (lastLiteral.startsWith('.') && PROTECTED_NAMES.some((n) => n.startsWith(lastLiteral))) refuse(REASONS.write);
+    // A glob part that starts with a dot or a bracket expression can match a protected name (`.gi[t]`, `.clau?e`,
+    // `[.]git`, `.?uilda`). A part that starts with another sign cannot match a name that starts with a dot.
+    if (t.split('/').some((part) => /[*?[]/.test(part) && (part.startsWith('.') || part.startsWith('[')))) refuse(REASONS.write);
   }
   const real = physical(ctx.cwd, target);
   for (const dir of ctx.credDirs) if (inside(real, dir)) refuse(REASONS.credential);
