@@ -58,8 +58,9 @@ await runHookMain(async (input) => {
   // Return (D48, 5i): a prompt that got a user record is a user word in the main session, so the away state clears.
   // The tests of 5i hold here: no agent_id and a typed session (isTypedSession), and not the session of a live claim
   // (the return above). A clear error never stops the record.
+  // A claim file that cannot be read gives no clear (fail closed): the state stays set.
   try {
-    clearAway(projectDir);
+    if (!held.error) clearAway(projectDir);
   } catch {}
   const lines = [`guilda user record: ${record.id}`];
   const mention = mentionText(projectDir, input.prompt, record.id);

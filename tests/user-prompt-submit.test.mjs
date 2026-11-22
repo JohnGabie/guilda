@@ -333,6 +333,18 @@ test('away clear: a prompt of the claim session, of print mode or of a subagent 
   assert.deepEqual(userLines(dir), []);
 });
 
+test('away clear: a claim file that cannot be read keeps the state (fail closed) and the record is written', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
+  await awaySet(dir, env);
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.guilda', 'queue', 'writer.json'), '{ not json');
+  const r = run(dir, prompt(dir, { session_id: 's-main' }), { env });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(userLines(dir).length, 1);
+  assert.equal(fs.readdirSync(path.join(env.XDG_STATE_HOME, 'guilda', 's')).length, 1);
+});
+
 test('away clear: a prompt of the user in the main session clears the state and writes one record', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const env = stateEnv();

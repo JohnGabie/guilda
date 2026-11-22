@@ -106,6 +106,19 @@ test('each read form of the away file is refused for an agent with the exact tex
     ['Bash', { command: `sh -c 'cat ${F}'` }],
     ['Bash', { command: `cd ${D} && cat *.json` }],
     ['Bash', { command: `cat $XDG_STATE_HOME/guilda/s/${path.basename(F)}` }],
+    // glob forms (security fix 1 and 2)
+    ['Bash', { command: `cat ${path.dirname(state)}/guilda-away-st*/guilda/s/*.json` }],
+    ['Bash', { command: `cat ${state}/g*/s/*.json` }],
+    ['Bash', { command: `ls ${state}/g*/?` }],
+    ['Bash', { command: `find ${path.dirname(state)}/guilda-away-st*` }],
+    ['Bash', { command: `head -n1 ${state}/guilda/s/[0-9a-f]*` }],
+    ['Bash', { command: `cat ${state}/guilda/{s,x}/*.json` }],
+    ['Bash', { command: 'node scripts/aw?y.mjs . status' }],
+    ['Bash', { command: 'node scripts/a*.mjs . status' }],
+    ['Bash', { command: 'node scripts/[a]way.mjs . status' }],
+    ['Bash', { command: 'node scripts/{away,x}.mjs . status' }],
+    ['Bash', { command: 'node */aw?y.mjs . status' }],
+    ['Bash', { command: 'cd scripts && node aw?y.mjs . status' }],
   ];
   for (const [tool, input] of forms) {
     const g = awayGuard(dir, call(dir, tool, input, agent));
@@ -129,6 +142,10 @@ test('the Architect side may read the away file; plain reads of other files pass
   // a name that only starts like the folder name is no match
   assert.equal(awayGuard(dir, bash(dir, 'cat ~/projects/guilda/scripts/queue.mjs', agent)), null);
   assert.equal(awayGuard(dir, call(dir, 'Edit', { file_path: F }, agent)), null);
+  // glob words that cannot reach the folder or the script pass
+  for (const c of ['cat src/*.js', 'node --test tests/*.test.mjs', 'ls scripts/lib/*.mjs', "grep 'a.*b' README.md", 'node scripts/tick.mjs . status']) {
+    assert.equal(awayGuard(dir, bash(dir, c, agent)), null, c);
+  }
 });
 
 test('S5-29: the claim session and an unreadable input are refused; the main session passes', () => {
@@ -158,8 +175,13 @@ test('S5-30: actions that need the user wait while away (R40)', () => {
   const vc = { agent_id: 'a-2', agent_type: 'guilda:version-control' };
   const actions = ['git push', 'git push origin main', 'git -C /tmp push', 'gh pr create --title x', 'gh release create v1', 'gh pr merge 3', 'gh -R a/b pr create',
     'node scripts/council.mjs open --x', 'node scripts/report-send.mjs draft.json', 'cd sub && git push', "sh -c 'git push'"];
-  // with the file cleared: no refusal
-  for (const c of actions) assert.equal(awayGuard(dir, bash(dir, c, vc)), null, c);
+  // with the file cleared: an agent is refused too (no sign of the absence); the Architect side passes
+  for (const c of actions) {
+    const g = awayGuard(dir, bash(dir, c, vc));
+    assert.equal(g.refusal, NEUTRAL, c);
+    assert.equal(g.rule, 'R40', c);
+    assert.equal(awayGuard(dir, bash(dir, c)), null, c);
+  }
   setAway(dir);
   for (const c of actions) {
     const g = awayGuard(dir, bash(dir, c, vc));
@@ -179,6 +201,7 @@ test('S5-30: actions that need the user wait while away (R40)', () => {
   }
   clearAway(dir);
   assert.equal(awayGuard(dir, bash(dir, 'git push')), null);
+  assert.equal(awayGuard(dir, bash(dir, 'git push', vc)).rule, 'R40');
 });
 
 test('R40: a merge, rebase or cherry-pick is refused only on main or master', () => {
@@ -197,6 +220,11 @@ test('R40: a merge, rebase or cherry-pick is refused only on main or master', ()
   assert.equal(awayGuard(dir, bash(dir, `git -C '${dir}' merge x`, agent)), null);
   spawnSync('git', ['checkout', 'main'], { cwd: dir, stdio: 'ignore' });
   assert.equal(awayGuard(dir, bash(dir, `cd /tmp && git -C '${dir}' merge x`, agent)).rule, 'R40');
+  // an unknown branch counts as main: a merge in a folder that is not a git folder is refused
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda-away-plain-'));
+  const g = awayGuard(dir, bash(plain, 'git merge x', {}));
+  assert.equal(g.rule, 'R40');
+  assert.equal(g.refusal, NEUTRAL);
 });
 
 test('X9: an away file that cannot be read or parsed counts as set (R40)', (t) => {

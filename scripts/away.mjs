@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// The away command (D48, 5i). Only the Architect side runs it: the PreToolUse hook (R39) refuses each other caller.
+// The away command (D48, 5i). Only the Architect side runs it. The script cannot see the hook input, so it cannot tell
+// the Architect side from an agent: the guard is the PreToolUse hook (R39, awayGuard of scripts/lib/away.mjs), which
+// the integration task wires in. Until then no hook calls awayGuard.
 // This script also refuses a caller that is the session of a live claim, and a claim that it cannot read.
 // Usage: node scripts/away.mjs <projectDir> set|status|clear --session <id>
 import { readAway, setAway, clearAway, NEUTRAL } from './lib/away.mjs';

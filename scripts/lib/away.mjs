@@ -122,6 +122,53 @@ function expand(word) {
   if (w === '~' || w.startsWith('~/')) w = path.join(home, w.slice(1));
   return w;
 }
+/** The part of a word before its first glob character, cut at the last / before it ('' when there is no /). */
+function globBase(word) {
+  const at = word.search(GLOB_CHAR);
+  if (at < 0) return null;
+  const cut = word.lastIndexOf('/', at);
+  return cut < 0 ? '' : word.slice(0, cut + 1);
+}
+
+/** A regular expression for the base name of a word with glob characters (*, ?, [..], {a,b}). */
+function globRegex(name) {
+  let out = '';
+  for (let i = 0; i < name.length; i += 1) {
+    const ch = name[i];
+    if (ch === '*') out += '.*';
+    else if (ch === '?') out += '.';
+    else if (ch === '[') {
+      const end = name.indexOf(']', i + 1);
+      if (end < 0) out += '\\[';
+      else {
+        out += `[${name.slice(i + 1, end).replace(/^!/, '^').replace(/\\/g, '\\\\')}]`;
+        i = end;
+      }
+    } else if (ch === '{') {
+      const end = name.indexOf('}', i + 1);
+      if (end < 0) out += '\\{';
+      else {
+        out += `(?:${name.slice(i + 1, end).split(',').map((a) => globRegex(a)).join('|')})`;
+        i = end;
+      }
+    } else out += ch.replace(/[.+^$()|\\\]}]/g, '\\$&');
+  }
+  return out;
+}
+
+/** True when a word with glob characters in its base name could match the away script (a .mjs path under scripts/). */
+function globMayBeAwayScript(word) {
+  const name = path.basename(word);
+  if (!GLOB_CHAR.test(name)) return false;
+  const dir = path.dirname(word);
+  if (!(dir === '.' || GLOB_CHAR.test(dir) || path.basename(dir) === 'scripts')) return false;
+  try {
+    return new RegExp(`^(?:${globRegex(name)})$`).test('away.mjs');
+  } catch {
+    return true;
+  }
+}
+
 const resolveWord = (cwd, w) => {
   const e = expand(w);
   return isVariable(e) ? null : path.resolve(cwd, e);
@@ -156,6 +203,14 @@ function commandReachesAway(command, cwd0, f, depth = 0) {
       for (const cand of [w, w.replace(/^[A-Za-z_][A-Za-z0-9_]*=/, ''), w.replace(/^-[^=]*=/, '')]) {
         const abs = resolveWord(cwd, cand);
         if (abs !== null && inAway(abs, f)) return true;
+        // a word with a glob: the folder before the first glob character, and the script name
+        const e = expand(cand);
+        const gb = globBase(e);
+        if (gb !== null) {
+          const gabs = path.resolve(cwd, gb === '' ? '.' : gb);
+          if (!isVariable(gb) && reachesAway(gabs, f)) return true;
+          if (globMayBeAwayScript(e)) return true;
+        }
       }
     }
     for (let i = 0; i < names.length; i += 1) {
@@ -276,8 +331,9 @@ export function architectSide(projectDir, input) {
  * The guard of the hook. Returns null to let the call go on, or { refusal, rule, ... }.
  * - R39: a read of the away folder, or a run of the away script, from a caller that is not the Architect side.
  *   Fails closed: an input that cannot be read is refused.
- * - R40: while the user is away (or the state cannot be read), a publish, a council open or a merge to the main branch.
- *   The Architect side is refused too. `reason` (for additionalContext) is set only on the Architect side;
+ * - R40: a publish, a council open or a merge to the main branch. A caller that is not the Architect side is refused
+ *   in each state. The Architect side is refused while the user is away (or the state cannot be read).
+ *   `reason` (for additionalContext) is set only on the Architect side;
  *   `action` names the refused action for the notice to the Architect.
  * The refusal text is neutral and has no rule ID (U5-13); `rule` is for the violation record.
  */
@@ -295,9 +351,8 @@ export function awayGuard(projectDir, input) {
   if (tool !== 'Bash') return null;
   const action = needsUserAction(ti.command, cwd);
   if (action === null) return null;
+  // A caller that is not the Architect side is refused in each state, so the refusal is no sign of the absence.
+  if (!architect) return refuse('R40', { action });
   if (!readAway(projectDir).away) return null;
-  return refuse('R40', {
-    action,
-    ...(architect ? { reason: `R40: the user is away, and ${action} needs the user. Put the decision in held and go on.` } : {}),
-  });
+  return refuse('R40', { action, reason: `R40: the user is away, and ${action} needs the user. Put the decision in held and go on.` });
 }
