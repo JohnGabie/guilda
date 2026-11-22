@@ -67,6 +67,11 @@ export function makeRecord({ id, projectPath, session, notBefore, method, job = 
   };
 }
 
+/** The owner of the claude file: the user, or root (a system package). */
+export function ownerOk(uid, me = typeof process.getuid === 'function' ? process.getuid() : null) {
+  return uid === 0 || uid === me;
+}
+
 /** True for an absolute path to an existing regular file named `claude`. */
 export function validClaudePath(p, projectRoot) {
   try {
@@ -74,7 +79,7 @@ export function validClaudePath(p, projectRoot) {
     const st = fs.statSync(p);
     if (!st.isFile()) return false;
     // The user owns the file, and neither the group nor others can write it.
-    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return false;
+    if (!ownerOk(st.uid)) return false;
     if ((st.mode & 0o022) !== 0) return false;
     // A program inside the project is not trusted.
     if (typeof projectRoot === 'string') {

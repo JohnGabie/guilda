@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { runWriter, writeClaimFile } from '../scripts/lib/queue.mjs';
-import { resumeGuard, projectId, unitName, makeRecord, MIN_PAUSE_MIN } from '../scripts/lib/resume.mjs';
+import { ownerOk, validClaudePath, resumeGuard, projectId, unitName, makeRecord, MIN_PAUSE_MIN } from '../scripts/lib/resume.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'resume.mjs');
 const SESSION = '1010ec8e-1111-4222-8333-444455556666';
@@ -525,6 +525,22 @@ test('F3: a claude that group or others can write refuses at run, and at arm', (
   const a = resume(d2, ['arm', '--session', SESSION, '--at', FUTURE()], b);
   assert.equal(a.code, 1);
   assert.match(a.out, /refused: no claude/);
+});
+
+test('claude owner: the user and root pass, another user fails', () => {
+  assert.equal(ownerOk(1000, 1000), true);
+  assert.equal(ownerOk(0, 1000), true);
+  assert.equal(ownerOk(1001, 1000), false);
+  // A real root-owned program, reached by a link named claude (stat follows the link).
+  const root = fs.statSync('/usr/bin/env');
+  if (root.uid === 0) {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda root claude '));
+    fs.symlinkSync('/usr/bin/env', path.join(d, 'claude'));
+    assert.equal(validClaudePath(path.join(d, 'claude')), true);
+  }
+  const own = bins([], {});
+  fs.chmodSync(path.join(own, 'claude'), 0o777);
+  assert.equal(validClaudePath(path.join(own, 'claude')), false);
 });
 
 test('pure parts: unit name, record form, pause limit', () => {
