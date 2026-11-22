@@ -127,6 +127,7 @@ function newTask(e: any): any {
     tool: null,
     inSession: null,
     tier: null,
+    worktree: null,
     title: e.title ?? '',
     deps: Array.isArray(e.deps) ? [...e.deps] : [],
     uses: Array.isArray(e.uses) ? [...e.uses] : [],
@@ -144,7 +145,7 @@ function newTask(e: any): any {
 
 function resetAttempt(t: any): void {
   t.attempt += 1
-  for (const k of ['address', 'agentId', 'role', 'tool', 'inSession', 'tier', 'startedAt', 'lastHeartbeat', 'busyUntil', 'tokens']) {
+  for (const k of ['address', 'agentId', 'role', 'tool', 'inSession', 'tier', 'worktree', 'startedAt', 'lastHeartbeat', 'busyUntil', 'tokens']) {
     t[k] = null
   }
 }
@@ -247,6 +248,7 @@ function fold(events: any[], { now, generator }: { now?: any; generator?: string
             tool: e.tool ?? null,
             inSession: e.inSession ?? null,
             tier: e.tier ?? null,
+            worktree: e.worktree ?? null,
           })
         }
         break
@@ -298,6 +300,9 @@ function fold(events: any[], { now, generator }: { now?: any; generator?: string
       case 'session':
       case 'unbind':
         foldBinding(s.bindings, e)
+        break
+      case 'decision':
+        if (e.decision === 'slots' && Number.isInteger(e.slots) && e.slots >= 0 && e.slots <= 8) s.slots = e.slots
         break
       default:
         break

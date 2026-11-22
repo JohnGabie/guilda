@@ -18,6 +18,8 @@ export const LEASE_AFTER_HEARTBEAT_MS = 900000;
 export const DEFAULT_TOOL_TIMEOUT_MS = 600000;
 /** The attempt limit: the next attempt after this one makes the task dead (R10, R11). */
 export const MAX_ATTEMPTS = 3;
+/** The most slots that `queue slots` accepts. */
+export const MAX_SLOTS = 8;
 
 const ADDRESS_HEX_BYTES = 2;
 const TMP_BYTES = 4;
@@ -162,6 +164,7 @@ export function queuePaths(projectDir) {
     journal: path.join(dir, 'journal.jsonl'),
     state: path.join(dir, 'state.json'),
     lock: path.join(dir, 'lock'),
+    writer: path.join(dir, 'writer.json'),
     signals: path.join(dir, 'signals'),
     bus: path.join(root, '.guilda', 'bus'),
     busSignals: path.join(root, '.guilda', 'bus', 'signals'),
@@ -243,6 +246,7 @@ function newTask(e) {
     tool: null,
     inSession: null,
     tier: null,
+    worktree: null,
     title: e.title ?? '',
     deps: Array.isArray(e.deps) ? [...e.deps] : [],
     uses: Array.isArray(e.uses) ? [...e.uses] : [],
@@ -260,7 +264,7 @@ function newTask(e) {
 
 function resetAttempt(t) {
   t.attempt += 1;
-  for (const k of ['address', 'agentId', 'role', 'tool', 'inSession', 'tier', 'startedAt', 'lastHeartbeat', 'busyUntil', 'tokens']) {
+  for (const k of ['address', 'agentId', 'role', 'tool', 'inSession', 'tier', 'worktree', 'startedAt', 'lastHeartbeat', 'busyUntil', 'tokens']) {
     t[k] = null;
   }
 }
@@ -372,6 +376,7 @@ export function fold(events, { now, generator = GENERATOR } = {}) {
             tool: e.tool ?? null,
             inSession: e.inSession ?? null,
             tier: e.tier ?? null,
+            worktree: e.worktree ?? null,
           });
         }
         break;
@@ -423,6 +428,9 @@ export function fold(events, { now, generator = GENERATOR } = {}) {
       case 'session':
       case 'unbind':
         foldBinding(s.bindings, e);
+        break;
+      case 'decision':
+        if (e.decision === 'slots' && Number.isInteger(e.slots) && e.slots >= 0 && e.slots <= MAX_SLOTS) s.slots = e.slots;
         break;
       default:
         break;
@@ -1142,6 +1150,59 @@ function checkStateTarget(file) {
 }
 
 /**
+ * The claim of the queue (writer.json): { session, ttlSec, aliveAt, pid, live }, or null when the file is missing or
+ * bad. `live` is true while aliveAt + ttlSec seconds is after `now`. It writes nothing and never throws.
+ */
+export function readClaim(projectDir, { now } = {}) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(queuePaths(projectDir).writer, 'utf8'));
+    const aliveMs = Date.parse(raw?.aliveAt);
+    if (typeof raw?.session !== 'string' || !SESSION_ID.test(raw.session)) return null;
+    if (!Number.isFinite(raw.ttlSec) || raw.ttlSec <= 0 || Number.isNaN(aliveMs)) return null;
+    const nowMs = now === undefined ? Date.now() : Date.parse(now);
+    if (Number.isNaN(nowMs)) return null;
+    const pid = Number.isInteger(raw.pid) ? raw.pid : null;
+    return { session: raw.session, ttlSec: raw.ttlSec, aliveAt: raw.aliveAt, pid, live: aliveMs + raw.ttlSec * MS_PER_SECOND > nowMs };
+  } catch {
+    return null;
+  }
+}
+
+/** Write writer.json by a temp file and a rename. The caller holds the queue lock. */
+export function writeClaimFile(projectDir, claim) {
+  const file = queuePaths(projectDir).writer;
+  checkStateTarget(file);
+  const tmp = `${file}.${process.pid}.${crypto.randomBytes(TMP_BYTES).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, `${JSON.stringify(claim, null, 2)}\n`, { flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } catch {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      // The temp file was not written.
+    }
+    throw ioError(file);
+  }
+}
+
+/**
+ * Write aliveAt (and pid, when given) of the claim of `session`. False, with nothing written, when there is no claim
+ * or the claim is of another session.
+ */
+export function touchClaim(projectDir, session, { now, pid } = {}) {
+  const claim = readClaim(projectDir, { now });
+  if (!claim || claim.session !== session) return false;
+  writeClaimFile(projectDir, {
+    session: claim.session,
+    ttlSec: claim.ttlSec,
+    aliveAt: now === undefined ? new Date().toISOString() : now,
+    pid: Number.isInteger(pid) ? pid : claim.pid,
+  });
+  return true;
+}
+
+/**
  * One run of the queue writer (section 4a): take the lock, replay the journal, turn the signal files into events,
  * check the timeouts, run `work`, then write the new events and state.json, and remove the lock. `work(ctx)` gets
  * { state, events, emit, now }. It throws a QueueError with exit 1 to refuse: then nothing is written. The result:
@@ -1151,6 +1212,10 @@ export function runWriter(projectDir, { now, session = null } = {}, work = null)
   const { P, rootReal } = openQueue(projectDir);
   const takeover = takeLock(P, rootReal, session, now);
   try {
+    if (session !== null) {
+      const claim = readClaim(rootReal, { now });
+      if (claim?.live && claim.session === session) touchClaim(rootReal, session, { now });
+    }
     const text = readJournalText(P.journal);
     const { events, skipped } = parseJournal(text);
     let seq = lastSeq(events);

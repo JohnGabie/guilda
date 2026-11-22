@@ -21,10 +21,17 @@ import {
   readJournal,
   lastSeq,
   readState,
+  readClaim,
+  writeClaimFile,
+  MAX_SLOTS,
 } from './lib/queue.mjs';
 
-const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release|handoff> [args] [--session <id>] [--now <ISO>]';
-const VALUE_FLAGS = ['--session', '--now', '--slots', '--part', '--title', '--deps', '--role', '--tool', '--tier', '--brief', '--base', '--note'];
+const USAGE = 'usage: node scripts/queue.mjs <projectDir> <init|add|sync|dispatch|approve|reject|retry|hold|release|claim|unclaim|slots|handoff> [args] [--session <id>] [--now <ISO>]';
+const DEFAULT_TTL_SEC = 600;
+const MIN_TTL_SEC = 60;
+const MAX_TTL_SEC = 3600;
+const MS_PER_SECOND = 1000;
+const VALUE_FLAGS = ['--session', '--now', '--ttl', '--worktree', '--slots', '--part', '--title', '--deps', '--role', '--tool', '--tier', '--brief', '--base', '--note'];
 const BOOL_FLAGS = ['--external', '--check'];
 const TOOL = /^[a-z0-9]{1,24}$/;
 const TIER = /^[A-Za-z0-9_-]{1,32}$/;
@@ -245,6 +252,14 @@ function cmdDispatch({ args, flags, root, session }) {
   if (flags.base !== undefined && !COMMIT.test(flags.base)) throw refuse(USAGE);
   const check = flags.check === true;
   if (check && !CHECK_ROLES.includes(flags.role)) throw refuse(`${id}: a check run needs the role rev, qa or sec`);
+  let worktree = null;
+  if (flags.worktree !== undefined) {
+    const w = flags.worktree;
+    if (w === '' || w.includes('\0') || path.isAbsolute(w) || path.win32.isAbsolute(w) || w.split(/[\\/]/).includes('..')) {
+      throw refuse('invalid worktree');
+    }
+    worktree = w;
+  }
   const briefUses = flags.brief === undefined ? null : readBriefUses(root, flags.brief);
   return ({ state, events, emit }) => {
     const t = state.tasks[id];
@@ -272,6 +287,7 @@ function cmdDispatch({ args, flags, root, session }) {
       inSession: flags.external !== true && flags.tool === 'claude',
       check,
       tier: flags.tier,
+      worktree,
       session,
       briefFile: flags.brief ?? null,
       baseCommit: flags.base ?? null,
@@ -330,7 +346,53 @@ function cmdHoldRelease(decision) {
   };
 }
 
+/** claim: the session becomes the writer while the claim is live (0.5.0 spec 5a). */
+function cmdClaim({ args, flags, root, session }) {
+  if (args.length !== 0 || session === null) throw refuse(USAGE);
+  let ttlSec = DEFAULT_TTL_SEC;
+  if (flags.ttl !== undefined) {
+    if (!/^[0-9]{1,5}$/.test(flags.ttl)) throw refuse('invalid ttl');
+    ttlSec = Number(flags.ttl);
+    if (ttlSec < MIN_TTL_SEC || ttlSec > MAX_TTL_SEC) throw refuse('invalid ttl');
+  }
+  return ({ emit, now }) => {
+    const old = readClaim(root, { now });
+    if (old?.live && old.session !== session) throw new QueueError(3, `claimed by session ${old.session}`);
+    const takeover = old !== null && !old.live;
+    writeClaimFile(root, { session, ttlSec, aliveAt: now, pid: null });
+    emit({ type: 'claim', session, ttlSec, takeover });
+    return [`claim: session ${session} ttl ${ttlSec}${takeover ? ' takeover' : ''}`];
+  };
+}
+
+/** unclaim: only the claim session. The file stays, with an aliveAt that makes the claim not live. */
+function cmdUnclaim({ args, root, session }) {
+  if (args.length !== 0 || session === null) throw refuse(USAGE);
+  return ({ emit, now }) => {
+    const old = readClaim(root, { now });
+    if (old === null || old.session !== session) throw refuse('refused: not the claim session');
+    const aliveAt = new Date(Date.parse(now) - old.ttlSec * MS_PER_SECOND).toISOString();
+    writeClaimFile(root, { session, ttlSec: old.ttlSec, aliveAt, pid: old.pid });
+    emit({ type: 'unclaim', session });
+    return [`unclaim: session ${session}`];
+  };
+}
+
+/** slots <n>: the `slots` decision; the fold sets state.slots from the last one. */
+function cmdSlots({ args, session }) {
+  if (args.length !== 1 || session === null) throw refuse(USAGE);
+  if (!/^[0-9]$/.test(args[0]) || Number(args[0]) > MAX_SLOTS) throw refuse('invalid slots');
+  const slots = Number(args[0]);
+  return ({ emit }) => {
+    emit({ type: 'decision', decision: 'slots', slots, by: WRITER_ROLE });
+    return [`slots: ${slots}`];
+  };
+}
+
 const COMMANDS = {
+  claim: cmdClaim,
+  unclaim: cmdUnclaim,
+  slots: cmdSlots,
   init: cmdInit,
   add: cmdAdd,
   sync: ({ args, root, records }) => {

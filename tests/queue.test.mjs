@@ -900,3 +900,25 @@ test('panel fold equals core fold', () => {
     assert.deepStrictEqual(panel.fold(events.slice(0, n), opts), fold(events.slice(0, n), opts), `prefix ${n}`);
   }
 });
+
+test('dispatch --worktree sets task.worktree', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'simple.plan.md', '--slots', '2'));
+  ok(q(dir, 0, 'sync'));
+  dispatch(dir, 1, 'T1', '--worktree', 'wt/t1');
+  assert.equal(events(dir).find((e) => e.type === 'dispatch').worktree, 'wt/t1');
+  assert.equal(task(dir, 'T1').worktree, 'wt/t1');
+  assert.equal(task(dir, 'T2').worktree, null);
+});
+
+test('dispatch --worktree with .. or an absolute path exits 1', () => {
+  const dir = project();
+  ok(q(dir, 0, 'init', 'simple.plan.md', '--slots', '2'));
+  ok(q(dir, 0, 'sync'));
+  for (const bad of ['../x', 'a/../b', '/abs/path', '']) {
+    const r = q(dir, 1, 'dispatch', 'T1', '--role', 'exe', '--tool', 'claude', '--tier', 'journeyman', '--worktree', bad);
+    assert.equal(r.code, 1, `${bad}: ${r.out}`);
+    assert.match(r.out, /invalid worktree/);
+  }
+  assert.equal(task(dir, 'T1').state, 'ready');
+});
