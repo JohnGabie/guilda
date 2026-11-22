@@ -102,7 +102,11 @@ test('each read form of the away file is refused for an agent with the exact tex
     // quote-split and find forms
     ['Bash', { command: `cat ${state}/guil"da"/./"s"/*.json` }],
     ['Bash', { command: `find ${state} -name '*.json'` }],
-    ['Bash', { command: `ls ${state}/guilda` }],
+    ['Bash', { command: `ls -R ${state}` }],
+    ['Bash', { command: `ls -lR ${state}/guilda` }],
+    ['Bash', { command: `ls --recursive ${state}` }],
+    ['Bash', { command: `ls ${path.dirname(F)}` }],
+    ['Bash', { command: `ls -l ${F}` }],
     ['Bash', { command: `sh -c 'cat ${F}'` }],
     ['Bash', { command: `cd ${D} && cat *.json` }],
     ['Bash', { command: `cat $XDG_STATE_HOME/guilda/s/${path.basename(F)}` }],
@@ -147,7 +151,7 @@ test('the Architect side may read the away file; plain reads of other files pass
   assert.equal(awayGuard(dir, bash(dir, 'cat ~/projects/guilda/scripts/queue.mjs', agent)), null);
   assert.equal(awayGuard(dir, call(dir, 'Edit', { file_path: F }, agent)), null);
   // glob words that cannot reach the folder or the script pass
-  for (const c of ['cat src/*.js', 'node --test tests/*.test.mjs', "grep 'a.*b' README.md", 'node scripts/tick.mjs . status']) {
+  for (const c of ['ls "$HOME"', `ls ${os.homedir()}`, 'ls -la ~', `ls ${path.dirname(path.dirname(F))}`, 'cat src/*.js', 'node --test tests/*.test.mjs', "grep 'a.*b' README.md", 'node scripts/tick.mjs . status']) {
     assert.equal(awayGuard(dir, bash(dir, c, agent)), null, c);
   }
 });

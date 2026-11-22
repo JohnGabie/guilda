@@ -213,6 +213,8 @@ function commandReachesAway(command, cwd0, f, depth = 0) {
     }
     for (let i = 0; i < names.length; i += 1) {
       if (!WALKERS.has(names[i])) continue;
+      // A plain ls reaches only the folder it names (the word checks above); only ls -R walks down.
+      if (names[i] === 'ls' && !words.slice(i + 1).some((a) => a === '--recursive' || /^-[A-Za-z]*R/.test(a))) continue;
       const ops = words.slice(i + 1).filter((a) => !a.startsWith('-'));
       if ((ops.length ? ops : ['.']).some((a) => {
         const abs = resolveWord(cwd, a.replace(GLOB_CHAR, '\u0000').split('\u0000')[0] || '.');
