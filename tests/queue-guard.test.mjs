@@ -206,3 +206,16 @@ test('a node, git or npm command after a body keeps the body', () => {
     assert.ok(queueFileWrites(`cat > x.js <<'EOF'${body}\n${run}`, dir, dir).includes('state.json'), run);
   }
 });
+
+test('tick.mjs and watch.mjs are queue script calls', () => {
+  assert.deepEqual(queueScriptCall('node scripts/tick.mjs . --session s1'), { session: 's1', sessions: ['s1'] });
+  assert.deepEqual(queueScriptCall('node "${CLAUDE_PLUGIN_ROOT}/scripts/watch.mjs" . --session s1'), { session: 's1', sessions: ['s1'] });
+  assert.deepEqual(queueScriptCall('node scripts/tick.mjs .'), { session: null, sessions: [null] });
+  assert.equal(queueScriptCall('node scripts/ticks.mjs . --session s1'), null);
+});
+
+test('tick.mjs --json --session X reads the session', () => {
+  assert.equal(queueScriptCall('node scripts/tick.mjs . --json --session s7').session, 's7');
+  assert.equal(queueScriptCall('node scripts/watch.mjs . --summary --session s7').session, 's7');
+  assert.equal(queueScriptCall('node scripts/queue.mjs . sync --json --session s7').session, 's7');
+});

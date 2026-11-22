@@ -1040,3 +1040,79 @@ test('R34: a tool cannot run the user record hook or set CLAUDE_CODE_ENTRYPOINT'
     assertAllow(hookEnv(dir, sub(dir, 'Bash', { command })));
   }
 });
+
+// 0.5.0 T2: the claim rows of R32 and the supervisor address of R34.
+const CLAIM_REASON = 'R32: the supervisor session holds the queue; send a request to supervisor';
+const writeClaim = (dir, session, { aliveAt = new Date().toISOString(), ttlSec = 600 } = {}) =>
+  fs.writeFileSync(queuePath(dir, 'writer.json'), `${JSON.stringify({ session, ttlSec, aliveAt, pid: 1 })}\n`);
+const TICK = 'node scripts/tick.mjs . --json --session s1';
+const WATCH = 'node scripts/watch.mjs . --session s1';
+
+test('the main session with no claim runs queue.mjs', () => {
+  const dir = queueProject();
+  assertAllow(queueCall(dir, SYNC, {}));
+  assert.equal(violations(dir).length, 0);
+  // A claim past its ttl is no claim.
+  writeClaim(dir, 's9', { aliveAt: '2020-01-01T00:00:00.000Z' });
+  assertAllow(queueCall(dir, SYNC, {}));
+});
+
+test('an Architect-type agent is refused', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's1');
+  assert.equal(assertDeny(queueCall(dir, SYNC, { agent_type: 'guilda:architect', agent_id: 'a-9' })), AGENT_REASON);
+});
+
+test('the main session is refused while another session holds the claim', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's9');
+  assert.equal(assertDeny(queueCall(dir, SYNC, {})), CLAIM_REASON);
+  assert.equal(assertDeny(queueCall(dir, TICK, {})), CLAIM_REASON);
+  const v = violations(dir);
+  assert.deepEqual(v.map((x) => x.rule), ['R32', 'R32']);
+  assert.ok(v.every((x) => !x.action.includes('sync') && !x.action.includes('tick')));
+});
+
+test('claim passes while another session holds the claim', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's9');
+  assertAllow(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', {}));
+  assertAllow(queueCall(dir, 'node scripts/queue.mjs . claim --ttl 300 --session s1', {}));
+  // A claim joined to another queue command is not exempt.
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/queue.mjs . claim --session s1 && node scripts/queue.mjs . sync --session s1', {})), CLAIM_REASON);
+  // An agent is still refused for claim.
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', { agent_id: 'a-7' })), AGENT_REASON);
+});
+
+test('the claim session runs queue.mjs, tick.mjs and watch.mjs', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's1');
+  assertAllow(queueCall(dir, SYNC, {}));
+  assertAllow(queueCall(dir, TICK, {}));
+  assertAllow(queueCall(dir, WATCH, {}));
+  assert.equal(violations(dir).length, 0);
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/tick.mjs . --json', {})), 'R32: no --session');
+});
+
+test('a bad writer.json refuses the queue call', () => {
+  const dir = queueProject();
+  fs.writeFileSync(queuePath(dir, 'writer.json'), '{ not json');
+  assert.equal(assertDeny(queueCall(dir, SYNC, {})), 'R32: cannot check the call');
+  assert.equal(violations(dir).at(-1).rule, 'R32');
+});
+
+test('the claim session sends --from supervisor', () => {
+  const dir = busProject();
+  writeClaim(dir, 's1');
+  assertAllow(hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('supervisor') }, cwd: dir, session_id: 's1' }));
+});
+
+test('the claim session cannot send --from main', () => {
+  const dir = busProject();
+  writeClaim(dir, 's1');
+  const r = hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('main') }, cwd: dir, session_id: 's1' });
+  assert.equal(assertDeny(r), 'R34: --from main is not your address (supervisor)');
+  // Another session has no such address.
+  const other = hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('supervisor') }, cwd: dir, session_id: 's2' });
+  assert.equal(assertDeny(other), 'R34: --from supervisor is not your address (main)');
+});

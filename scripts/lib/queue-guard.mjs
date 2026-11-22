@@ -13,16 +13,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { splitCommands, stripPrefix, isVariable, resolveDir } from './git-command.mjs';
 import { findCreatedFiles } from './shell-writes.mjs';
+import { readClaim, queuePaths } from './queue.mjs';
 
 export const QUEUE_DIR = ['.guilda', 'queue'];
 export const QUEUE_FILES = ['journal.jsonl', 'state.json', 'lock', 'writer.json'];
 const QUEUE_SCRIPT = 'queue.mjs';
+// The base names that count as a queue script call (R32): the queue script and the two supervisor scripts.
+const QUEUE_SCRIPTS = [QUEUE_SCRIPT, 'tick.mjs', 'watch.mjs'];
 const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const WRITERS = new Set(['tee', 'touch', 'cp', 'mv', 'rm']);
 // The flags of the queue script that take no value. Each other `--` flag takes the next word, as in the script. A new
 // flag with no value that is missing here makes a later --session unread, so the call is refused (fail closed).
-const QUEUE_BOOL_FLAGS = new Set(['--external', '--check']);
+const QUEUE_BOOL_FLAGS = new Set(['--external', '--check', '--json', '--summary']);
 const END_MARK = 'guilda-queue-guard-end';
 const MAX_DEPTH = 8;
 const GLOB = /[*?[{]/;
@@ -352,17 +355,17 @@ export function queueFileWrites(command, cwd, projectDir) {
   }
 }
 
-/** True when the word can be a path whose base name is queue.mjs. A variable or a glob counts as any text. */
+/** True when the word can be a path whose base name is queue.mjs, tick.mjs or watch.mjs. A variable or a glob counts as any text. */
 function canBeQueueScript(word, { direct = false } = {}) {
   const w = word.replace(/\\/g, '/');
   const parts = w.split(/\$\{[^}]*\}|\$\([^)]*\)|\$\w+|\$|`[^`]*`|`|[*?]|\[[^\]]*\]|\{[^}]*\}/);
   const last = parts[parts.length - 1];
   const tail = last === '' ? '' : path.posix.normalize(last).replace(/^\.\//, '');
-  if (tail === QUEUE_SCRIPT || tail.endsWith(`/${QUEUE_SCRIPT}`)) return true;
+  if (QUEUE_SCRIPTS.some((n) => tail === n || tail.endsWith(`/${n}`))) return true;
   if (parts.length === 1) return false;
   // A command word that is only a variable is not taken as the queue script; one with a literal end can be.
   if (direct && tail === '') return false;
-  return QUEUE_SCRIPT.endsWith(tail) || tail.endsWith(QUEUE_SCRIPT);
+  return QUEUE_SCRIPTS.some((n) => n.endsWith(tail) || tail.endsWith(n));
 }
 
 /** The --session value of the queue script arguments, as the script reads them: null when there is none. */
@@ -380,33 +383,57 @@ function readSession(args) {
   return session;
 }
 
-/** The --session value of each queue script call in the simple commands. */
+/** True when the script word is queue.mjs and the command after the project word is `claim`. */
+function isClaimCommand(script, args) {
+  if (path.basename(script.replace(/\\/g, '/')) !== QUEUE_SCRIPT) return false;
+  const positional = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (!arg.startsWith('--')) positional.push(arg);
+    else if (!QUEUE_BOOL_FLAGS.has(arg)) i += 1;
+  }
+  return positional[1] === 'claim';
+}
+
+/** One { session, claim } for each queue script call in the simple commands. */
 function callsIn(commands) {
-  const sessions = [];
+  const calls = [];
   for (const words of commands) {
     const { rest } = stripPrefix(words);
     if (rest.length > 0 && canBeQueueScript(rest[0], { direct: true })) {
-      sessions.push(readSession(rest.slice(1)));
+      calls.push({ session: readSession(rest.slice(1)), claim: isClaimCommand(rest[0], rest.slice(1)) });
       continue;
     }
     const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
     if (nodeAt < 0) continue;
     const scriptAt = rest.findIndex((w, i) => i > nodeAt && canBeQueueScript(w));
     if (scriptAt < 0) continue;
-    sessions.push(readSession(rest.slice(scriptAt + 1)));
+    const args = rest.slice(scriptAt + 1);
+    calls.push({ session: readSession(args), claim: isClaimCommand(rest[scriptAt], args) });
   }
-  return sessions;
+  return calls;
 }
 
 /**
- * The queue script call of a Bash command: a program `node` whose script has the base name queue.mjs, or that script
+ * True when each queue script call of the command is a `queue.mjs ... claim` call (R32: the script decides a claim,
+ * exit 3). A call that only the reading without quotes finds is never a claim call.
+ */
+export function queueClaimOnly(command) {
+  if (typeof command !== 'string' || command === '') return false;
+  const quoted = callsIn(quotedCommands(command));
+  const flat = callsIn(splitCommands(flatten(command)));
+  return quoted.length > 0 && flat.length <= quoted.length && quoted.every((c) => c.claim);
+}
+
+/**
+ * The queue script call of a Bash command: a program `node` whose script has the base name queue.mjs, tick.mjs or watch.mjs, or that script
  * run directly. Returns null
  * when the command has none, else { session, sessions }: `sessions` is the --session value of each call (null for a
  * call with none), and `session` is the first. A call that only the reading without quotes finds has the value null.
  */
 export function queueScriptCall(command) {
   if (typeof command !== 'string' || command === '') return null;
-  const quoted = callsIn(quotedCommands(command));
+  const quoted = callsIn(quotedCommands(command)).map((c) => c.session);
   const flat = callsIn(splitCommands(flatten(command)));
   const sessions = [...quoted];
   for (let i = quoted.length; i < flat.length; i += 1) sessions.push(null);
@@ -420,4 +447,20 @@ export function isQueueFile(projectDir, absPath) {
     const c = [path.resolve(absPath), realish(path.resolve(absPath))];
     return c.some((p) => t.files.includes(p));
   });
+}
+
+/**
+ * The claim of the project for the hooks (R32, R34): { claim } with the live claim or null, or { error: true } when
+ * writer.json exists and cannot be read. A missing file is no claim. A claim with live false is no live claim.
+ */
+export function liveClaim(projectDir) {
+  try {
+    const file = queuePaths(projectDir).writer;
+    if (!fs.existsSync(file)) return { claim: null };
+    const claim = readClaim(projectDir);
+    if (claim === null) return { error: true };
+    return { claim: claim.live ? claim : null };
+  } catch {
+    return { error: true };
+  }
 }

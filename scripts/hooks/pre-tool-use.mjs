@@ -7,7 +7,7 @@ import { resolveProjectDir } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
 import { findGitCommits, parseAddedLines, resolveDir, splitCommands, stripPrefix, isVariable } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
-import { queueFileWrites, queueScriptCall, isQueueFile } from '../lib/queue-guard.mjs';
+import { queueFileWrites, queueScriptCall, queueClaimOnly, liveClaim, isQueueFile } from '../lib/queue-guard.mjs';
 import { busPaths, MAIN } from '../lib/bus.mjs';
 import { readBindings, validId, queuePaths } from '../lib/queue.mjs';
 import { keyFolder, TYPED_ENTRYPOINT } from '../lib/records.mjs';
@@ -37,6 +37,10 @@ const R32 = {
     reason: 'R32: only the writer role calls the queue script; that is the Architect in the main session, never an agent',
   },
   error: { action: 'hook error: cannot check the call', reason: 'R32: cannot check the call' },
+  claimed: {
+    action: 'queue script call refused: another session holds the claim',
+    reason: 'R32: the supervisor session holds the queue; send a request to supervisor',
+  },
   noSession: { action: 'queue script call refused: no --session', reason: 'R32: no --session' },
   session: {
     action: 'queue script call refused: --session is not this session',
@@ -47,11 +51,16 @@ const R32 = {
 const hasAgentId = (input) => input.agent_id !== undefined && input.agent_id !== null;
 
 /** The R32 problem of a queue script call, or null. The writer role: the Architect in the main session, with no agent_id (X2, 0.3.0 row). */
-function queueCallProblem(input, call) {
+function queueCallProblem(projectDir, input, call, command) {
   if (hasAgentId(input)) return 'agent';
   if (call.sessions.some((s) => s === null)) return 'noSession';
   const own = typeof input.session_id === 'string' && input.session_id !== '' ? input.session_id : null;
-  return call.sessions.every((s) => own !== null && s === own) ? null : 'session';
+  if (!call.sessions.every((s) => own !== null && s === own)) return 'session';
+  // The claim row (0.5.0): while another session holds a live claim, only the claim session writes. A read error refuses.
+  if (queueClaimOnly(command)) return null;
+  const held = liveClaim(projectDir);
+  if (held.error) return 'error';
+  return held.claim && held.claim.session !== own ? 'claimed' : null;
 }
 
 // R34 (4g): the bus law. A record never holds the command text, a path, a record text or a key byte.
@@ -74,6 +83,7 @@ const R34 = {
   from: { action: 'bus send refused: the sender is not the caller' },
 };
 const BUS_SCRIPT = 'bus.mjs';
+const SUPERVISOR = 'supervisor';
 const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const MAX_DEPTH = 8;
@@ -350,6 +360,9 @@ function callerOf(projectDir, input) {
     const bound = Object.values(readBindings(projectDir)).find((b) => b.state === 'bound' && b.agentId === input.agent_id);
     return bound ? { address: bound.address } : { problem: 'noBinding' };
   }
+  // The session of the live claim sends as supervisor. A read error of writer.json gives the 0.4.1 result.
+  const held = liveClaim(projectDir);
+  if (held.claim && typeof input.session_id === 'string' && input.session_id === held.claim.session) return { address: SUPERVISOR };
   const own = process.env.GUILDA_ADDRESS;
   if (typeof own === 'string' && validId('address', own)) return { address: own };
   if (process.env.CLAUDE_CODE_ENTRYPOINT !== TYPED_ENTRYPOINT) return { problem: 'printMode' };
@@ -530,7 +543,7 @@ async function main(input) {
     if (queueFileWrites(command, startCwd, projectDir).length > 0) return refuse32('file');
     const call = queueScriptCall(command);
     if (call) {
-      const problem = queueCallProblem(input, call);
+      const problem = queueCallProblem(projectDir, input, call, command);
       if (problem) return refuse32(problem);
     }
     // R4 runs before R19: a command with no git commit returns early below.

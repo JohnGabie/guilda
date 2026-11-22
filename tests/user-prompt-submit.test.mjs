@@ -265,3 +265,37 @@ test('mention: a readBindings error adds no text and exits 0', () => {
   assert.equal(r2.code, 0, r2.stderr);
   assert.match(contextOf(r2), CONTEXT);
 });
+
+const writeClaimFile = (dir, session, extra = {}) => {
+  fs.mkdirSync(path.join(dir, '.guilda', 'queue'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '.guilda', 'queue', 'writer.json'),
+    `${JSON.stringify({ session, ttlSec: 600, aliveAt: new Date().toISOString(), pid: 1, ...extra })}\n`,
+  );
+};
+
+test('a prompt in the claim session writes no user record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
+  writeClaimFile(dir, 's1');
+  assertNothing(dir, env, run(dir, prompt(dir), { env }));
+});
+
+test('a prompt in another session still writes a user record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
+  writeClaimFile(dir, 's9');
+  const r = run(dir, prompt(dir), { env });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(userLines(dir).length, 1);
+  // A claim past its ttl and a bad writer.json give the 0.4.1 result: the record.
+  const old = tempProject({ config: MINIMAL_CONFIG });
+  writeClaimFile(old, 's1', { aliveAt: '2020-01-01T00:00:00.000Z' });
+  assert.equal(run(old, prompt(old), { env }).code, 0);
+  assert.equal(userLines(old).length, 1);
+  const bad = tempProject({ config: MINIMAL_CONFIG });
+  fs.mkdirSync(path.join(bad, '.guilda', 'queue'), { recursive: true });
+  fs.writeFileSync(path.join(bad, '.guilda', 'queue', 'writer.json'), '{ not json');
+  assert.equal(run(bad, prompt(bad), { env }).code, 0);
+  assert.equal(userLines(bad).length, 1);
+});

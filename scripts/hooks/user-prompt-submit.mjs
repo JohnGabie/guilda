@@ -6,6 +6,7 @@ import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { MAX_TEXT_CHARS } from '../lib/bus.mjs';
 import { isTypedSession, writeUserRecord, cutText } from '../lib/records.mjs';
 import { readBindings, ROLE_CODES } from '../lib/queue.mjs';
+import { liveClaim } from '../lib/queue-guard.mjs';
 
 // The @mention step (D49, section 4l). The hook only adds context: it starts no agent and calls no SendMessage.
 // A mention: `@`, a target token, a space or a tab, then at least one character of text. The token holds letters
@@ -43,6 +44,9 @@ await runHookMain(async (input) => {
   if (typeof input.prompt !== 'string') return 0;
   const projectDir = resolveProjectDir(input);
   if (projectState(projectDir).state !== 'valid') return 0;
+  // A prompt of the claim session (a /loop tick of the supervisor) is not a user word: no record. A read error writes it.
+  const held = liveClaim(projectDir);
+  if (held.claim && held.claim.session === input.session_id) return 0;
   const record = writeUserRecord(projectDir, {
     session: input.session_id,
     kind: 'prompt',
