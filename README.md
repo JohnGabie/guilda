@@ -62,6 +62,20 @@ Run `node scripts/status.mjs <project>` to see the state, or add `--agent <name>
 - The `guilda-panel` mod shows each agent of the project as a row, with its binding. Run `/guilda-agents` to open
   the detail pane. Run `/guilda-agents log <address>` to open the log of one agent.
 
+## The supervisor
+
+The supervisor is a session that runs the queue of a build at the pace of your budget. Only you start it (R36).
+
+1. In the project folder, run `claude --agent guilda:supervisor`.
+2. In that session, run `/loop 30m` with the prompt `node scripts/tick.mjs . --json --session <id>`.
+   The `<id>` is in the line `guilda session: <id>` of the session start.
+
+The supervisor claims the queue and dispatches each task of the plan. It saves the work of an agent
+before it stops that agent. It sends each message for you to the Architect. It never merges, tags or pushes.
+
+The supervisor stops at the 5% floor of the budget. It also stops when only items for you are left.
+The summary of the run is in `.guilda/supervisor-summary.md`.
+
 ## Update from 0.1.x
 
 The 0.1.x layer of a project works as it is. Run `guilda:update`: it saves the new version in

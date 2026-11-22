@@ -15,7 +15,7 @@ const LEVELS = {
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
-  R34: 'law', R35: 'gate',
+  R34: 'law', R35: 'gate', R36: 'judgment',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -77,6 +77,12 @@ test('R35 has the level gate', () => {
   assert.equal(blocks(read('core/rules.md')).R35?.level, 'gate');
 });
 
+test('R36 has the level judgment, and its Rule: line is the text of the design', () => {
+  const r36 = blocks(read('core/rules.md')).R36;
+  assert.equal(r36?.level, 'judgment');
+  assert.match(r36.text, /Rule: +Start the supervisor session only on the request of the user, and let no hook and no agent start it\./);
+});
+
 test('R34 Check line names the key folder', () => {
   assert.match(blocks(read('core/rules.md')).R34.text, /Check: law — .*and a read of the key folder\./);
 });
@@ -119,7 +125,7 @@ test('glossary has the process terms in the fixed line format', () => {
     'verdict', 'process level', 'security zone', 'review unit', 'domain skill', 'triage', 'mutant', 'field report',
     'lab report', 'Lab group', 'block', 'agent ID', 'address', 'mailbox', 'binding table',
     'user channel', 'user record', 'queue journal', 'signal', 'audit log', 'block index',
-    'cost record'];
+    'cost record', 'supervisor', 'claim'];
   const lines = read('core/glossary.md').split(/\r?\n/).filter((l) => l.startsWith('- **'));
   const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
   for (const line of lines) assert.match(line, re);

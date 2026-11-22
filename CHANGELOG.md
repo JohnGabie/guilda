@@ -8,6 +8,17 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Added
+
+- New rules: R36 and SUP1 to SUP3. R36: only the user starts the supervisor session. SUP1: one precise question to
+  the Architect. SUP2: talk to the Architect, never to the user. SUP3: stop an agent only after a safe save.
+- The supervisor agent, `guilda:supervisor`, which runs the queue in a long session.
+- The claim: `queue claim` and `queue unclaim` set and clear `writer.json`, the one writer of the queue while live.
+- `scripts/tick.mjs`: the decision engine of the supervisor, with the steps and the records of its journal.
+- `scripts/watch.mjs`: the sleep with no tokens, which keeps the claim alive.
+- The pace: the supervisor reads the budget and sets the slots. It stops at the 5% floor.
+- The Stop hook branch for the supervisor session.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added

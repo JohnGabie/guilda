@@ -30,6 +30,9 @@ const AGENTS = {
   'architect-executor': {
     tier: 'master', tools: 'Read, Grep, Glob, Write, Edit', prefix: 'AEX', group: ['architect'],
   },
+  supervisor: {
+    tier: 'journeyman', tools: 'Bash, Read, Agent, TaskStop, SendMessage', prefix: 'SUP', group: ['engineering'],
+  },
   'coherence-validator': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'COH', group: ['architect'] },
 };
 const SKILL = 'skills/architect/SKILL.md';

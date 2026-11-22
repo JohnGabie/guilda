@@ -42,6 +42,8 @@ Source: guilda design, sections 6 and 7.
 - **audit log**: the file .guilda/audit.jsonl with one line for each tool call of a subagent, with no command text and no file content. Forbidden: activity log, tool log.
 - **block index**: the generated file .guilda/trace/index.json that maps each block ID to its file, its line range, its hash and its citers. Forbidden: spec map, ID table.
 - **cost record**: the file that the cost script writes at the end of a build, with the tokens and the cost of each task, block and build. Forbidden: bill, invoice.
+- **supervisor**: the session that holds the claim of the queue and keeps the pace of the build; it is not the owner of the product. Forbidden: boss, manager, overseer.
+- **claim**: the file writer.json of the queue, which names the one session that may write the queue while that session is live. Forbidden: lock, lease.
 
 ## Approval of the terms
 
