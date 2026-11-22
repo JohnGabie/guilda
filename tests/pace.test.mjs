@@ -83,11 +83,14 @@ test('cswap source runs exactly cswap budget --json and parses the output', () =
   assert.equal(calls[0][2].timeout, 10000);
 });
 
-test('exit 3, a timeout and bad JSON give error, not slots 0', () => {
+test('exit 3 gives off, a timeout and bad JSON give error, never slots 0', () => {
   const cfg = { usage: { source: 'cswap' } };
+  for (const out of ['', fx('ok.json')]) {
+    const u = readUsage(cfg, { run: () => ({ status: 3, stdout: out }) });
+    assert.deepEqual(u, { state: 'off', notice: 'usage source unavailable' });
+    assert.equal(pace(u).slots, 4);
+  }
   const cases = [
-    () => ({ status: 3, stdout: '' }),
-    () => ({ status: 3, stdout: fx('ok.json') }),
     () => { throw Object.assign(new Error('spawnSync cswap ETIMEDOUT'), { code: 'ETIMEDOUT' }); },
     () => { throw Object.assign(new Error('spawn cswap ENOENT'), { code: 'ENOENT' }); },
     () => ({ status: 0, stdout: fx('bad.txt') }),
@@ -130,8 +133,10 @@ test('the default run calls cswap with exactly budget --json and no shell', () =
   const fake = path.join(bin, 'cswap');
   const body = `#!/usr/bin/env node
 const b = ${fx('ok.json').trim()};
-b.fakeArgs = process.argv.slice(2);
-b.fakeParentIsTest = process.ppid === Number(process.env.TEST_PID);
+require('node:fs').writeFileSync(__dirname + '/probe.json', JSON.stringify({
+  args: process.argv.slice(2),
+  parentIsTest: process.ppid === Number(process.env.TEST_PID),
+}));
 process.stdout.write(JSON.stringify(b));
 `;
   fs.writeFileSync(fake, body, { mode: 0o755 });
@@ -141,8 +146,9 @@ process.stdout.write(JSON.stringify(b));
   try {
     const u = readUsage({ usage: { source: 'cswap' } });
     assert.equal(u.state, 'ok', u.reason);
-    assert.deepEqual(u.budget.fakeArgs, ['budget', '--json']);
-    assert.equal(u.budget.fakeParentIsTest, true);
+    const probe = JSON.parse(fs.readFileSync(path.join(bin, 'probe.json'), 'utf8'));
+    assert.deepEqual(probe.args, ['budget', '--json']);
+    assert.equal(probe.parentIsTest, true);
   } finally {
     process.env.PATH = saved.PATH;
     if (saved.TEST_PID === undefined) delete process.env.TEST_PID;

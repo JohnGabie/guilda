@@ -172,3 +172,8 @@ Check: gate — The Reviewer runs `verify` on the record that each new `@decided
 Rule:  Start the supervisor session only on the request of the user, and let no hook and no agent start it.
 Why:   A start with no user acts with no consent, and after a restart only the user starts the work again (D15 G5).
 Check: judgment — The Reviewer rejects a hook, a skill or an agent that starts a supervisor session or a `/loop`. It also rejects an offer to start one.
+
+### R38 — Read usage only, never switch accounts
+Rule:  Read usage only through the read-only usage command of the `cswap` fork, and never switch or list accounts.
+Why:   A switch or a list from an agent acts on the user's accounts and can leak an email or a token (D22).
+Check: law — PreToolUse refuses a `Bash` command that runs `cswap switch` or `cswap list`, from each session and each agent.

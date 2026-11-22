@@ -303,6 +303,20 @@ function innerText(rest) {
   return flag > 0 && rest[flag + 1] !== undefined ? rest[flag + 1] : null;
 }
 
+const CSWAP_REFUSED = new Set(['switch', 'list']);
+
+/** True when a shell command runs `cswap switch` or `cswap list`, in a list, a pipe or a shell text (R38). */
+function runsCswapAccountCommand(command, depth = 0) {
+  if (depth > MAX_DEPTH) return false;
+  for (const words of splitCommands(command)) {
+    const { rest } = stripPrefix(words);
+    const inner = innerText(rest);
+    if (inner !== null && runsCswapAccountCommand(inner, depth + 1)) return true;
+    if (rest.length > 1 && path.basename(rest[0].replace(/\\/g, '/')) === 'cswap' && rest.slice(1).some((w) => CSWAP_REFUSED.has(w))) return true;
+  }
+  return false;
+}
+
 const isBusScript = (word) => path.basename(word.replace(/\\/g, '/')) === BUS_SCRIPT;
 
 /**
@@ -539,6 +553,11 @@ async function main(input) {
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
+    if (runsCswapAccountCommand(command)) {
+      record('R38', 'usage account command refused');
+      deny('R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts');
+      return 0;
+    }
     if (commandWritesBus(projectDir, command, startCwd)) return refuse34('write');
     const send = sendProblem(projectDir, input, command);
     if (send) return refuse34(send.key, send.reason);

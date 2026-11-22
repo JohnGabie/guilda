@@ -1169,3 +1169,31 @@ test('a claim call with a variable word is refused during another live claim', (
   assertAllow(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', {}));
   assertAllow(queueCall(dir, `node ${REPO_ROOT}/scripts/queue.mjs ${os.tmpdir()}/proj claim --ttl 600 --session s1`, {}));
 });
+
+// R38 (S5-14): a session and an agent read usage only; no cswap switch and no cswap list.
+const R38_REASON = 'R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts';
+
+test('S5-14: cswap switch and cswap list are refused with R38; cswap budget passes', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const refused = [
+    'cswap switch 2',
+    'cswap list --json',
+    '/usr/local/bin/cswap list',
+    'bash -c "cswap switch 1"',
+    'x && cswap list',
+    'echo hi; cswap switch 3',
+    'cat f | cswap list',
+    'FOO=1 cswap switch 2',
+  ];
+  for (const command of refused) assert.equal(assertDeny(bash(dir, command)), R38_REASON, command);
+  const recs = violations(dir).filter((v) => v.rule === 'R38');
+  assert.equal(recs.length, refused.length);
+  for (const rec of recs) {
+    assert.equal(rec.level, 'law');
+    assert.ok(!JSON.stringify(rec).includes('cswap'), 'no command text');
+  }
+  for (const command of ['cswap budget --json', 'cswap budget', 'echo cswap switch']) assertAllow(bash(dir, command));
+  // An agent is refused the same way.
+  const agent = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'cswap list' }, cwd: dir, agent_id: 'a-1', agent_type: 'guilda:executor' }, dir);
+  assert.equal(assertDeny(agent), R38_REASON);
+});
