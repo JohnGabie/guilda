@@ -8,7 +8,7 @@ import { scanText, globMatch } from '../lib/scan.mjs';
 import { findGitCommits, parseAddedLines, resolveDir, splitCommands, stripPrefix, isVariable } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
 import { queueFileWrites, queueScriptCall, queueClaimOnly, queueCallHasNow, liveClaim, isQueueFile } from '../lib/queue-guard.mjs';
-import { busPaths, MAIN, COUNCIL_NAME, readLines, appendMessage } from '../lib/bus.mjs';
+import { busPaths, MAIN, COUNCIL_NAME, readLines, readMailbox, appendMessage } from '../lib/bus.mjs';
 import { redteamGuard } from '../lib/redteam-guard.mjs';
 import { awayGuard, architectSide } from '../lib/away.mjs';
 import { resumeGuard } from '../lib/resume.mjs';
@@ -92,6 +92,7 @@ const R34 = {
 const BUS_SCRIPT = 'bus.mjs';
 const COUNCIL_SCRIPT = 'council.mjs';
 const ARCHITECT = 'architect';
+const NOTICE_WINDOW_MS = 10 * 60 * 1000;
 const FLOOR_TYPES = ['claim', 'call'];
 
 // 0.5.0 refusals. A record never holds the command text.
@@ -110,7 +111,6 @@ const SUPERVISOR = 'supervisor';
 const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
 const MAX_DEPTH = 8;
-const MAX_SHOWN = 64;
 // The text that names the key folder in any form: `~/.local/state/guilda/keys`, `$XDG_STATE_HOME/guilda/keys`, ...
 // It is matched after the quotes and the backslashes of the text are taken out.
 const KEY_FOLDER_NAME = 'guilda/keys';
@@ -129,7 +129,7 @@ const WALK_FLAGS = {
   grep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive|--dereference-recursive|--directories=recurse)$/,
   egrep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)$/,
   fgrep: /^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)$/,
-  ls: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
+  ls: /^(?:-[^-]*R|--rec)/,
   cp: /^(?:-[A-Za-z]*[rRa][A-Za-z]*|--recursive|--archive)$/,
   chmod: /^(?:-[A-Za-z]*R[A-Za-z]*|--recursive)$/,
 };
@@ -564,31 +564,53 @@ function runsCswapAccountCommand(raw) {
 
 const isBusScript = (word) => path.basename(word.replace(/\\/g, '/')) === BUS_SCRIPT;
 
+// Commands that only name a script (read, list, compare, search). Any other command with a script word is a call.
+const NAMING_ONLY = new Set([
+  'git', 'cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ls', 'wc', 'diff', 'cmp', 'stat', 'file', 'nl', 'bat',
+  'echo', 'printf', 'test', '[', 'sed', 'awk', 'sort', 'cut', 'tr', 'md5sum', 'sha256sum', 'readlink', 'realpath', 'basename', 'dirname',
+]);
+// A glob, a placeholder or an expansion: the text cannot be read, so the call is refused (fail closed).
+const OPEN_CHARS = /[*?[{$`]/;
+const BUS_NOT_SEND = ['join', 'who', 'pending', 'deliver', 'verify'];
+const COUNCIL_NOT_SAY = ['open', 'read', 'record'];
+
 /**
- * The `--from` value of each `bus.mjs send` call of a shell command, read from the command text only. A value is
- * null when the call has no `--from`, or when a variable can stand for a flag (fail closed). A call whose command
- * word is a variable counts as a send.
+ * The argument list of each simple command that has a script word in any position (after xargs, an interpreter or a
+ * wrapper too). A command that only names the script (git, cat, grep ...) is not a call.
  */
-function sendCalls(command, depth = 0, out = []) {
+function scriptCalls(command, isScript, depth = 0, out = []) {
   if (depth > MAX_DEPTH) return out;
   for (const words of splitCommands(command)) {
     const { rest } = stripPrefix(words);
     const inner = innerText(rest);
-    if (inner !== null) sendCalls(inner, depth + 1, out);
-    let at = rest.length > 0 && isBusScript(rest[0]) ? 0 : -1;
-    if (at < 0) {
-      const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
-      if (nodeAt >= 0) at = rest.findIndex((w, i) => i > nodeAt && isBusScript(w));
+    if (inner !== null) scriptCalls(inner, isScript, depth + 1, out);
+    const at = rest.findIndex((w) => isScript(w));
+    if (at < 0 || NAMING_ONLY.has(path.basename(rest[0]))) continue;
+    out.push(rest.slice(at + 1));
+  }
+  return out;
+}
+
+/**
+ * The `--from` value of each `bus.mjs` call that is not a known other command, read from the command text only. A
+ * value is null when the call has no `--from`, or when the form cannot be read: a glob, a placeholder, a variable,
+ * an empty argument list, or no `send` word in position 0 or 1 (fail closed).
+ */
+function sendCalls(command) {
+  const out = [];
+  for (const args of scriptCalls(command, isBusScript)) {
+    const head = args.slice(0, 2);
+    if (head.some((a) => BUS_NOT_SEND.includes(a))) continue;
+    const sendAt = head.indexOf('send');
+    if (args.length === 0 || sendAt < 0 || head.some((a) => OPEN_CHARS.test(a))) {
+      out.push(null);
+      continue;
     }
-    if (at < 0) continue;
-    const args = rest.slice(at + 1);
-    const sendAt = [0, 1].find((i) => args[i] === 'send' || (args[i] !== undefined && isVariable(args[i])));
-    if (sendAt === undefined) continue;
-    let from = null;
+    const froms = [];
     let open = false;
     for (let i = sendAt + 1; i < args.length; i += 1) {
       if (args[i] === '--from') {
-        from = args[i + 1] ?? null;
+        froms.push(args[i + 1] ?? null);
         i += 1;
       } else if (SEND_VALUE_FLAGS.has(args[i])) {
         i += 1;
@@ -596,7 +618,8 @@ function sendCalls(command, depth = 0, out = []) {
         open = true;
       }
     }
-    out.push(open ? null : from);
+    if (open || froms.length === 0 || froms.some((f) => f === null || OPEN_CHARS.test(f))) out.push(null);
+    else out.push(...froms);
   }
   return out;
 }
@@ -638,36 +661,27 @@ function sendProblem(projectDir, input, command) {
   if (caller.problem) return { key: caller.problem };
   const wrong = froms.find((f) => f !== caller.address);
   if (wrong === undefined) return null;
-  const shown = wrong === null ? '(none)' : [...wrong].slice(0, MAX_SHOWN).join('');
-  return { key: 'from', reason: `R34: --from ${shown} is not your address (${caller.address})` };
+  return { key: 'from', reason: 'R34: --from is not your address' };
 }
 
 const isCouncilScript = (word) => path.basename(word.replace(/\\/g, '/')) === COUNCIL_SCRIPT;
 
 /**
- * The `say` calls of `council.mjs` in a shell command: { froms, type, id }. A value is null when it is missing or a
- * variable can stand for it (fail closed). A call whose subcommand is a variable counts as a say.
+ * The calls of `council.mjs` that are not `open`, `read` or `record` in position 0 or 1: { froms, type, id, open }.
+ * Each such call counts as a `say`. `open` is true when the form cannot be read (a glob, a placeholder, a variable,
+ * an empty argument list, no `say` word in position 0 or 1): the call is refused (fail closed).
  */
-function councilSayCalls(command, depth = 0, out = []) {
-  if (depth > MAX_DEPTH) return out;
-  for (const words of splitCommands(command)) {
-    const { rest } = stripPrefix(words);
-    const inner = innerText(rest);
-    if (inner !== null) councilSayCalls(inner, depth + 1, out);
-    let at = rest.length > 0 && isCouncilScript(rest[0]) ? 0 : -1;
-    if (at < 0) {
-      const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
-      if (nodeAt >= 0) at = rest.findIndex((w, i) => i > nodeAt && isCouncilScript(w));
-    }
-    if (at < 0) continue;
-    const args = rest.slice(at + 1);
-    const sayAt = [0, 1].find((i) => args[i] === 'say' || (args[i] !== undefined && isVariable(args[i])));
-    if (sayAt === undefined) continue;
-    const call = { froms: [], type: undefined, id: undefined, open: false };
-    for (let i = sayAt + 1; i < args.length; i += 1) {
+function councilSayCalls(command) {
+  const out = [];
+  for (const args of scriptCalls(command, isCouncilScript)) {
+    const head = args.slice(0, 2);
+    if (head.some((a) => COUNCIL_NOT_SAY.includes(a))) continue;
+    const call = { froms: [], type: undefined, id: undefined, open: args.length === 0 || !head.includes('say') || head.some((a) => OPEN_CHARS.test(a)) };
+    for (let i = 0; i < args.length; i += 1) {
       if (isVariable(args[i])) call.open = true;
       if (!args[i].startsWith('--')) continue;
       const value = args[i + 1] ?? null;
+      if (value !== null && OPEN_CHARS.test(value) && args[i] === '--from') call.open = true;
       if (args[i] === '--from') call.froms.push(value);
       else if (args[i] === '--type') call.type = value;
       else if (args[i] === '--id') call.id = value;
@@ -717,8 +731,15 @@ function councilProblem(projectDir, input, command) {
 /** The notice to the architect mailbox for a refusal of a caller that is not the Architect side (R40). */
 function noticeArchitect(projectDir, input, action) {
   const who = agentTypeOf(input) || (typeof input.session_id === 'string' && input.session_id ? `session ${input.session_id}` : 'a session');
+  const text = `${who} was refused: ${action}`;
   try {
-    appendMessage(projectDir, { from: MAIN, to: ARCHITECT, type: 'notice', text: `${who} was refused: ${action}`, hops: 0 });
+    // At most one notice for each (caller, action) in the window: the tail of the architect mailbox is the state.
+    const now = Date.now();
+    const recent = readMailbox(projectDir, ARCHITECT).some(
+      (l) => l.type === 'notice' && l.text === text && now - Date.parse(l.time) < NOTICE_WINDOW_MS,
+    );
+    if (recent) return;
+    appendMessage(projectDir, { from: MAIN, to: ARCHITECT, type: 'notice', text, hops: 0 });
   } catch {
     // The refusal stands when the notice cannot be written.
   }
@@ -967,8 +988,9 @@ async function main(input) {
     return 0;
   }
 
-  if (input.tool_name === 'Write' || input.tool_name === 'Edit') {
-    const filePath = typeof toolInput.file_path === 'string' ? toolInput.file_path : '';
+  if (['Write', 'Edit', 'NotebookEdit'].includes(input.tool_name)) {
+    const pathField = input.tool_name === 'NotebookEdit' ? toolInput.notebook_path : toolInput.file_path;
+    const filePath = typeof pathField === 'string' ? pathField : '';
     const absPath = path.resolve(projectDir, filePath.replace(/\\/g, '/'));
     if (filePath && insideAny(absPath, [busPaths(projectDir).bus])) return refuse34('write');
     if (filePath && isQueueFile(projectDir, absPath)) return refuse32('file');

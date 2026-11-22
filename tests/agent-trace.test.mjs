@@ -173,7 +173,7 @@ test('hooks.json has the 0.4.0 entries of X6, the 0.5.0 Stop entry of T6 and the
   const cmd = (file) => ({ type: 'command', command: 'node', args: [`\${CLAUDE_PLUGIN_ROOT}/scripts/hooks/${file}`] });
   const entry = (matcher, file) => (matcher === null ? { hooks: [cmd(file)] } : { matcher, hooks: [cmd(file)] });
   assert.deepEqual(hooks.PreToolUse, [
-    entry('Bash|Write|Edit|Read|Grep|Glob|Skill|Agent', 'pre-tool-use.mjs'),
+    entry('Bash|Write|Edit|NotebookEdit|Read|Grep|Glob|Skill|Agent', 'pre-tool-use.mjs'),
     entry('Write|Edit|MultiEdit|NotebookEdit', 'pre-architect-write.mjs'),
     entry('Agent', 'pre-agent.mjs'),
     entry('Skill', 'pre-skill.mjs'),

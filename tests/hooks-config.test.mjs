@@ -13,7 +13,7 @@ test('the matchers of hooks.json for 0.4.0', () => {
   const h = hooks();
   const pre = h.PreToolUse.filter((e) => scriptOf(e) === 'pre-tool-use.mjs');
   assert.equal(pre.length, 1);
-  assert.equal(pre[0].matcher, 'Bash|Write|Edit|Read|Grep|Glob|Skill|Agent');
+  assert.equal(pre[0].matcher, 'Bash|Write|Edit|NotebookEdit|Read|Grep|Glob|Skill|Agent');
   const post = h.PostToolUse.filter((e) => scriptOf(e) === 'post-tool-use.mjs');
   assert.equal(post.length, 1);
   assert.equal(post[0].matcher, 'Write|Edit|AskUserQuestion|SendMessage');
@@ -31,7 +31,7 @@ test('the other entries of hooks.json keep their matchers', () => {
   assert.deepEqual(rows(hooks()), [
     ['SessionStart', 'startup|resume|clear|compact', 'session-start.mjs'],
     ['SubagentStart', null, 'subagent-start.mjs'],
-    ['PreToolUse', 'Bash|Write|Edit|Read|Grep|Glob|Skill|Agent', 'pre-tool-use.mjs'],
+    ['PreToolUse', 'Bash|Write|Edit|NotebookEdit|Read|Grep|Glob|Skill|Agent', 'pre-tool-use.mjs'],
     ['PreToolUse', 'Write|Edit|MultiEdit|NotebookEdit', 'pre-architect-write.mjs'],
     ['PreToolUse', 'Agent', 'pre-agent.mjs'],
     ['PreToolUse', 'Skill', 'pre-skill.mjs'],

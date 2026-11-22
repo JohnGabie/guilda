@@ -61,7 +61,7 @@ const refused = (out) => {
 test('matcher: the first PreToolUse entry reaches the eight tools of X6', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const entry = hooks.PreToolUse.find((e) => e.hooks.some((h) => h.args.some((a) => a.endsWith('hooks/pre-tool-use.mjs'))));
-  assert.deepEqual(entry.matcher.split('|').sort(), ['Agent', 'Bash', 'Edit', 'Glob', 'Grep', 'Read', 'Skill', 'Write']);
+  assert.deepEqual(entry.matcher.split('|').sort(), ['Agent', 'Bash', 'Edit', 'Glob', 'Grep', 'NotebookEdit', 'Read', 'Skill', 'Write']);
 });
 
 test('S5-19: R37 through the hook, with the rule ID in the record and no command text', () => {
@@ -188,4 +188,84 @@ test('a hook error fails closed for the 0.5.0 guards', () => {
   const dir = project();
   const out = hook(dir, bash('echo hi'), { GUILDA_TEST_HOOK_THROW: '1' });
   assert.match(refused(out), /^R32:/);
+});
+
+test('S5-25: council say --from user is refused from the claim session; --from architect from an agent, and from the claim session', () => {
+  const dir = project();
+  const id = openCouncil(dir);
+  const folder = path.join(dir, '.guilda', ['que', 'ue'].join(''));
+  fs.mkdirSync(folder, { recursive: true });
+  const live = { session: 's-claim', ttlSec: 600, aliveAt: new Date().toISOString(), pid: 1 };
+  fs.writeFileSync(path.join(folder, 'writer.json'), `${JSON.stringify(live)}\n`);
+  const say = (from) => `node ${REPO_ROOT}/scripts/council.mjs say --id ${id} --from ${from} --type decision --decision a --why b --record u-00000001`;
+  assert.match(refused(hook(dir, bash(say('user'), { session_id: 's-claim' }))), /^R34:/);
+  assert.equal(hook(dir, bash(say('user'), { session_id: 's-other' })), null);
+  assert.match(refused(hook(dir, bash(say('architect'), agent('guilda:executor')))), /^R34:/);
+  assert.match(refused(hook(dir, bash(say('architect'), { session_id: 's-claim' }))), /^R34:/);
+  assert.equal(hook(dir, bash(say('architect'), { session_id: 's-other' })), null);
+});
+
+test('security: council and bus calls in a wrapper, a glob or a placeholder are refused; naming a script passes', () => {
+  const dir = project();
+  const id = openCouncil(dir);
+  const script = `${REPO_ROOT}/scripts/council.mjs`;
+  const as = agent(SEC);
+  const wrapped = [
+    `printf 'x' | xargs node ${script} say --id ${id} --type claim`,
+    `printf 'x' | xargs -I{} node ${script} say --id ${id} --from {} --type claim`,
+    `node ${script} [s]ay --id ${id} --from ${SEC} --type claim`,
+    `node ${script}`,
+    `bun ${script} say --id ${id} --from guilda:executor --type claim`,
+    `npx tsx ${script} say --id ${id} --from guilda:executor --type claim`,
+  ];
+  // A refusal of any kind: the away guard also refuses an xargs form that holds council.mjs (R40, neutral text).
+  for (const command of wrapped) refused(hook(dir, bash(command, as)));
+  assert.match(refused(hook(dir, bash(wrapped[3], as))), /^R34:/);
+  // From the main session (the Architect side) the away guard passes, so the parser alone refuses.
+  for (const command of wrapped.slice(0, 3)) assert.match(refused(hook(dir, bash(command))), /^R34:/, command);
+  assert.match(refused(hook(dir, bash(`printf 'x' | xargs node ${REPO_ROOT}/scripts/bus.mjs send --to main`))), /^R34:/);
+  assert.equal(hook(dir, bash(`bun ${script} say --id ${id} --from ${SEC} --type claim`, as)), null);
+  assert.equal(hook(dir, bash(`node ${script} read --id ${id}`, as)), null);
+  assert.equal(hook(dir, bash(`git add ${script}`, as)), null);
+  const bus = `${REPO_ROOT}/scripts/bus.mjs`;
+  refused(hook(dir, bash(`printf 'x' | xargs node ${bus} send --to main`, as)));
+  assert.match(refused(hook(dir, bash(`node ${bus} . [s]end --from main --to main`, as))), /^R34:/);
+  assert.match(refused(hook(dir, bash(`bun ${bus} . send --from main --to main --type notice --text x`, as))), /^R34:/);
+  assert.equal(hook(dir, bash(`node ${bus} . who`, as)), null);
+  assert.equal(hook(dir, bash(`cat ${bus}`, as)), null);
+});
+
+test('security: the R34 from refusal shows no --from value', () => {
+  const dir = project();
+  const id = openCouncil(dir);
+  const text = refused(hook(dir, bash(claim(id, 'guilda:secret-name'), agent(SEC))));
+  assert.equal(text.includes('secret-name'), false);
+  assert.equal(text, 'R34: --from is not the address of this caller');
+  const busText = refused(hook(dir, bash(`node ${REPO_ROOT}/scripts/bus.mjs . send --from guilda:secret-name --to main --type notice --text x`, agent(SEC))));
+  assert.equal(busText.includes('secret-name'), false);
+});
+
+test('security: ls with a recursive flag walks the key folder; NotebookEdit cannot write the bus', () => {
+  const dir = project();
+  for (const flags of ['-lR', '-R', '-alR', '--recursive', '--rec']) {
+    assert.match(refused(hook(dir, bash(`ls ${flags} '${state}'`))), /^R34:/, flags);
+  }
+  const bus = path.join(dir, '.guilda', 'bus', 'main.jsonl');
+  assert.match(refused(hook(dir, { tool_name: 'NotebookEdit', tool_input: { notebook_path: bus, new_source: 'x' } })), /^R34:/);
+});
+
+test('security: the R40 notice is sent once for each caller and action in 10 minutes', () => {
+  const dir = project();
+  setAway(dir);
+  const vc = agent('guilda:version-control');
+  hook(dir, bash('git push origin x', vc));
+  hook(dir, bash('git push origin y', vc));
+  assert.equal(readMailbox(dir, 'architect').length, 1);
+  hook(dir, bash('gh pr create', vc));
+  hook(dir, bash('git push origin x', agent('guilda:executor')));
+  assert.deepEqual(
+    readMailbox(dir, 'architect').map((l) => l.text),
+    ['guilda:version-control was refused: git push', 'guilda:version-control was refused: gh pr create', 'guilda:executor was refused: git push'],
+  );
+  assert.deepEqual(violations(dir).map((v) => v.rule), ['R40', 'R40', 'R40', 'R40']);
 });

@@ -818,7 +818,7 @@ const sub = (dir, toolName, toolInput, extra = {}) => ({
 const R34_CASES = [
   ['1 Write to a mailbox', (d) => hookEnv(d, sub(d, 'Write', { file_path: path.join(d, '.guilda', 'bus', 'architect.jsonl'), content: 'x' })), /^R34: /],
   ['2 echo >> a mailbox', (d) => hookEnv(d, sub(d, 'Bash', { command: 'echo x >> .guilda/bus/architect.jsonl' })), /^R34: /],
-  ['3 send --from main from a subagent', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('main') })), `R34: --from main is not your address (${BOUND})`],
+  ['3 send --from main from a subagent', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('main') })), 'R34: --from is not your address'],
   ['4 send --from its own address', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) })), null],
   ['5 send from an agent ID with no binding', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) }, { agent_id: 'a-9' })), NO_BINDING],
   ['6 a guilda:architect agent cannot send --from architect', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('architect') }, { agent_id: 'a-9', agent_type: 'guilda:architect' })), NO_BINDING],
@@ -856,21 +856,21 @@ test('R34: the caller of the main session, print mode and GUILDA_ADDRESS', () =>
   const dir = busProject();
   const main = (command, opts) => hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir, session_id: 's1' }, opts);
   assertAllow(main(sendCmd('main')));
-  assert.equal(assertDeny(main(sendCmd('architect'))), 'R34: --from architect is not your address (main)');
+  assert.equal(assertDeny(main(sendCmd('architect'))), 'R34: --from is not your address');
   assert.equal(assertDeny(main(sendCmd('main'), { entry: 'sdk-cli' })), 'R34: this print-mode session has no address');
   assert.equal(assertDeny(main(sendCmd('main'), { entry: 'none' })), 'R34: this print-mode session has no address');
   assertAllow(main(sendCmd('T5-exe-1a2b'), { entry: 'sdk-cli', address: 'T5-exe-1a2b' }));
-  assert.equal(assertDeny(main(sendCmd('main'), { entry: 'sdk-cli', address: 'T5-exe-1a2b' })), 'R34: --from main is not your address (T5-exe-1a2b)');
+  assert.equal(assertDeny(main(sendCmd('main'), { entry: 'sdk-cli', address: 'T5-exe-1a2b' })), 'R34: --from is not your address');
 });
 
 test('R34: the --from value comes from the command text, not from a variable', () => {
   const dir = busProject();
   const run = (command) => hookEnv(dir, sub(dir, 'Bash', { command }), { env: { X: BOUND } });
-  assert.match(assertDeny(run(`node "${BUS_SCRIPT}" . send --from "$X" --to architect --type notice --text hi`)), /^R34: --from \$X is not your address/);
+  assert.match(assertDeny(run(`node "${BUS_SCRIPT}" . send --from "$X" --to architect --type notice --text hi`)), /^R34: --from is not your address/);
   assert.match(assertDeny(run(`X=${BOUND}; node scripts/bus.mjs . send --from $X --to main --type notice --text hi`)), /^R34: /);
   assert.match(assertDeny(run(`node scripts/bus.mjs . send --to main --type notice --text hi`)), /^R34: /);
-  assert.match(assertDeny(run(`F=--from; node scripts/bus.mjs . send $F main --from ${BOUND} --to main --type notice --text hi`)), /^R34: --from \(none\) /);
-  assert.match(assertDeny(run(`node scripts/bus.mjs . send --from ${BOUND} --from main --to main --type notice --text hi`)), /^R34: --from main /);
+  assert.match(assertDeny(run(`F=--from; node scripts/bus.mjs . send $F main --from ${BOUND} --to main --type notice --text hi`)), /^R34: --from is not your address$/);
+  assert.match(assertDeny(run(`node scripts/bus.mjs . send --from ${BOUND} --from main --to main --type notice --text hi`)), /^R34: --from is not your address$/);
   assert.match(assertDeny(run(`sh -c "node scripts/bus.mjs . send --from main --to main --type notice --text hi"`)), /^R34: /);
   assert.match(assertDeny(run(`true && node scripts/bus.mjs . send --from main --to main --type notice --text hi`)), /^R34: /);
   assertAllow(run(`node scripts/bus.mjs . pending --address ${BOUND}`));
@@ -1111,10 +1111,10 @@ test('the claim session cannot send --from main', () => {
   const dir = busProject();
   writeClaim(dir, 's1');
   const r = hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('main') }, cwd: dir, session_id: 's1' });
-  assert.equal(assertDeny(r), 'R34: --from main is not your address (supervisor)');
+  assert.equal(assertDeny(r), 'R34: --from is not your address');
   // Another session has no such address.
   const other = hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('supervisor') }, cwd: dir, session_id: 's2' });
-  assert.equal(assertDeny(other), 'R34: --from supervisor is not your address (main)');
+  assert.equal(assertDeny(other), 'R34: --from is not your address');
 });
 
 // T2 review: the claim exemption bypasses.
