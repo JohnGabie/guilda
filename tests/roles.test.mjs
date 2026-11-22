@@ -37,6 +37,7 @@ const AGENTS = {
   supervisor: {
     tier: 'journeyman', tools: 'Bash, Read, Agent, TaskStop, SendMessage', prefix: 'SUP', group: ['engineering'],
   },
+  judge: { tier: 'journeyman', tools: 'Read, Bash', prefix: 'JDG', group: ['council'] },
   'coherence-validator': { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'COH', group: ['architect'] },
 };
 const SKILL = 'skills/architect/SKILL.md';
@@ -137,11 +138,11 @@ test('ai-lead and devops-advisor each have a tools list', () => {
   for (const name of ['ai-lead', 'devops-advisor']) assert.ok(parse(agentFile(name)).fields.tools, name);
 });
 
-test('each skill of skills/ has a groups field, and its value is [architect] (S37, section 3e)', () => {
+test('each skill of skills/ has a groups field: [architect], and [council] for the council skill (S37, 3e, 5h)', () => {
   const dirs = fs.readdirSync(path.join(REPO_ROOT, 'skills'), { withFileTypes: true }).filter((d) => d.isDirectory());
-  assert.deepEqual(dirs.map((d) => d.name).sort(), ['architect', 'init', 'lab', 'report', 'update']);
+  assert.deepEqual(dirs.map((d) => d.name).sort(), ['architect', 'council', 'init', 'lab', 'report', 'update']);
   for (const d of dirs) {
-    assert.deepEqual(parse(`skills/${d.name}/SKILL.md`).fields.groups, ['architect'], d.name);
+    assert.deepEqual(parse(`skills/${d.name}/SKILL.md`).fields.groups, d.name === 'council' ? ['council'] : ['architect'], d.name);
   }
 });
 

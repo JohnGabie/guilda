@@ -29,6 +29,8 @@ export const MAIN = 'main';
 export const MESSAGE_ID = /^m-[0-9a-f]{8}$/;
 export const RECORD_ID = /^u-[0-9a-f]{8}$/;
 const RESERVED_ADDRESS = /^(supervisor|council-[0-9a-f]{4})$/;
+/** The name of a council channel file (5h): `council-<4 hex>`. It is a file of the bus folder, not a mailbox. */
+export const COUNCIL_NAME = /^council-[0-9a-f]{4}$/;
 const MESSAGE_ID_BYTES = 4;
 const TMP_BYTES = 4;
 const VERSION = 1;
@@ -65,6 +67,8 @@ export function mailboxPath(projectDir, address) {
 export function mailboxAddress(file) {
   if (typeof file !== 'string' || !file.endsWith('.jsonl')) return null;
   const address = file.slice(0, -'.jsonl'.length);
+  // A council channel is in the bus folder, and no mailbox command reads it (5h).
+  if (COUNCIL_NAME.test(address)) return null;
   return validId('address', address) ? address : null;
 }
 
@@ -295,6 +299,42 @@ function appendLines(projectDir, address, records) {
   }
 }
 
+/**
+ * Append one line to a bus file, as it is: no message check (5h). The caller holds the lock of `address` (see
+ * withMailboxLock). Council lines use it. The file name check of mailboxPath still holds.
+ */
+export function appendLine(projectDir, address, record) {
+  appendLines(projectDir, address, [record]);
+  return record;
+}
+
+/**
+ * The lines of a bus file that parse as JSON objects, in file order, with no message check. A last line with no
+ * newline is partial and skipped. A missing file gives null. Council lines use it.
+ */
+export function readLines(projectDir, address) {
+  const fd = openPlain(mailboxPath(projectDir, address), fs.constants.O_RDONLY);
+  if (fd === null) return null;
+  let text;
+  try {
+    text = fs.readFileSync(fd, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const parts = text.split('\n');
+  parts.pop();
+  const out = [];
+  for (const part of parts) {
+    try {
+      const raw = JSON.parse(part);
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) out.push(raw);
+    } catch {
+      // a partial or forged line is skipped
+    }
+  }
+  return out;
+}
+
 const isHops = (v) => Number.isInteger(v) && v >= 0;
 
 /** One checked line of a mailbox, or null when the line is skipped (4c, D40). */
@@ -343,6 +383,7 @@ export function parseMailbox(text) {
  */
 export function readMailbox(projectDir, address) {
   try {
+    if (COUNCIL_NAME.test(address)) return [];
     const file = mailboxPath(projectDir, address);
     const fd = openPlain(file, fs.constants.O_RDONLY);
     if (fd === null) return [];

@@ -1,6 +1,7 @@
 import { projectState, SETUP_NOTICE } from '../lib/project.mjs';
 import { appendViolation } from '../lib/violations.mjs';
 import { resolveProjectDir, resolvePluginRoot, runHookMain } from '../lib/hook-io.mjs';
+import { openCouncilMembers } from '../council.mjs';
 import { agentGroups, skillGroups, isGuildaSkill, mayLoad, qualifySkill } from '../lib/groups.mjs';
 
 // The skill that sets guilda up: R28 prints no notice for it.
@@ -10,8 +11,22 @@ const MAIN_SESSION = 'main session';
 // A value that is not a short plain name never goes into a refusal text or a record, because the model writes it.
 const SAFE_NAME = /^[A-Za-z0-9_.:-][A-Za-z0-9_.: -]{0,63}$/;
 const UNREADABLE = '(unreadable name)';
+// The skill that a member of an open council may load, whatever its group (5h, D47).
+const COUNCIL_SKILL = 'guilda:council';
+// The member name of the main session, which has no agent type: the Architect (5h, L4-1 NO-GO).
+const MAIN_MEMBER = 'architect';
 
 const shown = (value) => (typeof value === 'string' && SAFE_NAME.test(value) ? value.trim() : UNREADABLE);
+
+// True when the agent type is in the member list of an open council. A read error gives false (fail closed).
+function isCouncilMember(projectDir, name) {
+  if (typeof name !== 'string') return false;
+  try {
+    return openCouncilMembers(projectDir).has(name);
+  } catch {
+    return false;
+  }
+}
 
 function deny(projectDir, skillName, reason) {
   appendViolation(projectDir, { rule: 'R30', level: 'law', source: 'pre-skill', action: `skill call refused: ${skillName}` });
@@ -57,6 +72,7 @@ await runHookMain(async (input) => {
 
   const hasType = Object.hasOwn(input, 'agent_type');
   const agentType = hasType ? input.agent_type : undefined;
+  if (skill.trim().toLowerCase() === COUNCIL_SKILL && isCouncilMember(projectDir, hasType ? agentType : MAIN_MEMBER)) return 0;
   const agentName = hasType ? shown(agentType) : MAIN_SESSION;
   const agent = agentGroups(pluginRoot, agentType);
   if (agent === null) {

@@ -9,7 +9,7 @@ const MODELS = {
   'architect-executor': 'opus', security: 'opus', 'security-executor': 'opus', 'lab-researcher': 'opus', 'lab-reader': 'opus',
   reviewer: 'opus', 'coherence-validator': 'opus', 'devops-advisor': 'opus', 'ai-lead': 'opus',
   'lab-experimenter': 'opus', executor: 'sonnet', qa: 'sonnet', 'version-control': 'sonnet',
-  supervisor: 'sonnet', 'security-lead': 'opus',
+  supervisor: 'sonnet', 'security-lead': 'opus', judge: 'sonnet',
 };
 const agentsDir = path.join(REPO_ROOT, 'agents');
 const modelOf = (f) => (fs.readFileSync(path.join(agentsDir, f), 'utf8').match(/^model:\s*(\S+)\s*$/m) || [])[1];

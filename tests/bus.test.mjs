@@ -13,6 +13,11 @@ import {
   pendingOf,
   appendReceipt,
   computeHops,
+  appendLine,
+  readLines,
+  mailboxAddress,
+  mailboxAddresses,
+  withMailboxLock,
   takeBusLock,
   releaseBusLock,
   BusError,
@@ -754,4 +759,21 @@ test('send to supervisor exits 2 with an expired claim', () => {
   const r = run(dir, ...SUPERVISOR_SEND);
   assert.equal(r.code, 2);
   assert.equal(r.first, 'unknown address supervisor');
+});
+
+// 5h: the bus exports appendLine and readLines for a council channel, and no mailbox command reads that file.
+test('appendLine writes a line with no message check, and readLines reads it; a council file is no mailbox', () => {
+  const dir = project();
+  const name = 'council-1a2b';
+  withMailboxLock(dir, name, () => {
+    appendLine(dir, name, { v: 1, id: 'c-00000001', council: name, from: 'user', type: 'create' });
+    appendLine(dir, name, { v: 1, id: 'c-00000002', council: name, from: 'user', type: 'open' });
+  });
+  assert.deepEqual(readLines(dir, name).map((l) => l.id), ['c-00000001', 'c-00000002']);
+  assert.equal(readLines(dir, 'council-ffff'), null);
+  assert.equal(mailboxAddress('council-1a2b.jsonl'), null);
+  assert.deepEqual(mailboxAddresses(dir), []);
+  assert.deepEqual(readMailbox(dir, name), []);
+  assert.throws(() => appendLine(dir, '../x', {}), BusError);
+  assert.deepEqual(run(dir, 'pending', '--address', name).lines, []);
 });
