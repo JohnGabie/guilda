@@ -1,0 +1,245 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
+import { runWriter } from '../scripts/lib/queue.mjs';
+import { resumeGuard, projectId, unitName, makeRecord, MIN_PAUSE_MIN } from '../scripts/lib/resume.mjs';
+
+const SCRIPT = path.join(REPO_ROOT, 'scripts', 'resume.mjs');
+const SESSION = 's-0001';
+const FUTURE = () => new Date(Date.now() + 3 * 3600000).toISOString();
+
+/** A folder of stand-in programs. Each one logs its arguments (and stdin for `at`) to `log`. */
+function bins(names, { atJob = '7' } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda resume bins '));
+  for (const n of names) {
+    const body = n === 'at'
+      ? `#!/bin/sh\nprintf 'at %s\\n' "$*" >> "$(dirname "$0")/log"\ncat >> "$(dirname "$0")/log"\necho "job ${atJob} at Mon" >&2\n`
+      : n === 'cswap'
+        ? '#!/bin/sh\ncat "$(dirname "$0")/cswap.json"\n'
+        : `#!/bin/sh\nprintf '${n} %s\\n' "$*" >> "$(dirname "$0")/log"\n`;
+    fs.writeFileSync(path.join(dir, n), body, { mode: 0o755 });
+  }
+  return dir;
+}
+const logOf = (b) => (fs.existsSync(path.join(b, 'log')) ? fs.readFileSync(path.join(b, 'log'), 'utf8') : '');
+
+function resume(dir, args, b) {
+  const env = { ...process.env, GUILDA_RESUME_BIN_DIR: b };
+  const r = spawnSync(process.execPath, [SCRIPT, dir, ...args], { encoding: 'utf8', env });
+  return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? '') };
+}
+
+const seed = (dir, events) => runWriter(dir, { now: '2026-11-20T10:00:00.000Z' }, ({ emit }) => {
+  for (const e of events) emit({ t: '2026-11-20T10:00:00.000Z', ...e });
+});
+const LIMIT = [{ type: 'plan', slots: 2, work: 'w-00000001' }, { type: 'limit-stop', work: 'w-00000001', window: 'fiveHour', resetsAt: '2026-11-23T00:00:00Z' }];
+
+const recFile = (dir) => path.join(dir, '.guilda', 'resume', `${projectId(dir)}.json`);
+const recOf = (dir) => JSON.parse(fs.readFileSync(recFile(dir), 'utf8'));
+
+test('arm calls systemd-run with AccuracySec=1s and the unit name, and writes the record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl', 'at', 'atrm', 'claude']);
+  const r = resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  assert.equal(r.code, 0, r.out);
+  const log = logOf(b);
+  assert.match(log, /^systemd-run --user --on-active=\d+s --timer-property=AccuracySec=1s --unit=guilda-resume-[0-9a-f]{8} /m);
+  assert.ok(log.includes(`--unit=${unitName(projectId(dir))}`));
+  assert.ok(log.includes(`${dir} run ${projectId(dir)}`), log);
+  assert.doesNotMatch(log, /^at /m);
+  const rec = recOf(dir);
+  assert.equal(rec.state, 'armed');
+  assert.equal(rec.supervisorSession, SESSION);
+  assert.equal(rec.method, 'systemd');
+  assert.equal(rec.projectPath, fs.realpathSync(dir));
+  assert.equal((fs.statSync(recFile(dir)).mode & 0o777), 0o600);
+  assert.deepEqual(fs.readdirSync(path.dirname(recFile(dir))), [`${projectId(dir)}.json`]);
+});
+
+test('arm falls back to at when systemd-run is absent', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['at', 'atrm']);
+  const r = resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  assert.equal(r.code, 0, r.out);
+  assert.match(logOf(b), /^at \d\d:\d\d$/m);
+  assert.match(logOf(b), /resume\.mjs/);
+  const rec = recOf(dir);
+  assert.equal(rec.method, 'at');
+  assert.equal(rec.job, '7');
+});
+
+test('arm with no trigger exits 1 with "refused: no trigger" and writes no record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['claude']);
+  const r = resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /refused: no trigger/);
+  assert.equal(fs.existsSync(recFile(dir)), false);
+});
+
+test('arm needs --at with a zone', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run']);
+  const r = resume(dir, ['arm', '--session', SESSION, '--at', '2026-11-23T00:00:00'], b);
+  assert.equal(r.code, 1);
+  assert.equal(logOf(b), '');
+});
+
+test('arm again replaces the trigger: one armed record, the old timer is stopped', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  assert.equal(resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b).code, 0);
+  assert.equal(resume(dir, ['arm', '--session', 's-0002', '--at', FUTURE()], b).code, 0);
+  const log = logOf(b);
+  assert.match(log, /^systemctl --user stop guilda-resume-[0-9a-f]{8}\.timer$/m);
+  assert.equal((log.match(/^systemd-run /gm) ?? []).length, 2);
+  assert.equal(recOf(dir).supervisorSession, 's-0002');
+  assert.equal(fs.readdirSync(path.dirname(recFile(dir))).length, 1);
+});
+
+test('remove calls systemctl stop and marks the record removed', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  const r = resume(dir, ['remove', '--session', SESSION], b);
+  assert.equal(r.code, 0, r.out);
+  assert.ok(logOf(b).includes(`systemctl --user stop ${unitName(projectId(dir))}.timer`));
+  assert.equal(recOf(dir).state, 'removed');
+  assert.match(resume(dir, ['status'], b).out, /^removed /);
+});
+
+test('remove with an at job calls atrm', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['at', 'atrm']);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  assert.equal(resume(dir, ['remove', '--session', SESSION], b).code, 0);
+  assert.match(logOf(b), /^atrm 7$/m);
+});
+
+test('S5-15: run refuses another project, a missing record and a wrong id, and starts nothing', () => {
+  const p1 = tempProject({ config: MINIMAL_CONFIG });
+  const p2 = tempProject({ config: MINIMAL_CONFIG });
+  const p3 = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl', 'claude']);
+  seed(p1, LIMIT);
+  resume(p1, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  const before = fs.readFileSync(recFile(p1), 'utf8');
+  // A copy of the record of p1 in p2 (under the id of p2, and under the id of p1).
+  fs.mkdirSync(path.dirname(recFile(p2)), { recursive: true });
+  fs.writeFileSync(recFile(p2), before);
+  fs.writeFileSync(path.join(path.dirname(recFile(p2)), `${projectId(p1)}.json`), before);
+  seed(p2, LIMIT);
+  const copy = fs.readFileSync(recFile(p2), 'utf8');
+  fs.writeFileSync(b + '/log', '');
+  const r1 = resume(p2, ['run', projectId(p2)], b);
+  assert.equal(r1.code, 5);
+  assert.match(r1.out, /refused: project mismatch/);
+  const r2 = resume(p2, ['run', projectId(p1)], b);
+  assert.equal(r2.code, 5);
+  assert.match(r2.out, /refused: project mismatch/);
+  const r3 = resume(p3, ['run', projectId(p3)], b);
+  assert.equal(r3.code, 5);
+  assert.match(r3.out, /refused: no armed record/);
+  const r4 = resume(p1, ['run', 'deadbeef'], b);
+  assert.equal(r4.code, 5);
+  assert.match(r4.out, /refused: no armed record/);
+  assert.equal(logOf(b), '');
+  assert.equal(fs.readFileSync(recFile(p1), 'utf8'), before);
+  assert.equal(fs.readFileSync(recFile(p2), 'utf8'), copy);
+});
+
+test('S5-17: a restart is not a limit stop', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl', 'claude']);
+  seed(dir, [
+    { type: 'plan', slots: 2, work: 'w-00000001' },
+    { type: 'task', task: 'T1', work: 'w-00000001', title: 'x' },
+    { type: 'state', task: 'T1', from: 'pending', to: 'ready', cause: 'session-ended' },
+  ]);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  const before = fs.readFileSync(recFile(dir), 'utf8');
+  fs.writeFileSync(b + '/log', '');
+  const r = resume(dir, ['run', projectId(dir)], b);
+  assert.equal(r.code, 5);
+  assert.match(r.out, /refused: not a limit stop/);
+  assert.equal(logOf(b), '');
+  assert.equal(fs.readFileSync(recFile(dir), 'utf8'), before);
+});
+
+test('S5-16: run waits when no account has usage and arms the next reset', () => {
+  const dir = tempProject({ config: { ...MINIMAL_CONFIG, usage: { source: 'cswap' } } });
+  const b = bins(['systemd-run', 'systemctl', 'claude', 'cswap']);
+  const next = new Date(Date.now() + 5 * 3600000).toISOString();
+  fs.writeFileSync(path.join(b, 'cswap.json'), JSON.stringify({
+    schemaVersion: 1, status: 'ok', advice: 'blocked',
+    fleet: { accounts: 1, capacityUnits: 10, remainingUnits: 0, usableNow: 0, nextUsableAt: next },
+    resets: [{ at: next }],
+    accounts: [{ id: 'a', fiveHour: { usedPercent: 100, resetsAt: next }, sevenDay: { usedPercent: 100, resetsAt: next } }],
+  }));
+  seed(dir, LIMIT);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  fs.writeFileSync(b + '/log', '');
+  const r = resume(dir, ['run', projectId(dir)], b);
+  assert.equal(r.code, 0, r.out);
+  const log = logOf(b);
+  assert.doesNotMatch(log, /^claude /m);
+  assert.equal((log.match(/^systemd-run /gm) ?? []).length, 1);
+  const rec = recOf(dir);
+  assert.equal(rec.state, 'armed');
+  assert.equal(rec.notBefore, next);
+});
+
+test('run resumes the session by claude with -p, removes the trigger, and counts usage state off as unknown', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl', 'claude']);
+  seed(dir, LIMIT);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  fs.writeFileSync(b + '/log', '');
+  const r = resume(dir, ['run', projectId(dir)], b);
+  assert.equal(r.code, 0, r.out);
+  const log = logOf(b);
+  assert.match(log, new RegExp(`^claude --resume ${SESSION} -p .+`, 'm'));
+  assert.match(log, /^systemctl --user stop guilda-resume-[0-9a-f]{8}\.timer$/m);
+  assert.equal(recOf(dir).state, 'resumed');
+});
+
+test('run with a claude that fails sets waiting-user and exits 0', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  seed(dir, LIMIT);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  const r = resume(dir, ['run', projectId(dir)], b);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(recOf(dir).state, 'waiting-user');
+});
+
+test('resumeGuard: R41 cases', () => {
+  const p1 = tempProject({ config: MINIMAL_CONFIG });
+  const p2 = tempProject({ config: MINIMAL_CONFIG });
+  const id = projectId(p1);
+  const call = (dir, c) => resumeGuard(dir, c).allow;
+  const q = (p) => `'${p}'`;
+  assert.equal(call(p1, `node /x/scripts/resume.mjs ${q(p1)} run ${id}`), true);
+  assert.equal(call(p1, `node /x/scripts/resume.mjs ${q(p2)} run ${id}`), false);
+  assert.equal(call(p1, `cd ${q(p2)} && node /x/scripts/resume.mjs . run ${id}`), false, 'a relative path is refused, because a cd can change it');
+  assert.equal(call(p1, `node /x/scripts/resume.mjs $P run ${id}`), false);
+  assert.equal(call(p1, `node /x/scripts/resume.mjs run`), false);
+  assert.equal(call(p1, `node /x/scripts/resume.mjs ${q(p2)} status`), true);
+  assert.equal(call(p1, `node /x/scripts/resume.mjs ${q(p2)} arm --session s --at 2026-11-23T00:00:00Z`), true);
+  assert.equal(call(p1, 'ls -la'), true);
+  assert.equal(call(p1, undefined), true);
+  assert.equal(call(path.join(p1, 'missing'), `node resume.mjs ${q(p1)} run ${id}`), false);
+});
+
+test('pure parts: unit name, record form, pause limit', () => {
+  assert.equal(unitName('abcd1234'), 'guilda-resume-abcd1234');
+  const rec = makeRecord({ id: 'abcd1234', projectPath: '/p', session: 's', notBefore: '2026-11-23T00:00:00Z', method: 'systemd', now: '2026-11-22T00:00:00Z' });
+  assert.deepEqual(Object.keys(rec).sort(), ['createdAt', 'id', 'job', 'method', 'notBefore', 'projectPath', 'schemaVersion', 'state', 'supervisorSession', 'unit']);
+  assert.equal(rec.state, 'armed');
+  assert.equal(rec.unit, 'guilda-resume-abcd1234');
+  assert.equal(MIN_PAUSE_MIN, 30);
+});
