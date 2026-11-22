@@ -171,3 +171,57 @@ test('the sleep stops at --until even with a long interval', { timeout: TIMEOUT 
   assert.equal(out.trim(), 'until');
   assert.ok(late < 1000, `printed ${late} ms after --until`);
 });
+
+/** A fake cswap that prints one budget. Returns the PATH env for watch. */
+function fakeCswap(advice) {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda fake cswap '));
+  const fake = path.join(bin, 'cswap');
+  fs.writeFileSync(fake, `#!/bin/sh\necho '{"advice":"${advice}","fleet":{"capacityUnits":100,"remainingUnits":80},"resets":[],"fetchedAt":"2026-11-22T10:00:00Z"}'\n`, { mode: 0o755 });
+  return { PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+}
+
+const paceFile = (dir) => path.join(dir, '.guilda', 'pace-last.json');
+
+async function runFor(dir, env, ms = 2500) {
+  const w = watch(dir, [], env);
+  await sleep(ms);
+  w.child.kill('SIGTERM');
+  return w.exited;
+}
+
+test('watch writes pace-last.json with the pace result', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  const r = await runFor(dir, fakeCswap('ok'));
+  assert.equal(r.code, 0, r.out);
+  const got = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  assert.equal(got.schemaVersion, 1);
+  assert.equal(got.source, 'ok');
+  assert.equal(got.fetchedAt, '2026-11-22T10:00:00Z');
+  assert.equal(got.slots, 2);
+  assert.equal(got.lowTier, false);
+  assert.equal(got.why, 'ok');
+  assert.equal(got.resumeAt, null);
+  assert.ok(!Number.isNaN(Date.parse(got.writtenAt)));
+  assert.deepEqual(fs.readdirSync(path.join(dir, '.guilda')).filter((n) => n.startsWith('pace-last') && n !== 'pace-last.json'), []);
+});
+
+test('watch does not rewrite an unchanged fresh file', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  const env = fakeCswap('ok');
+  await runFor(dir, env);
+  const first = fs.readFileSync(paceFile(dir), 'utf8');
+  await runFor(dir, env);
+  assert.equal(fs.readFileSync(paceFile(dir), 'utf8'), first);
+});
+
+test('watch rewrites a file older than 15 min', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject({ ...MINIMAL_CONFIG, usage: { source: 'cswap' } });
+  const env = fakeCswap('ok');
+  await runFor(dir, env);
+  const old = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  old.writtenAt = new Date(Date.now() - 16 * 60000).toISOString();
+  fs.writeFileSync(paceFile(dir), JSON.stringify(old));
+  await runFor(dir, env);
+  const fresh = JSON.parse(fs.readFileSync(paceFile(dir), 'utf8'));
+  assert.ok(Date.now() - Date.parse(fresh.writtenAt) < 60000);
+});

@@ -4,6 +4,8 @@
 // It keeps the claim alive and prints one line when the next step is not `watch`, then exits.
 // Exit codes: 0 a line was printed (or SIGTERM), 1 refused, 2 I/O error, 3 claim lost.
 import { setTimeout as sleep } from 'node:timers/promises';
+import fs from 'node:fs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readClaim, touchClaim, queuePaths } from './lib/queue.mjs';
 import { readFacts, nextStep } from './lib/tick.mjs';
@@ -16,6 +18,9 @@ const MAX_INTERVAL_SEC = 3600;
 /** The usage read runs once in this time, in ms. Between reads the last result is reused. */
 export const USAGE_REUSE_MS = 300000;
 const MS_PER_SECOND = 1000;
+/** The pace file is written again when it is older than this, in ms. */
+export const PACE_MAX_AGE_MS = 15 * 60 * MS_PER_SECOND;
+const PACE_FIELDS = ['slots', 'why', 'resumeAt', 'source'];
 const ISO_ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 
 const ONE_LINE = new RegExp('[\\r\\n\\u2028\\u2029]+', 'g');
@@ -50,6 +55,32 @@ function cachedRun() {
     at = Date.now();
     return last;
   };
+}
+
+/** Write .guilda/pace-last.json (temp file, rename) when the result changed or the file is old. Throws on I/O error. */
+function writePace(file, facts, now) {
+  const next = {
+    schemaVersion: 1,
+    source: facts.usage.state,
+    fetchedAt: facts.usage.budget?.fetchedAt ?? null,
+    slots: facts.pace.slots,
+    lowTier: facts.pace.lowTier,
+    why: facts.pace.why,
+    resumeAt: facts.pace.resumeAt ?? null,
+    writtenAt: now,
+  };
+  let old = null;
+  try {
+    old = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    old = null;
+  }
+  const writtenMs = Date.parse(old?.writtenAt);
+  const fresh = old !== null && Number.isFinite(writtenMs) && Date.parse(now) - writtenMs < PACE_MAX_AGE_MS;
+  if (fresh && old.schemaVersion === 1 && PACE_FIELDS.every((k) => old[k] === next[k])) return;
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(next)}\n`);
+  fs.renameSync(tmp, file);
 }
 
 const TOUCH_TRIES = 3;
@@ -109,7 +140,16 @@ async function main() {
         }
         return;
       }
-      const step = nextStep(readFacts(projectDir, { now, session, run }));
+      const facts = readFacts(projectDir, { now, session, run });
+      const paceFile = path.join(projectDir, '.guilda', 'pace-last.json');
+      try {
+        writePace(paceFile, facts, now);
+      } catch {
+        line(`io-error ${paceFile}`);
+        process.exitCode = 2;
+        return;
+      }
+      const step = nextStep(facts);
       if (step.step !== 'watch') {
         line(stepLine(step));
         return;
