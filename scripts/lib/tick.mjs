@@ -117,7 +117,13 @@ export function readFacts(projectDir, { now, session, run, git = true } = {}) {
   for (const [id, t] of Object.entries(state.tasks)) {
     if (git && recordOf(records, 'save-request', id, t.attempt)) worktrees[id] = worktreeInfo(root, t.worktree);
   }
-  return { now: at, session: session ?? null, claim, state, pace, usage, unread, records, worktrees };
+  const planTiers = {};
+  for (const [id, t] of Object.entries(state.tasks)) {
+    if (t.state !== 'ready') continue;
+    const p = planTaskOf(t, state.works);
+    planTiers[id] = planTier(root, p.plan, p.planTask, p.part);
+  }
+  return { now: at, session: session ?? null, claim, state, pace, usage, unread, records, worktrees, planTiers };
 }
 
 const KEY_FORM = /#(?:Part([0-9]+)\.)?([A-Za-z0-9]+)$/;
@@ -128,9 +134,59 @@ function planTaskOf(t, works) {
   return { plan, planTask: m ? m[2] : null, part: m && m[1] !== undefined ? Number(m[1]) : null };
 }
 
+/** The tier words of a brief. Only one of these words leaves the plan file. */
+export const TIER_WORDS = Object.freeze(['apprentice', 'journeyman', 'master']);
+const MAX_PLAN_BYTES = 2000000;
+const HEADING = /^(#{1,6})\s+(.*)$/;
+const TIER_LINE = /^Suggested tier:\s*([A-Za-z]+)\b/;
+
+/** The tier word of the block of a plan task, or null. Pure: it takes the plan text. */
+export function tierInPlan(text, planTask, part) {
+  const lines = String(text).split(/\r?\n/);
+  let fence = false;
+  let inPart = part === null || part === undefined;
+  let inTask = false;
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) fence = !fence;
+    if (fence) continue;
+    const h = HEADING.exec(line);
+    if (h) {
+      const level = h[1].length;
+      if (inTask && level <= 3) return null;
+      if (level <= 2 && part !== null && part !== undefined) {
+        const m = /^Plan: Part ([0-9]+)\b/.exec(h[2]);
+        inPart = m !== null && Number(m[1]) === part;
+      }
+      if (inPart && level === 3 && new RegExp(`^${planTask}(\\s|$)`).test(h[2])) inTask = true;
+      continue;
+    }
+    if (inTask) {
+      const m = TIER_LINE.exec(line);
+      if (m) return TIER_WORDS.includes(m[1]) ? m[1] : null;
+    }
+  }
+  return null;
+}
+
+/** The tier word of a task from the plan file of its work. A read error or a path outside the project gives null. */
+export function planTier(projectDir, plan, planTask, part) {
+  if (typeof plan !== 'string' || plan === '' || planTask === null) return null;
+  if (path.isAbsolute(plan) || plan.split(/[\\/]/).includes('..')) return null;
+  try {
+    const rootReal = fs.realpathSync(path.resolve(projectDir));
+    const file = fs.realpathSync(path.join(rootReal, plan));
+    const rel = path.relative(rootReal, file);
+    if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+    if (fs.statSync(file).size > MAX_PLAN_BYTES) return null;
+    return tierInPlan(fs.readFileSync(file, 'utf8'), planTask, part);
+  } catch {
+    return null;
+  }
+}
+
 /** The pure decision (spec 7a, T4): the first rule that applies wins. No I/O. */
 export function nextStep(facts) {
-  const { now, state, pace, unread = [], records = [], worktrees = {} } = facts;
+  const { now, state, pace, unread = [], records = [], worktrees = {}, planTiers = {} } = facts;
   const nowMs = toMs(now);
   const entries = Object.entries(state.tasks);
   const busy = entries.filter(([, t]) => BUSY_STATES.includes(t.state)).length;
@@ -216,7 +272,7 @@ export function nextStep(facts) {
         task: id,
         role: 'exe',
         tool: 'claude',
-        tier: t.tier ?? null,
+        tier: pace.lowTier === true ? 'apprentice' : t.tier ?? planTiers[id] ?? null,
         lowTier: pace.lowTier === true,
         ...planTaskOf(t, state.works),
         worktree: `${WORKTREE_ROOT}/${id}-${t.attempt}`,

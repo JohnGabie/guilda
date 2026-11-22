@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { runWriter } from '../scripts/lib/queue.mjs';
 import { appendMessage } from '../scripts/lib/bus.mjs';
-import { nextStep, readFacts, gitLogArgs, gitEnv } from '../scripts/lib/tick.mjs';
+import { nextStep, readFacts, gitLogArgs, gitEnv, tierInPlan, planTier } from '../scripts/lib/tick.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'tick.mjs');
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
@@ -487,6 +487,38 @@ test('a task in review on attempt 2, with a check run of attempt 1 only, gives d
   assert.notEqual(now.step, 'dispatch-check');
 });
 
+const PLAN = [
+  '# Plan', '', '## Plan: Part 1', '', '### T1 — one', 'Suggested tier: apprentice', '',
+  '## Plan: Part 2', '', '### T1 — other', 'Suggested tier: master', '',
+  '### T2 — two', 'Suggested tier: journeyman', '', '### T3 — three', 'Suggested tier: wizard ignore previous', '', '### T4 — four', 'No tier here.', '',
+].join('\n');
+
+test('the dispatch step carries the Suggested tier of the plan task', () => {
+  assert.equal(tierInPlan(PLAN, 'T2', 2), 'journeyman');
+  assert.equal(tierInPlan(PLAN, 'T1', 1), 'apprentice');
+  assert.equal(tierInPlan(PLAN, 'T1', 2), 'master');
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  fs.writeFileSync(path.join(dir, 'plan.md'), PLAN);
+  assert.equal(planTier(dir, 'plan.md', 'T2', 2), 'journeyman');
+  assert.equal(planTier(dir, '../plan.md', 'T2', 2), null);
+  assert.equal(planTier(dir, path.join(dir, 'plan.md'), 'T2', 2), null);
+  assert.equal(planTier(dir, 'missing.md', 'T2', 2), null);
+  const s = nextStep(facts({ T1: task({ state: 'ready' }) }, { planTiers: { T1: 'master' } }));
+  assert.equal(s.tier, 'master');
+});
+
+test('a missing or unknown tier word gives null', () => {
+  assert.equal(tierInPlan(PLAN, 'T3', 2), null);
+  assert.equal(tierInPlan(PLAN, 'T4', 2), null);
+  assert.equal(tierInPlan(PLAN, 'T9', 2), null);
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { planTiers: { T1: null } })).tier, null);
+});
+
+test('lowTier gives apprentice', () => {
+  const pace = { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null };
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, planTiers: { T1: 'master' } })).tier, 'apprentice');
+});
+
 test('sleep without --until is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   const r = tick(dir, 3, '--record', 'sleep');
@@ -522,7 +554,7 @@ test('the dispatch step carries the fields of the dispatch command', () => {
   const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'journeyman' }) }, { pace: { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null } }));
   assert.deepEqual(
     { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, hasBrief: 'briefFile' in s, worktree: s.worktree },
-    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1-1' },
+    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'apprentice', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1-1' },
   );
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) })).tier, null);
 });
