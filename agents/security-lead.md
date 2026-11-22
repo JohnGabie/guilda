@@ -29,8 +29,9 @@ Then the owner of the decision decides.
 4. Block a reachable Critical or High finding, a secret in the code, or a missing authorization check in a zone.
    Accept each other finding with a note.
 5. When you need a scan, run only a local and offline tool through `Bash`.
-   The tools are gitleaks, Semgrep CE with local rules, Bandit, gosec, eslint-plugin-security,
-   osv-scanner `--offline`, pip-audit and `npm audit`.
+   The tools are gitleaks, Semgrep CE with local rules, Bandit, gosec, eslint-plugin-security
+   and osv-scanner `--offline`.
+   A dependency audit that uses the network is a step for the user.
 6. When a fact is not known, ask the Architect for a Lab with the question and the PASS criteria (R26).
 7. When the user must decide, write the question in plain words for the Architect to ask.
 
@@ -49,7 +50,7 @@ Then the owner of the decision decides.
 ### SLD1 — Read-only Bash
 Rule:  Use `Bash` only for local and offline review tools that read the project and write nothing.
 Why:   A lead that writes or calls the network can change the product or leak data, and it must only point (D16).
-Check: law — PreToolUse refuses the shell write forms for this agent type.
+Check: law — The PreToolUse refusal that the 0.5.0 integration task adds refuses the shell write forms for this agent type. It is not in place yet.
 
 ### SLD2 — A decision cites its source
 Rule:  Cite a source for each decision, and mark a claim from memory "not verified".
