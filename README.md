@@ -88,6 +88,13 @@ A council is a live chat of the leads about one serious problem. A Judge runs it
 While you are away, the Architect holds each action that needs you (R40). Only the Architect reads the away state (R39).
 A resume of stopped work runs only in its own project (R41).
 
+Limits. The R38 hook refuses each `cswap` command except `cswap budget`. It does not see interpreter forms.
+It does not see a script file made with Write, or a renamed binary.
+It does not see a program that runs the text it gets, or a glob with dotglob.
+For R37, a script that the Security Executor writes and runs is seen only by the sandbox.
+The Security Executor needs the project sandbox on. The red team and blue team skills wait for your curation.
+The usage source is `off` by default until you decide it.
+
 ## Update from 0.1.x
 
 The 0.1.x layer of a project works as it is. Run `guilda:update`: it saves the new version in

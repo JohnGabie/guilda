@@ -80,7 +80,7 @@ test('R35 has the level gate', () => {
 test('R36 has the level gate, and its Rule: line is the text of the design', () => {
   const r36 = blocks(read('core/rules.md')).R36;
   assert.equal(r36?.level, 'gate');
-  assert.match(r36.text, /Rule: +Start the supervisor session only on the request of the user, and let no hook and no agent start it\./);
+  assert.match(r36.text, /Rule: +Start the supervisor only on the user's request, and let no hook start it or ask for it\./);
 });
 
 test('R34 Check line names the key folder', () => {

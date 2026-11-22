@@ -18,12 +18,20 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - `scripts/watch.mjs`: the sleep with no tokens, which keeps the claim alive.
 - The pace: the supervisor reads the budget and sets the slots. It stops at the 5% floor.
 - The Stop hook branch for the supervisor session.
-- New rules: R37, R39, R40 and R41, and the Architect rules ARC11 and ARC12. R37: red team limits are laws.
+- New rules: R37, R39, R40 and R41, and the Architect rules ARC11 to ARC13. R36 is a gate. R37: red team limits are laws.
   R39: only the Architect reads the away state. R40: actions that need the user wait. R41: a resume runs only in its project.
 - New glossary terms: pace, usage source, Security Lead, Security Executor, council, Judge, away mode and held.
 - The Architect skill calls the Security Lead for a security decision (D44).
 - The ignore list of `.guilda/.gitignore` has `resume/` and `security/`.
 - The council skill has no argument style section (the L5-3 lab did not run).
+- R38 is an allow list: PreToolUse refuses each `Bash` command that names `cswap`, except `cswap budget [--json]`.
+  Limits: the hook does not see interpreter forms (`node -e`, `python3 -c`). It does not see a script file made with Write.
+  It does not see a renamed binary, a program that runs the text it gets, or a glob with dotglob.
+- R37 limit: the hook sees only the tool calls of the Security Executor. A script that the agent writes and runs is seen only by the sandbox.
+- The Security Executor needs the project sandbox on (U5-8). The pre-agent hook refuses it with the sandbox off.
+- The red team and blue team skills wait for the curation of the user (U5-7).
+- U5-1 is open, so `usage.source` stays `off` by default.
+- The matcher of the hook on skills and agents changes to `Skill|Agent`.
 
 ## [0.4.1] - 2026-11-22
 
