@@ -231,6 +231,9 @@ test('security: council and bus calls in a wrapper, a glob or a placeholder are 
   refused(hook(dir, bash(`printf 'x' | xargs node ${bus} send --to main`, as)));
   assert.match(refused(hook(dir, bash(`node ${bus} . [s]end --from main --to main`, as))), /^R34:/);
   assert.match(refused(hook(dir, bash(`bun ${bus} . send --from main --to main --type notice --text x`, as))), /^R34:/);
+  // Position 0 is the project folder: `who` there is a folder name, and the command is `send`.
+  assert.match(refused(hook(dir, bash(`node ${bus} who send --from main --to main --type notice --text x`, as))), /^R34:/);
+  assert.match(refused(hook(dir, bash(`node ${bus} . "$C" --from main --to main`))), /^R34:/);
   assert.equal(hook(dir, bash(`node ${bus} . who`, as)), null);
   assert.equal(hook(dir, bash(`cat ${bus}`, as)), null);
 });

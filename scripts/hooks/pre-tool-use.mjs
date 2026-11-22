@@ -594,15 +594,15 @@ function scriptCalls(command, isScript, depth = 0, out = []) {
 /**
  * The `--from` value of each `bus.mjs` call that is not a known other command, read from the command text only. A
  * value is null when the call has no `--from`, or when the form cannot be read: a glob, a placeholder, a variable,
- * an empty argument list, or no `send` word in position 0 or 1 (fail closed).
+ * an empty argument list, or no literal `send` word in position 1 (fail closed).
  */
 function sendCalls(command) {
   const out = [];
   for (const args of scriptCalls(command, isBusScript)) {
-    const head = args.slice(0, 2);
-    if (head.some((a) => BUS_NOT_SEND.includes(a))) continue;
-    const sendAt = head.indexOf('send');
-    if (args.length === 0 || sendAt < 0 || head.some((a) => OPEN_CHARS.test(a))) {
+    // bus.mjs reads position 0 as the project folder and position 1 as the command.
+    if (BUS_NOT_SEND.includes(args[1])) continue;
+    const sendAt = 1;
+    if (args[1] !== 'send' || OPEN_CHARS.test(args[0])) {
       out.push(null);
       continue;
     }
