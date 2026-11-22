@@ -179,7 +179,7 @@ test('a cswap read error never gives pause', () => {
     { type: 'state', task: 'T1', from: 'pending', to: 'ready', cause: 'deps-done' },
   ]);
   const f = readFacts(dir, { now: at(1), session: 's1', run: () => ({ status: 3, stdout: '' }) });
-  assert.equal(f.usage.state, 'error');
+  assert.equal(f.usage.state, 'off');
   assert.equal(f.pace.why, 'off');
   assert.equal(f.pace.slots, 2);
   assert.notEqual(nextStep(f).step, 'pause');
@@ -643,6 +643,7 @@ function holdProject() {
     { type: 'task', task: 'T2', work: 'w-00000001', title: 'b' },
     { type: 'task', task: 'T3', work: 'w-00000001', title: 'c' },
     { type: 'task', task: 'T4', work: 'w-00000001', title: 'd' },
+    { type: 'task', task: 'T5', work: 'w-00000001', title: 'e', deps: ['T3'] },
     { type: 'state', task: 'T2', from: 'pending', to: 'ready', cause: 'deps-done' },
     { type: 'state', task: 'T3', from: 'pending', to: 'ready', cause: 'deps-done' },
     { type: 'dispatch', task: 'T3', attempt: 1, address: 'T3-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree: 'wt/T3' },
@@ -659,13 +660,13 @@ test('hold-all holds each pending and ready task and leaves running ones', () =>
   const dir = holdProject();
   const r = tick(dir, 1, '--record', 'hold-all');
   assert.equal(r.code, 0, r.out);
-  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'held', T3: 'running', T4: 'held' });
+  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'held', T3: 'running', T4: 'held', T5: 'held' });
   const ev = journalOf(dir);
   const d = ev.filter((e) => e.type === 'decision');
   assert.equal(d.length, 1);
   assert.deepEqual({ decision: d[0].decision, tasks: d[0].tasks, by: d[0].by }, { decision: 'hold-all', tasks: [], by: 'sup' });
   const moves = ev.filter((e) => e.type === 'state' && e.to === 'held');
-  assert.deepEqual(moves.map((e) => [e.task, e.cause]), [['T1', 'hold-all'], ['T2', 'hold-all'], ['T4', 'hold-all']]);
+  assert.deepEqual(moves.map((e) => [e.task, e.cause]), [['T1', 'hold-all'], ['T2', 'hold-all'], ['T4', 'hold-all'], ['T5', 'hold-all']]);
   for (const e of [...d, ...moves]) assert.equal('reason' in e, false);
 });
 
@@ -674,14 +675,14 @@ test('release-all releases only the tasks that hold-all held', () => {
   assert.equal(tick(dir, 1, '--record', 'hold-all').code, 0);
   const r = tick(dir, 2, '--record', 'release-all');
   assert.equal(r.code, 0, r.out);
-  assert.deepEqual(stateOf(dir), { T1: 'pending', T2: 'pending', T3: 'running', T4: 'pending' });
+  assert.deepEqual(stateOf(dir), { T1: 'pending', T2: 'pending', T3: 'running', T4: 'pending', T5: 'pending' });
   const ev = journalOf(dir);
   const d = ev.filter((e) => e.type === 'decision' && e.decision === 'release-all');
   assert.equal(d.length, 1);
   assert.equal(d[0].by, 'sup');
   assert.equal('reason' in d[0], false);
   const moves = ev.filter((e) => e.type === 'state' && e.cause === 'release-all');
-  assert.deepEqual(moves.map((e) => [e.task, e.from, e.to]), [['T1', 'held', 'pending'], ['T2', 'held', 'pending'], ['T4', 'held', 'pending']]);
+  assert.deepEqual(moves.map((e) => [e.task, e.from, e.to]), [['T1', 'held', 'pending'], ['T2', 'held', 'pending'], ['T4', 'held', 'pending'], ['T5', 'held', 'pending']]);
 });
 
 test('a task held by queue hold stays held after release-all', () => {
@@ -690,5 +691,51 @@ test('a task held by queue hold stays held after release-all', () => {
   assert.equal(h.status, 0, h.stdout + h.stderr);
   assert.equal(tick(dir, 2, '--record', 'hold-all').code, 0);
   assert.equal(tick(dir, 3, '--record', 'release-all').code, 0);
-  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'pending', T3: 'running', T4: 'pending' });
+  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'pending', T3: 'running', T4: 'pending', T5: 'pending' });
+});
+
+const qrun = (dir, min, ...a) => spawnSync(process.execPath, [QUEUE, dir, ...a, '--session', 's1', '--now', at(min)], { encoding: 'utf8' });
+
+test('hold-all, release, hold, release-all: the task held by hand stays held', () => {
+  const dir = holdProject();
+  assert.equal(tick(dir, 1, '--record', 'hold-all').code, 0);
+  assert.equal(qrun(dir, 2, 'release', 'T1').status, 0);
+  assert.equal(qrun(dir, 3, 'hold', 'T1').status, 0);
+  assert.equal(tick(dir, 4, '--record', 'release-all').code, 0);
+  assert.equal(stateOf(dir).T1, 'held');
+  assert.equal(stateOf(dir).T2, 'pending');
+});
+
+test('hold-all twice holds nothing the second time and release-all still releases', () => {
+  const dir = holdProject();
+  assert.equal(tick(dir, 1, '--record', 'hold-all').code, 0);
+  assert.equal(tick(dir, 2, '--record', 'hold-all').code, 0);
+  assert.equal(journalOf(dir).filter((e) => e.type === 'state' && e.to === 'held').length, 4);
+  assert.equal(tick(dir, 3, '--record', 'release-all').code, 0);
+  assert.deepEqual(stateOf(dir), { T1: 'pending', T2: 'pending', T3: 'running', T4: 'pending', T5: 'pending' });
+});
+
+test('queue hold of a task held by hold-all writes held to held with cause hold', () => {
+  const dir = holdProject();
+  assert.equal(tick(dir, 1, '--record', 'hold-all').code, 0);
+  const h = qrun(dir, 2, 'hold', 'T1');
+  assert.equal(h.status, 0, h.stdout + h.stderr);
+  const ev = journalOf(dir);
+  assert.equal(ev.filter((e) => e.type === 'decision' && e.decision === 'hold').length, 1);
+  const m = ev.filter((e) => e.type === 'state' && e.task === 'T1').at(-1);
+  assert.deepEqual([m.from, m.to, m.cause], ['held', 'held', 'hold']);
+  assert.equal(tick(dir, 3, '--record', 'release-all').code, 0);
+  assert.equal(stateOf(dir).T1, 'held');
+});
+
+test('during hold-all a stalled task gives no retry and a ready task no dispatch', () => {
+  const hold = { type: 'decision', decision: 'hold-all', tasks: [], by: 'sup' };
+  const after = { type: 'decision', decision: 'release-all', by: 'sup' };
+  const stalled = () => task({ state: 'stalled', cause: 'no-ack' });
+  assert.notEqual(nextStep(facts({ T1: stalled() }, { records: [hold] })).step, 'retry');
+  assert.notEqual(nextStep(facts({ T1: task({ state: 'ready' }) }, { records: [hold] })).step, 'dispatch');
+  assert.equal(nextStep(facts({ T1: stalled() }, { records: [hold, after] })).step, 'retry');
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { records: [hold, after] })).step, 'dispatch');
+  // A running task still gets its save request.
+  assert.equal(nextStep(facts({ T1: lateRunning() }, { records: [hold] })).step, 'save-request');
 });

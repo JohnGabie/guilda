@@ -635,7 +635,7 @@ const hhmm = (ms: number) => {
 function paceFile(fields: Record<string, unknown> = {}): string {
   return JSON.stringify({
     schemaVersion: 1,
-    source: 'usage',
+    source: 'cswap',
     fetchedAt: iso(T0 - 60_000),
     slots: 3,
     lowTier: false,
@@ -646,10 +646,13 @@ function paceFile(fields: Record<string, unknown> = {}): string {
   })
 }
 
+const FOLDER = 'a folder stands here'
+
 async function paceTexts(on: On, $: Parameters<Parameters<typeof test>[1]>[0], pace: string | undefined) {
   mock.clock(on, { now: T0 })
   const files: Files = { [STATE_PATH]: fileOf(stateText(s26Tasks())) }
-  if (pace !== undefined) files[PACE_PATH] = fileOf(pace)
+  if (pace !== undefined && pace !== FOLDER) files[PACE_PATH] = fileOf(pace)
+  if (pace === FOLDER) files[`${PACE_PATH}/inner.json`] = fileOf('{}')
   const seen = engine(on, files)
   engineDraws(on)
   await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
@@ -703,4 +706,25 @@ test('pace line: a huge file is not read', async ($, on) => {
   const one = await paceTexts(on, $, paceFile({ pad: 'x'.repeat(70 * 1024) }))
   expect(one.texts).toEqual([])
   expect(one.seen.reads).not.toContain(PACE_PATH)
+})
+
+test('pace line: source error or a missing source gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ source: 'error' }))).texts).toEqual([])
+})
+
+test('pace line: a missing source gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ source: undefined }))).texts).toEqual([])
+})
+
+test('pace line: a missing fetchedAt ends with old data', async ($, on) => {
+  const one = await paceTexts(on, $, paceFile({ fetchedAt: undefined }))
+  expect(one.texts).toEqual(['pace: 3 agents — ok — old data'])
+})
+
+test('pace line: slots 2.5 gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ slots: 2.5 }))).texts).toEqual([])
+})
+
+test('pace line: a folder at pace-last.json gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, FOLDER)).texts).toEqual([])
 })

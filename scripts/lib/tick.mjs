@@ -110,7 +110,7 @@ export function readFacts(projectDir, { now, session, run, git = true } = {}) {
   const usage = run ? readUsage(config, { run }) : readUsage(config);
   const pace = paceOf(usage, { planSlots: state.slots, now: at });
   const { events } = readJournal(root);
-  const records = events.filter((e) => RECORD_TYPES.includes(e.type) || (e.type === 'decision' && e.decision === 'stop'));
+  const records = events.filter((e) => RECORD_TYPES.includes(e.type) || (e.type === 'decision' && ['stop', 'hold-all', 'release-all'].includes(e.decision)));
   const readIds = new Set(records.filter((r) => r.type === 'read' && Array.isArray(r.ids)).flatMap((r) => r.ids));
   const unread = pendingOf(readMailbox(root, SUPERVISOR)).map((l) => l.id).filter((id) => !readIds.has(id));
   const worktrees = {};
@@ -242,8 +242,12 @@ export function nextStep(facts) {
     return done({ step: 'needs-user', task: id, attempt: t.attempt, reason: 'no commit after the save request' });
   }
 
-  // 4. A stalled or failed attempt.
-  for (const [id, t] of entries) {
+  // A hold-all is in force when the last hold-all decision comes after the last release-all decision (5j).
+  const lastOf = (name) => records.reduce((m, r, i) => (r.type === 'decision' && r.decision === name ? i : m), -1);
+  const holdAll = lastOf('hold-all') > lastOf('release-all');
+
+  // 4. A stalled or failed attempt. No retry while a hold-all is in force.
+  for (const [id, t] of holdAll ? [] : entries) {
     if (!['stalled', 'failed'].includes(t.state) || asked(id, t)) continue;
     if (t.state === 'stalled' && t.cause === 'no-heartbeat') continue;
     const retry = t.cause === 'no-ack' ? t.attempt < MAX_ATTEMPTS : t.attempt === 1;
@@ -264,8 +268,8 @@ export function nextStep(facts) {
   // 7. The slots of the queue differ from the pace.
   if (state.slots !== pace.slots) return done({ step: 'set-slots', slots: pace.slots });
 
-  // 8. A ready task and a free slot.
-  if (slots.free > 0) {
+  // 8. A ready task and a free slot. No dispatch while a hold-all is in force.
+  if (slots.free > 0 && !holdAll) {
     const ready = entries.find(([, t]) => t.state === 'ready');
     if (ready) {
       const [id, t] = ready;

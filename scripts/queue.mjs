@@ -334,7 +334,8 @@ function cmdHoldRelease(decision) {
       const moves = ids.map((id) => {
         if (!Object.hasOwn(state.tasks, id)) throw refuse(`queue: unknown task ${id}`);
         const s = state.tasks[id].state;
-        if (decision === 'hold' && !['pending', 'ready'].includes(s)) throw refuse(`${id}: cannot hold ${s}`);
+        const heldByAll = s === 'held' && state.tasks[id].cause === 'hold-all';
+        if (decision === 'hold' && !['pending', 'ready'].includes(s) && !heldByAll) throw refuse(`${id}: cannot hold ${s}`);
         if (decision === 'release' && s !== 'held') throw refuse(`${id}: release not allowed in ${s}`);
         return { id, from: s, to: decision === 'hold' ? 'held' : 'pending' };
       });

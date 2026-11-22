@@ -729,7 +729,7 @@ async function readPace($: EngineInterface, root: Root, now: number): Promise<st
     const found = await readInside($, root, PACE_FILE, undefined, PACE_MAX_BYTES)
     if (found === undefined) return null
     const body: unknown = JSON.parse(found.text)
-    if (!isRecord(body) || body.schemaVersion !== 1 || body.source === 'off') return null
+    if (!isRecord(body) || body.schemaVersion !== 1 || body.source !== 'cswap') return null
     const { slots, why, resumeAt, fetchedAt } = body
     if (typeof slots !== 'number' || !Number.isInteger(slots) || slots < 0 || slots > PACE_MAX_SLOTS) return null
     if (typeof why !== 'string' || !PACE_WHY.includes(why)) return null
