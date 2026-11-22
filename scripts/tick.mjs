@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 // The decision engine of the supervisor (0.5.0 supervisor, T4).
 // Usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>]
-//          (--json | --record <type> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] | --summary)
+//          (--json | --record <type> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] [--ids <m-id,...>] | --summary)
 // Exit codes: 0 done, 1 refused or bad input, 2 I/O error.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { runWriter, readClaim, validId, QueueError } from './lib/queue.mjs';
+import { MESSAGE_ID } from './lib/bus.mjs';
 import { readFacts, nextStep, renderSummary, worktreeInfo, isLateRunning, RECORD_TYPES } from './lib/tick.mjs';
 
 const USAGE =
-  'usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>] (--json | --record <save-request|stop|needs-user|sleep> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] | --summary)';
-const VALUE_FLAGS = ['--session', '--now', '--record', '--task', '--attempt', '--until', '--reason'];
+  'usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>] (--json | --record <save-request|stop|needs-user|sleep|read> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] [--ids <m-id,...>] | --summary)';
+const VALUE_FLAGS = ['--session', '--now', '--record', '--task', '--attempt', '--until', '--reason', '--ids'];
 const BOOL_FLAGS = ['--json', '--summary'];
 const ISO_ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 const SUMMARY_FILE = 'supervisor-summary.md';
@@ -45,7 +46,13 @@ function parseArgs(argv) {
 function recordFields(flags, taskOf) {
   const type = flags.record;
   if (![...RECORD_TYPES, 'stop'].includes(type)) throw refuse(`unknown record type ${type}`);
+  if (type === 'read') {
+    const ids = typeof flags.ids === 'string' ? flags.ids.split(',') : [];
+    if (ids.length === 0 || !ids.every((id) => MESSAGE_ID.test(id))) throw refuse('bad --ids');
+    return { type, ids };
+  }
   if (type === 'sleep') {
+    if (flags.until === undefined) throw refuse('sleep needs --until');
     if (typeof flags.until !== 'string' || !ISO_ZONED.test(flags.until) || Number.isNaN(Date.parse(flags.until))) throw refuse('bad --until');
     return { type, until: new Date(flags.until).toISOString() };
   }
@@ -66,6 +73,10 @@ function recordFields(flags, taskOf) {
 function cmdRecord(root, flags, now, session) {
   const run = runWriter(root, { now, session }, ({ state, events, emit }) => {
     const f = recordFields(flags, (id) => (Object.hasOwn(state.tasks, id) ? state.tasks[id] : null));
+    if (f.type === 'read') {
+      emit({ type: 'read', ids: f.ids, by: SUPERVISOR_ROLE });
+      return `read ${f.ids.length}`;
+    }
     if (f.type === 'sleep') {
       emit({ type: 'sleep', until: f.until, by: SUPERVISOR_ROLE });
       return `sleep until ${f.until}`;

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { runWriter } from '../scripts/lib/queue.mjs';
+import { appendMessage } from '../scripts/lib/bus.mjs';
 import { nextStep, readFacts, gitLogArgs, gitEnv } from '../scripts/lib/tick.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'tick.mjs');
@@ -420,6 +421,64 @@ test('--until accepts only an ISO time with a zone', () => {
   }
   assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00Z').code, 0);
   assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00-03:00').code, 0);
+});
+
+// ---- Sleep and read records, step fields (T7 review) ----
+
+test('a sleep record that covers now gives watch, not pause', () => {
+  const pace = { slots: 0, lowTier: false, why: 'blocked', resumeAt: at(90) };
+  const tasks = { T1: task({ state: 'ready' }) };
+  const sleep = { type: 'sleep', until: at(60), t: at(10) };
+  assert.equal(nextStep(facts(tasks, { pace, records: [sleep] })).step, 'watch');
+  // The sleep ended: pause again, and the pause step carries the resume time.
+  const ended = nextStep(facts(tasks, { pace, records: [{ ...sleep, until: at(20) }] }));
+  assert.equal(ended.step, 'pause');
+  assert.equal(ended.until, at(90));
+});
+
+test('sleep without --until is refused', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  const r = tick(dir, 3, '--record', 'sleep');
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^refused: sleep needs --until/);
+});
+
+test('a read record clears read-bus', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  const sent = ['a', 'b'].map((text) =>
+    appendMessage(dir, { from: 'architect', to: 'supervisor', task: null, type: 'notice', text, replyTo: null, hops: 0, record: null, interrupt: false }),
+  );
+  const ids = sent.map((m) => m.id);
+  assert.deepEqual(readFacts(dir, { now: at(3), session: 's1' }).unread, ids);
+  const r = tick(dir, 3, '--record', 'read', '--ids', ids[0]);
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(readFacts(dir, { now: at(4), session: 's1' }).unread, [ids[1]]);
+  assert.equal(tick(dir, 4, '--record', 'read', '--ids', ids.join(',')).code, 0);
+  assert.deepEqual(readFacts(dir, { now: at(5), session: 's1' }).unread, []);
+});
+
+test('a bad message ID in --ids is refused', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  for (const bad of ['x', 'm-1', 'm-00000001,bad', '']) {
+    const r = tick(dir, 3, '--record', 'read', '--ids', bad);
+    assert.equal(r.code, 1, bad);
+    assert.match(r.out, /^refused:/);
+  }
+  assert.equal(tick(dir, 3, '--record', 'read').code, 1);
+});
+
+test('the dispatch step carries the fields of the dispatch command', () => {
+  const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'journeyman' }) }, { pace: { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null } }));
+  assert.deepEqual(
+    { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, briefFile: s.briefFile, worktree: s.worktree },
+    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, briefFile: null, worktree: '.guilda/worktrees/T1' },
+  );
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) })).tier, null);
+});
+
+test('the dispatch-check step carries its fields', () => {
+  const c = nextStep(facts({ T1: task({ state: 'review' }) }));
+  assert.deepEqual({ step: c.step, task: c.task, role: c.role, tool: c.tool }, { step: 'dispatch-check', task: 'T1', role: 'rev', tool: 'claude' });
 });
 
 test('the git read holds the hardening values', () => {

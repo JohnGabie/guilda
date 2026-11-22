@@ -13,8 +13,10 @@ export const SUPERVISOR = 'supervisor';
 export const SAVE_WAIT_MS = 120000;
 /** The time limit of one git call, in ms. */
 export const GIT_TIMEOUT_MS = 10000;
+/** The folder under the project where the supervisor suggests the worktree of a task. */
+export const WORKTREE_ROOT = '.guilda/worktrees';
 /** The record types of the supervisor in the journal. */
-export const RECORD_TYPES = Object.freeze(['save-request', 'needs-user', 'sleep']);
+export const RECORD_TYPES = Object.freeze(['save-request', 'needs-user', 'sleep', 'read']);
 /** The idle causes of a task that does not move. */
 export const IDLE_CAUSES = Object.freeze(['waits-user', 'waits-reset', 'failed-check', 'no-ready', 'stuck']);
 
@@ -105,9 +107,10 @@ export function readFacts(projectDir, { now, session, run, git = true } = {}) {
   const config = projectState(root).config ?? {};
   const usage = run ? readUsage(config, { run }) : readUsage(config);
   const pace = paceOf(usage, { planSlots: state.slots, now: at });
-  const unread = pendingOf(readMailbox(root, SUPERVISOR)).map((l) => l.id);
   const { events } = readJournal(root);
   const records = events.filter((e) => RECORD_TYPES.includes(e.type) || (e.type === 'decision' && e.decision === 'stop'));
+  const readIds = new Set(records.filter((r) => r.type === 'read' && Array.isArray(r.ids)).flatMap((r) => r.ids));
+  const unread = pendingOf(readMailbox(root, SUPERVISOR)).map((l) => l.id).filter((id) => !readIds.has(id));
   const worktrees = {};
   for (const [id, t] of Object.entries(state.tasks)) {
     if (git && recordOf(records, 'save-request', id, t.attempt)) worktrees[id] = worktreeInfo(root, t.worktree);
@@ -136,8 +139,12 @@ export function nextStep(facts) {
   }
   const done = (step) => ({ ...step, now, slots, paceWhy: pace.why, idle });
 
-  // 1. The pace is 0.
-  if (pace.slots === 0) return done({ step: 'pause', until: pace.resumeAt, why: pace.why });
+  // 1. The pace is 0. A sleep record that covers now gives watch, so the supervisor is not called until it ends.
+  if (pace.slots === 0) {
+    const asleep = records.some((r) => r.type === 'sleep' && toMs(r.until) !== null && toMs(r.until) > nowMs);
+    if (asleep) return done({ step: 'watch' });
+    return done({ step: 'pause', until: pace.resumeAt, why: pace.why });
+  }
 
   // 2. A late running attempt with no save request.
   for (const [id, t] of entries) {
@@ -175,7 +182,9 @@ export function nextStep(facts) {
 
   // 5. A task in review with no check run.
   for (const [id, t] of entries) {
-    if (t.state === 'review' && (t.checks ?? []).length === 0) return done({ step: 'dispatch-check', task: id, role: 'rev' });
+    if (t.state === 'review' && (t.checks ?? []).length === 0) {
+      return done({ step: 'dispatch-check', task: id, role: 'rev', tool: 'claude' });
+    }
   }
 
   // 6. Unread messages for the supervisor.
@@ -187,7 +196,19 @@ export function nextStep(facts) {
   // 8. A ready task and a free slot.
   if (slots.free > 0) {
     const ready = entries.find(([, t]) => t.state === 'ready');
-    if (ready) return done({ step: 'dispatch', task: ready[0], lowTier: pace.lowTier === true });
+    if (ready) {
+      const [id, t] = ready;
+      return done({
+        step: 'dispatch',
+        task: id,
+        role: 'exe',
+        tool: 'claude',
+        tier: t.tier ?? null,
+        lowTier: pace.lowTier === true,
+        briefFile: t.briefFile ?? null,
+        worktree: `${WORKTREE_ROOT}/${id}`,
+      });
+    }
   }
 
   // 9. Each task is done.
