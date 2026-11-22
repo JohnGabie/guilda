@@ -34,7 +34,7 @@ const R32 = {
   },
   agent: {
     action: 'queue script call refused: not the writer role',
-    reason: 'R32: only the writer role calls the queue script; in 0.4.0 that is the Architect agent (guilda:architect)',
+    reason: 'R32: only the writer role calls the queue script; that is the Architect in the main session, never an agent',
   },
   error: { action: 'hook error: cannot check the call', reason: 'R32: cannot check the call' },
   noSession: { action: 'queue script call refused: no --session', reason: 'R32: no --session' },
@@ -48,9 +48,9 @@ const ARCHITECT_TYPE = 'guilda:architect';
 const ARCHITECT = 'architect';
 const hasAgentId = (input) => input.agent_id !== undefined && input.agent_id !== null;
 
-/** The R32 problem of a queue script call, or null. The 0.4.0 writer role: the Architect agent, with an agent_id (X2). */
+/** The R32 problem of a queue script call, or null. The writer role: the Architect in the main session, with no agent_id (X2, 0.3.0 row). */
 function queueCallProblem(input, call) {
-  if (input.agent_type !== ARCHITECT_TYPE || !hasAgentId(input)) return 'agent';
+  if (hasAgentId(input)) return 'agent';
   if (call.sessions.some((s) => s === null)) return 'noSession';
   const own = typeof input.session_id === 'string' && input.session_id !== '' ? input.session_id : null;
   return call.sessions.every((s) => own !== null && s === own) ? null : 'session';
