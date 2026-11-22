@@ -227,7 +227,11 @@ test('T23: the changelog has the entry and the links of the core version', () =>
     return;
   }
   // The Unreleased section may hold the entries of the next version (0.5.0 supervisor) above the released entry.
-  assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n(?:[^\\n]*\\n)*?## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
+  assert.match(text, new RegExp('^## \\[Unreleased\\]\\n\\n(?:(?!## \\[)[^\\n]*\\n)*?## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
+  // Negative probe: a newer release above the core entry must not pass the pin.
+  const pin = new RegExp('^## \\[Unreleased\\]\\n\\n(?:(?!## \\[)[^\\n]*\\n)*?## \\[' + q + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm');
+  assert.equal(pin.test(`## [Unreleased]\n\n## [9.9.9] - 2026-01-01\n\n## [${v}] - 2026-01-01`), false);
+  assert.equal(pin.test(`## [Unreleased]\n\n### Added\n- x\n\n## [${v}] - 2026-01-01`), true);
   assert.match(text, new RegExp('^\\[unreleased\\]: .*compare/guilda--v' + q + '\\.\\.\\.HEAD$', 'm'));
   assert.match(text, new RegExp('^\\[' + q + '\\]: .*compare/guilda--v[0-9.]+\\.\\.\\.guilda--v' + q + '$', 'm'));
 });
