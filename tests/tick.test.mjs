@@ -442,6 +442,15 @@ test('a sleep record whose until equals now gives pause', () => {
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, records: [sleep] })).step, 'pause');
 });
 
+test('a pause with a past resumeAt gives an until 30 min ahead', () => {
+  const tasks = { T1: task({ state: 'ready' }) };
+  for (const resumeAt of [at(10), at(30), null]) {
+    const s = nextStep(facts(tasks, { pace: { slots: 0, lowTier: false, why: 'blocked', resumeAt } }));
+    assert.equal(s.step, 'pause');
+    assert.equal(s.until, at(60));
+  }
+});
+
 test('sleep without --until is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   const r = tick(dir, 3, '--record', 'sleep');

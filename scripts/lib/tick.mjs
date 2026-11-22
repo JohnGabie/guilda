@@ -13,6 +13,8 @@ export const SUPERVISOR = 'supervisor';
 export const SAVE_WAIT_MS = 120000;
 /** The time limit of one git call, in ms. */
 export const GIT_TIMEOUT_MS = 10000;
+/** The pause lasts this long, in ms, when the resume time is missing or not after now. */
+export const PAUSE_FALLBACK_MS = 30 * 60000;
 /** The folder under the project where the supervisor suggests the worktree of a task. */
 export const WORKTREE_ROOT = '.guilda/worktrees';
 /** The record types of the supervisor in the journal. */
@@ -151,7 +153,9 @@ export function nextStep(facts) {
   if (pace.slots === 0) {
     const asleep = records.some((r) => r.type === 'sleep' && toMs(r.until) !== null && toMs(r.until) > nowMs);
     if (asleep) return done({ step: 'watch' });
-    return done({ step: 'pause', until: pace.resumeAt, why: pace.why });
+    const resumeMs = toMs(pace.resumeAt);
+    const until = resumeMs !== null && resumeMs > nowMs ? pace.resumeAt : new Date(nowMs + PAUSE_FALLBACK_MS).toISOString();
+    return done({ step: 'pause', until, why: pace.why });
   }
 
   // 2. A late running attempt with no save request.
