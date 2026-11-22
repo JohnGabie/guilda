@@ -1251,9 +1251,33 @@ test('R38 wrapper forms are refused', () => {
     'cswap budget --json > out.txt',
     'cswap $(echo budget)',
     'cswap budget --json | $(which cswap) list',
+    'cs{w..w}ap list',
+    '[[:lower:]]swap list',
+    '[]c]swap list',
+    '[!x]swap list',
+    'shopt -s extglob\n@(c)swap list',
+    '+(c)swap list',
+    '*(c)swap list',
+    '?(c)swap list',
+    '!(x)swap list',
+    'c[swap list',
+    'cswap\nbudget',
+    'X=$(ls /usr/local/bin/c*p); $X list',
+    '$(echo c*p) list',
+    'sudo env c*p list',
+    'find . -exec c?wap list ;',
     'cs\\\nwap list',
     'cs\\\r\nwap switch 1',
   ]) assert.equal(assertDeny(bash(dir, command)), R38_REASON, command);
+});
+
+test('R38 lets a glob in an argument and a plain dynamic command pass', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const command of ['ls *', 'git add *', 'cat src/*', 'grep -rn foo *', 'du -sh ~/projects/*', "find . -name '*'", 'ls ?????', '$EDITOR file', 'echo "x {a,b}"']) {
+    const r = bash(dir, command);
+    const reason = r.stdout === '' ? '' : JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason;
+    assert.ok(!reason.startsWith('R38'), command);
+  }
 });
 
 test('R38 runs in a folder with no .guilda', () => {

@@ -305,48 +305,91 @@ function innerText(rest) {
   return rest[at] !== undefined ? rest[at] : null;
 }
 
-// R38: an allow list on the text. A command passes only when no word of it is `cswap`, a path that ends in /cswap, or a
-// glob that can match one of them. The one exception is the exact command `cswap budget` or `cswap budget --json`
-// (with an optional path to cswap, and no $ or backtick), alone or as the first part of a pipe. A false refusal is
-// accepted. Accepted limit (as R32): a binary copied under another name, and an interpreter that builds the name at
-// run time (node -e, python3 -c, a script file made with Write), are not seen.
-const BUDGET_COMMAND = /^(?:[A-Za-z0-9_.~+\/-]*\/)?cswap\s+budget(?:\s+--json)?$/;
+// R38: a command is refused when it can run `cswap` for an account command. Three rules, on the text:
+// 1. A word that is `cswap` or a path that ends in /cswap is refused, anywhere in the text.
+// 2. A glob word (also with a brace range, a bracket class or an extglob) that can match cswap is refused at the
+//    command position: the first word of a simple command, after the wrapper words, and after find -exec. A glob
+//    in an argument passes (`ls *`). An extglob word is refused at any position, because the parser splits it.
+// 3. When a command position is built at run time (a $ or a backtick in it), any glob word that can match cswap, or
+//    any word with the letters cswap, refuses the command.
+// The one exception: the exact command `cswap budget` or `cswap budget --json` (with an optional path to cswap,
+// and no $ or backtick), alone or as the first part of a pipe. A false refusal is accepted. Accepted limit (as
+// R32): a binary copied under another name, and an interpreter that builds the name at run time (node -e,
+// python3 -c, a script file made with Write), are not seen.
+const BUDGET_COMMAND = /^(?:[A-Za-z0-9_.~+\/-]*\/)?cswap[ \t]+budget(?:[ \t]+--json)?$/;
 const WORD_SPLIT = /[\s;&|()<>=:,`$]+/;
-// The same split that keeps a comma, so a brace group like {cswap,x} stays one glob word.
-const GLOB_WORD_SPLIT = /[\s;&|()<>=:`$]+/;
-const GLOB_SIGN =/[*?[{]/;
+// The same split that keeps a comma and parentheses, so {cswap,x} and @(c)swap stay one glob word.
+const GLOB_WORD_SPLIT = /[\s;&|<>=:`$]+/;
+const GLOB_SIGN = /[*?[{(]/;
+const EXTGLOB = /[@+*?!]\(/;
+const DYNAMIC = /[$`]/;
+// Wrapper programs that run the next command word. The value lists the flags that take a separate value.
+const WRAPPERS = {
+  env: ['-u', '-C', '-S'],
+  xargs: ['-I', '-n', '-P', '-L', '-s', '-E', '-d', '-a'],
+  exec: [],
+  nohup: [],
+  time: [],
+  command: [],
+  builtin: [],
+  timeout: ['-s', '-k'],
+  nice: ['-n'],
+  sudo: ['-u', '-g', '-h', '-p', '-C', '-D', '-R', '-T', '-U'],
+  doas: ['-u', '-C'],
+  setsid: [],
+  stdbuf: ['-i', '-o', '-e'],
+};
+const FIND_EXEC = new Set(['-exec', '-execdir', '-ok', '-okdir']);
+const baseName = (w) => path.basename(w.replace(/\\/g, '/'));
 
-/** The regex of a shell glob, anchored. A brace group with a comma is an alternation; other braces are literal. */
+/** The regex of a shell glob, anchored. Each hard form (a brace group, a class, an extglob, an unclosed sign) is wide. */
 function globRegex(glob) {
   let out = '';
-  let depth = 0;
   for (let i = 0; i < glob.length; i += 1) {
     const ch = glob[i];
-    if (ch === '*') out += '.*';
+    if ('@+*?!'.includes(ch) && glob[i + 1] === '(') {
+      // An extglob group: a wide match up to its closing parenthesis (or the end).
+      const end = glob.indexOf(')', i + 2);
+      out += '.*';
+      i = end < 0 ? glob.length : end;
+    } else if (ch === '*') out += '.*';
     else if (ch === '?') out += '.';
     else if (ch === '[') {
-      const end = glob.indexOf(']', i + 2);
-      if (end < 0) out += '\\[';
-      else {
-        const body = glob.slice(i + 1, end).replace(/^[!^]/, '^').replace(/\\/g, '\\\\');
-        out += `[${body}]`;
-        i = end;
+      let j = i + 1;
+      if ('!^'.includes(glob[j] ?? '')) j += 1;
+      if (glob[j] === ']') j += 1;
+      while (j < glob.length && glob[j] !== ']') {
+        if (glob[j] === '[' && glob[j + 1] === ':') {
+          const close = glob.indexOf(':]', j + 2);
+          j = close < 0 ? glob.length : close + 2;
+        } else j += 1;
       }
-    } else if (ch === '{' && glob.indexOf('}', i) > i && glob.slice(i, glob.indexOf('}', i)).includes(',')) {
-      out += '(?:';
-      depth += 1;
-    } else if (ch === '}' && depth > 0) {
-      out += ')';
-      depth -= 1;
-    } else if (ch === ',' && depth > 0) out += '|';
-    else out += ch.replace(/[.+^$()|\\\]{}]/g, '\\$&');
+      if (j >= glob.length) {
+        out += '.*'; // an unclosed sign
+        i = glob.length;
+      } else {
+        const body = glob.slice(i + 1, j);
+        out += /^[\]!^]/.test(body) || body.includes('[:') ? '.' : `[${body.replace(/\\/g, '\\\\')}]`;
+        i = j;
+      }
+    } else if (ch === '{') {
+      // Any brace group (a list or a range) is a wide match. An unclosed one is too.
+      const end = glob.indexOf('}', i + 1);
+      out += '.*';
+      i = end < 0 ? glob.length : end;
+    } else out += ch.replace(/[.+^$()|\\\]{}]/g, '\\$&');
   }
   return new RegExp(`^${out}$`);
 }
 
+
 /** True when a word is cswap, a path that ends in /cswap, or a glob that can match one of them. */
 function namesCswap(word) {
   if (word === 'cswap' || word.endsWith('/cswap')) return true;
+  return globMatchesCswap(word);
+}
+
+function globMatchesCswap(word) {
   if (!GLOB_SIGN.test(word)) return false;
   const last = word.slice(word.lastIndexOf('/') + 1);
   try {
@@ -356,17 +399,67 @@ function namesCswap(word) {
   }
 }
 
-const mentionsCswap = (text) => {
+/** The index of the command word after the wrapper words and their options. */
+function commandWordAt(words) {
+  let i = 0;
+  while (i < words.length) {
+    const name = baseName(words[i]);
+    if (!Object.hasOwn(WRAPPERS, name)) break;
+    const valueFlags = WRAPPERS[name];
+    i += 1;
+    while (i < words.length) {
+      const w = words[i];
+      if (name === 'env' && /^[A-Za-z_]\w*=/.test(w)) i += 1;
+      else if (w === '--') {
+        i += 1;
+        break;
+      } else if (w.startsWith('-') && w.length > 1) i += valueFlags.includes(w) ? 2 : 1;
+      else break;
+    }
+    if (name === 'timeout' && i < words.length) i += 1; // the duration
+  }
+  return i;
+}
+
+/** The command words of a shell text: of each simple command, of each shell text inside it, and after find -exec. */
+function commandWords(command, depth = 0, out = []) {
+  if (depth > MAX_DEPTH) return out;
+  for (const words of splitCommands(command)) {
+    const { rest } = stripPrefix(words);
+    const inner = innerText(rest);
+    if (inner !== null) commandWords(inner, depth + 1, out);
+    const at = commandWordAt(rest);
+    if (at < rest.length) out.push(rest[at]);
+    rest.forEach((w, j) => {
+      if (!FIND_EXEC.has(w)) return;
+      const sub = rest.slice(j + 1);
+      const k = commandWordAt(sub);
+      if (k < sub.length) out.push(sub[k]);
+    });
+  }
+  return out;
+}
+
+/** True when the text names cswap by rule 1, 2 or 3 above. */
+function mentionsCswap(text) {
   const flat = plain(text);
-  return [WORD_SPLIT, GLOB_WORD_SPLIT].some((re) => flat.split(re).some((w) => w !== '' && namesCswap(w)));
-};
+  const tokens = [...new Set([...flat.split(WORD_SPLIT), ...flat.split(GLOB_WORD_SPLIT)])].filter((w) => w !== '');
+  if (tokens.some((w) => w === 'cswap' || w.endsWith('/cswap'))) return true;
+  if (tokens.some((w) => EXTGLOB.test(w) && globMatchesCswap(w))) return true;
+  const positions = commandWords(text);
+  if (positions.some((w) => globMatchesCswap(w))) return true;
+  if (positions.some((w) => DYNAMIC.test(w))) {
+    return tokens.some((w) => w.includes('cswap') || globMatchesCswap(w));
+  }
+  return false;
+}
 
 /** True when a shell command must be refused by R38. */
 function runsCswapAccountCommand(raw) {
-  // A backslash-newline pair joins two lines, so \`cs\\<newline>wap\` is the word cswap.
+  // A backslash-newline pair joins two lines, so `cs\<newline>wap` is the word cswap.
   const command = raw.replace(/\\\r?\n/g, '');
   if (!mentionsCswap(command)) return false;
-  if (/[$`]/.test(command)) return true;
+  if (DYNAMIC.test(command)) return true;
   const parts = command.trim().split(/(?<!\|)\|(?!\|)/);
   if (!BUDGET_COMMAND.test(parts[0].trim())) return true;
   return mentionsCswap(parts.slice(1).join(' '));
@@ -590,10 +683,6 @@ async function main(input) {
     deny(reason);
     return 0;
   };
-  // R34: the key folder is refused in each project, also one with no .guilda folder (the record needs one).
-  if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
-  // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
-  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
   // R38: the account commands are refused in each folder, also one with no .guilda folder.
   // An error inside the check denies the call.
   if (input.tool_name === 'Bash' && typeof toolInput.command === 'string') {
@@ -609,6 +698,10 @@ async function main(input) {
       return 0;
     }
   }
+  // R34: the key folder is refused in each project, also one with no .guilda folder (the record needs one).
+  if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
+  // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
+  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
   if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
 
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
