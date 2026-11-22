@@ -19,7 +19,7 @@ const stub = () => ({
   advice: 'ok',
   reason: `the account ${EMAIL} is fine`,
   token: TOKEN,
-  fleet: { accounts: 2, capacityUnits: 6, remainingUnits: 3, usableNow: 2, nextUsableAt: null, extra: 'x' },
+  fleet: { accounts: 2, capacityUnits: 6, remainingUnits: 3, usableNow: 2, nextUsableAt: '2026-11-23T08:00:00Z', extra: 'x' },
   resets: [{ at: '2026-11-23T08:00:00Z', expiringUnits: 1 }],
   accounts: [
     {
@@ -50,6 +50,30 @@ test('S5-13: the budget keeps only the listed fields and no file holds the accou
   // The adapter writes nothing: a grep of the temp project finds neither string.
   const files = fs.readdirSync(dir, { recursive: true });
   assert.deepEqual(files, []);
+});
+
+test('typed guard: a kept field is a finite number or a short string with no @', () => {
+  const s = stub();
+  s.status = { nested: 'x' };
+  s.fetchedAt = 'x'.repeat(65);
+  s.fleet.capacityUnits = 'a@b.example';
+  s.fleet.remainingUnits = 1e999;
+  s.fleet.usableNow = ['list'];
+  s.accounts[1].plan = { org: ORG };
+  s.accounts[1].fiveHour.usedPercent = 'a@b';
+  s.accounts[1].sevenDay.resetsAt = null;
+  const u = readUsage(CFG, { run: () => ({ status: 0, stdout: JSON.stringify(s).replace('null', '1e999') }) });
+  assert.equal(u.state, 'ok');
+  assert.equal(u.budget.status, undefined);
+  assert.equal(u.budget.fetchedAt, undefined);
+  assert.deepEqual(Object.keys(u.budget.fleet).sort(), ['accounts', 'nextUsableAt']);
+  assert.deepEqual(u.budget.accounts[1], { id: 'work', fiveHour: {}, sevenDay: { usedPercent: 6 } });
+  assert.ok(!JSON.stringify(u).includes(ORG));
+});
+
+test('a bad JSON gives the fixed reason with no parser text', () => {
+  const u = readUsage(CFG, { run: () => ({ status: 0, stdout: `{"token": "${TOKEN}" oops` }) });
+  assert.deepEqual(u, { state: 'error', reason: 'bad JSON' });
 });
 
 test('an advice word that is not known reads as unknown', () => {

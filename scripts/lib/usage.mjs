@@ -11,9 +11,14 @@ const ADVICE_WORDS = new Set(['can_speed_up', 'ok', 'slow_down', 'blocked']);
 const defaultRun = (file, args, opts) => spawnSync(file, args, { ...opts, shell: false, encoding: 'utf8' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** The longest string the guard keeps. */
+const MAX_STRING = 64;
+/** A kept value is a finite number, or a short string with no @. Any other value is dropped. */
+const keepable = (v) =>
+  (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.length <= MAX_STRING && !v.includes('@'));
 const pick = (obj, keys) => {
   const out = {};
-  if (isObject(obj)) for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k];
+  if (isObject(obj)) for (const k of keys) if (keepable(obj[k])) out[k] = obj[k];
   return out;
 };
 const windowOf = (w) => (isObject(w) ? pick(w, ['usedPercent', 'resetsAt']) : undefined);
@@ -33,7 +38,7 @@ function guard(raw) {
   if (Array.isArray(raw.accounts)) {
     budget.accounts = raw.accounts.filter(isObject).map((a, i) => {
       const acct = pick(a, ['id', 'plan']);
-      if (typeof acct.id === 'string' && acct.id.includes('@')) {
+      if (typeof a.id === 'string' && a.id.includes('@')) {
         acct.id = `account-${i + 1}`;
         notices.push(`account ${i + 1}: the id had an @ and was replaced`);
       }
@@ -62,7 +67,12 @@ export function readUsage(config, { run = defaultRun } = {}) {
     if (res?.status !== 0) {
       return { state: 'off', notice: EXIT_NOTICES[res?.status] ?? `cswap budget exited with status ${res?.status}` };
     }
-    const raw = JSON.parse(String(res.stdout).trim());
+    let raw;
+    try {
+      raw = JSON.parse(String(res.stdout).trim());
+    } catch {
+      return { state: 'error', reason: 'bad JSON' };
+    }
     if (!isObject(raw)) return { state: 'error', reason: 'cswap budget did not print a JSON object' };
     const { budget, notices } = guard(raw);
     return notices.length > 0 ? { state: 'ok', budget, notices } : { state: 'ok', budget };

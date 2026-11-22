@@ -1192,8 +1192,44 @@ test('S5-14: cswap switch and cswap list are refused with R38; cswap budget pass
     assert.equal(rec.level, 'law');
     assert.ok(!JSON.stringify(rec).includes('cswap'), 'no command text');
   }
-  for (const command of ['cswap budget --json', 'cswap budget', 'echo cswap switch']) assertAllow(bash(dir, command));
+  for (const command of ['cswap budget --json', 'cswap budget', 'echo cswap switch', 'env FOO=1 cswap budget', 'find . -name x']) assertAllow(bash(dir, command));
   // An agent is refused the same way.
   const agent = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'cswap list' }, cwd: dir, agent_id: 'a-1', agent_type: 'guilda:executor' }, dir);
   assert.equal(assertDeny(agent), R38_REASON);
+});
+
+test('R38 wrapper forms are refused', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  for (const command of [
+    'env cswap switch 1',
+    'env -i FOO=1 cswap list',
+    'env -u HOME cswap switch 2',
+    'echo 1 | xargs cswap switch',
+    'echo 1 | xargs -n 1 -I {} cswap list',
+    'exec cswap switch 1',
+    'nohup cswap switch 1',
+    'time cswap list',
+    'timeout 5 cswap switch 1',
+    'timeout -s KILL 5s cswap list',
+    'nice -n 5 cswap list',
+    'nice cswap list',
+    'sudo cswap switch 1',
+    'sudo -u root cswap list',
+    'doas cswap switch 1',
+    'setsid cswap switch 1',
+    'stdbuf -oL cswap list',
+    'sudo env timeout 3 cswap switch 1',
+    'find . -name x -exec cswap switch 1 ;',
+    'find . -execdir cswap list ;',
+    'bash -lc "cswap switch 1"',
+    'sh -c -- "cswap list"',
+    'zsh -ec "cswap switch 1"',
+    'env bash -c "cswap list"',
+  ]) assert.equal(assertDeny(bash(dir, command)), R38_REASON, command);
+});
+
+test('R38 runs in a folder with no .guilda', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda bare '));
+  assert.equal(assertDeny(bash(dir, 'cswap switch 1')), R38_REASON);
+  assertAllow(bash(dir, 'cswap budget --json'));
 });

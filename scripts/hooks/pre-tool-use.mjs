@@ -299,20 +299,67 @@ function innerText(rest) {
   if (names[0] === 'eval') return rest.slice(1).join(' ');
   const shellAt = names.findIndex((n) => SHELLS.has(n));
   if (shellAt < 0) return null;
-  const flag = rest.findIndex((w, i) => i > shellAt && /^-[a-z]*c$/.test(w));
-  return flag > 0 && rest[flag + 1] !== undefined ? rest[flag + 1] : null;
+  const flag = rest.findIndex((w, i) => i > shellAt && /^-[a-z]*c[a-z]*$/.test(w));
+  if (flag < 0) return null;
+  const at = rest[flag + 1] === '--' ? flag + 2 : flag + 1;
+  return rest[at] !== undefined ? rest[at] : null;
 }
 
 const CSWAP_REFUSED = new Set(['switch', 'list']);
+// Wrapper programs that run the next command word. The value lists the flags that take a separate value.
+const WRAPPERS = {
+  env: ['-u', '-C', '-S'],
+  xargs: ['-I', '-n', '-P', '-L', '-s', '-E', '-d', '-a'],
+  exec: [],
+  nohup: [],
+  time: [],
+  command: [],
+  timeout: ['-s', '-k'],
+  nice: ['-n'],
+  sudo: ['-u', '-g', '-h', '-p', '-C', '-D', '-R', '-T', '-U'],
+  doas: ['-u', '-C'],
+  setsid: [],
+  stdbuf: ['-i', '-o', '-e'],
+};
+const FIND_EXEC = new Set(['-exec', '-execdir', '-ok', '-okdir']);
+const baseName = (w) => path.basename(w.replace(/\\/g, '/'));
 
-/** True when a shell command runs `cswap switch` or `cswap list`, in a list, a pipe or a shell text (R38). */
+/** The index of the command word after the wrapper words (env, xargs, timeout, sudo, ...) and their options. */
+function commandWordAt(words) {
+  let i = 0;
+  while (i < words.length) {
+    const name = baseName(words[i]);
+    if (!Object.hasOwn(WRAPPERS, name)) break;
+    const valueFlags = WRAPPERS[name];
+    i += 1;
+    while (i < words.length) {
+      const w = words[i];
+      if (name === 'env' && /^[A-Za-z_]\w*=/.test(w)) i += 1;
+      else if (w === '--') {
+        i += 1;
+        break;
+      } else if (w.startsWith('-') && w.length > 1) i += valueFlags.includes(w) ? 2 : 1;
+      else break;
+    }
+    if (name === 'timeout' && i < words.length) i += 1; // the duration
+  }
+  return i;
+}
+
+/** True when a shell command runs `cswap switch` or `cswap list`, in a list, a pipe, a wrapper or a shell text (R38). */
 function runsCswapAccountCommand(command, depth = 0) {
   if (depth > MAX_DEPTH) return false;
+  const refused = (words) => {
+    const at = commandWordAt(words);
+    return at < words.length - 1 && baseName(words[at]) === 'cswap' && words.slice(at + 1).some((w) => CSWAP_REFUSED.has(w));
+  };
   for (const words of splitCommands(command)) {
     const { rest } = stripPrefix(words);
     const inner = innerText(rest);
     if (inner !== null && runsCswapAccountCommand(inner, depth + 1)) return true;
-    if (rest.length > 1 && path.basename(rest[0].replace(/\\/g, '/')) === 'cswap' && rest.slice(1).some((w) => CSWAP_REFUSED.has(w))) return true;
+    if (refused(rest)) return true;
+    // find -exec <command> ...
+    if (rest.some((w, j) => FIND_EXEC.has(w) && refused(rest.slice(j + 1)))) return true;
   }
   return false;
 }
@@ -539,6 +586,12 @@ async function main(input) {
   if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
   // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
   if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
+  // R38: the account commands are refused in each folder, also one with no .guilda folder.
+  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && runsCswapAccountCommand(toolInput.command)) {
+    record('R38', 'usage account command refused');
+    deny('R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts');
+    return 0;
+  }
   if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
 
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
@@ -553,11 +606,6 @@ async function main(input) {
 
   if (input.tool_name === 'Bash') {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
-    if (runsCswapAccountCommand(command)) {
-      record('R38', 'usage account command refused');
-      deny('R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts');
-      return 0;
-    }
     if (commandWritesBus(projectDir, command, startCwd)) return refuse34('write');
     const send = sendProblem(projectDir, input, command);
     if (send) return refuse34(send.key, send.reason);
