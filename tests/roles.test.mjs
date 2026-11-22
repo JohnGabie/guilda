@@ -17,6 +17,9 @@ const AGENTS = {
   qa: { tier: 'journeyman', tools: undefined, prefix: 'QA', group: ['engineering'] },
   'version-control': { tier: 'journeyman', tools: 'Read, Grep, Glob, Bash', prefix: 'VC', group: ['engineering'] },
   security: { tier: 'master', tools: 'Read, Grep, Glob', prefix: 'SEC', group: ['security'] },
+  'security-executor': {
+    tier: 'master', tools: 'Read, Grep, Glob, Edit, Write, Bash', prefix: 'SX', group: ['security'],
+  },
   'security-lead': { tier: 'master', tools: 'Read, Grep, Glob, Bash', prefix: 'SLD', group: ['security'] },
   'lab-researcher': {
     tier: 'master', tools: 'Read, Grep, Glob, WebSearch, WebFetch', prefix: 'LAB', group: ['lab'],

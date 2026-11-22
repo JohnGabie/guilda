@@ -4,6 +4,8 @@ import { projectState, dispatchAgentTypes, SETUP_NOTICE } from '../lib/project.m
 import { appendViolation } from '../lib/violations.mjs';
 import { validateBrief, briefFileOf, isExecutorDispatch } from '../lib/formats.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
+import { verifyRecord } from '../lib/records.mjs';
+import { SECURITY_EXECUTOR } from '../lib/redteam-guard.mjs';
 
 /** True when `target` is `root` or a path below it. */
 function isInside(root, target) {
@@ -71,6 +73,45 @@ function untypedDispatch(input, toolInput, allowed) {
   );
 }
 
+/** The value of the last `Label:` line of a text, or null. */
+function lastValue(text, label) {
+  let value = null;
+  const re = new RegExp(`^[ \\t]*${label}:[ \\t]*(.*?)[ \\t]*$`, 'i');
+  for (const line of text.split('\n')) {
+    const m = line.replace(/\r$/, '').match(re);
+    if (m) value = m[1];
+  }
+  return value;
+}
+
+/**
+ * R37: the refusal text for a dispatch of the Security Executor, or null when it passes. The brief needs a `Risk area:`
+ * that is not none and an `Approval: <user record ID>` that the check of `bus.mjs verify` accepts (R35). It fails
+ * closed (X9): no prompt, no brief file, no key or an error refuses. The text never holds the record text.
+ */
+function securityDispatch(projectDir, toolInput) {
+  if (typeof toolInput.prompt !== 'string') return 'R37: the dispatch has no brief text (X9).';
+  let brief = toolInput.prompt;
+  const written = briefFileOf(brief);
+  if (written !== null) {
+    const file = readBriefFile(projectDir, written);
+    if (file.refused) return 'R37: the brief file cannot be read (X9).';
+    brief = file.text;
+  }
+  const area = lastValue(brief, 'Risk area');
+  if (area === null || area === '' || /^none\b/i.test(area)) {
+    return 'R37: the Security Executor needs a Risk area that is not none.';
+  }
+  const approval = lastValue(brief, 'Approval');
+  if (approval === null || approval === '') return 'R37: the brief has no `Approval: <user record ID>` line.';
+  try {
+    if (verifyRecord(projectDir, approval, process.env).ok) return null;
+  } catch {
+    // An error counts as a record that does not verify (X9).
+  }
+  return 'R37: the user record of the Approval line does not verify.';
+}
+
 function deny(projectDir, rule, action, reason) {
   appendViolation(projectDir, { rule, level: 'law', source: 'pre-agent', action });
   process.stdout.write(
@@ -105,6 +146,11 @@ await runHookMain(async (input) => {
   if (refused !== null) {
     const action = refused.includes('not this agent type') ? 'agent type not allowed' : 'untyped dispatch';
     return deny(projectDir, 'ARC4', action, refused);
+  }
+  const type = typeof toolInput.subagent_type === 'string' ? toolInput.subagent_type.trim().toLowerCase() : '';
+  if (type === SECURITY_EXECUTOR) {
+    const text = securityDispatch(projectDir, toolInput);
+    return text === null ? 0 : deny(projectDir, 'R37', 'security executor dispatch refused', text);
   }
   if (!isExecutorDispatch(toolInput)) return 0;
 

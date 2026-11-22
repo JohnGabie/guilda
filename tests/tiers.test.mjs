@@ -6,7 +6,7 @@ import { REPO_ROOT } from './helpers.mjs';
 
 const TIERS = { master: 'opus', journeyman: 'sonnet', apprentice: 'haiku' };
 const MODELS = {
-  'architect-executor': 'opus', security: 'opus', 'lab-researcher': 'opus', 'lab-reader': 'opus',
+  'architect-executor': 'opus', security: 'opus', 'security-executor': 'opus', 'lab-researcher': 'opus', 'lab-reader': 'opus',
   reviewer: 'opus', 'coherence-validator': 'opus', 'devops-advisor': 'opus', 'ai-lead': 'opus',
   'lab-experimenter': 'opus', executor: 'sonnet', qa: 'sonnet', 'version-control': 'sonnet',
   supervisor: 'sonnet', 'security-lead': 'opus',
