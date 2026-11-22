@@ -30,6 +30,8 @@ The hook passes a `Bash` command only when each simple command (in a pipe or an 
 - Write inside the project: `mkdir`, `touch`, `cp`, `mv`, and a redirection to a path in the project.
 
 The `Read`, `Edit` and `Write` tools take a path inside the project or the task worktree only.
+The run needs the project sandbox on (`sandbox.enabled` in the project settings, U5-8). A script that you write runs inside that sandbox.
+The hook also refuses each path in `.git`, `.guilda`, `.claude`, `.husky`, `.vscode` and `.idea`, and `.envrc`, `.npmrc` and `.pypirc`, for a read and for a write. The `Skill` tool is not for this agent.
 A tool or a command that is not on this list is a stop (SX1). Do not look for a second form of the command. Report it.
 
 ## Does

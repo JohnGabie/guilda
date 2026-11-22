@@ -23,14 +23,16 @@ export const REASONS = Object.freeze({
   credential: 'R37: a credential path.',
   envFile: 'R37: a .env file outside a fixtures folder.',
   glob: 'R37: a glob word needs a fixed prefix inside the project.',
-  write: 'R37: a write to .guilda or to a shell profile.',
+  write: 'R37: a protected folder or file (.git, .guilda, .claude, .husky, .vscode, .idea, .envrc, .npmrc, .pypirc, a shell profile).',
   failed: 'R37: the guard could not check the call (X9).',
 });
 
-const ALLOWED_TOOLS = new Set(['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'Skill']);
+const ALLOWED_TOOLS = new Set(['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash']);
 const PATH_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const GIT_VERBS = new Set(['status', 'diff', 'log', 'show', 'blame', 'ls-files', 'rev-parse']);
-const PROFILE_FILES = new Set(['.bashrc', '.zshrc', '.profile', '.bash_profile', '.zprofile', '.bash_login']);
+const PROTECTED_NAMES = ['.git', '.guilda', '.claude', '.husky', '.vscode', '.idea', '.envrc', '.npmrc', '.pypirc'];
+const PROTECTED_FILES = new Set(['.bashrc', '.zshrc', '.profile', '.bash_profile', '.zprofile', '.bash_login', '.envrc', '.npmrc', '.pypirc', '.git']);
+const PROTECTED_FOLDERS = new Set(['.git', '.guilda', '.claude', '.husky', '.vscode', '.idea']);
 const LEXICAL_CRED = /(^|[\s"'=:/~])(\.ssh|\.aws|\.gnupg|\.netrc|\.npmrc|\.config\/gcloud|\.config\/gh|\.claude\/\.credentials[\w.]*|guilda\/keys)(\/|\s|$|["'])/;
 const GLOB_CHARS = new Set(['*', '?', '[']);
 const SOURCE_FILE = /\.(m?js|cjs|ts|mts|py)$/;
@@ -50,6 +52,13 @@ function gitTop(cwd) {
   } catch {
     return null;
   }
+}
+
+/** A git folder of the worktree (the common dir or the own dir), as a real path, or null. */
+function gitPath(cwd, flag) {
+  const r = spawnSync('git', ['-C', cwd, 'rev-parse', flag], { encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  return safeReal(path.resolve(cwd, r.stdout.trim()));
 }
 
 function safeReal(p) {
@@ -97,7 +106,8 @@ function makeContext(projectDir, input, env) {
     }
   }
   credDirs.push(keyFolder(env));
-  return { cwd, home, roots, credDirs: credDirs.flatMap((d) => [d, safeReal(d)]).filter(Boolean) };
+  const gitDirs = ['--git-common-dir', '--git-dir'].map((flag) => gitPath(cwd, flag)).filter(Boolean);
+  return { cwd, home, roots, gitDirs, credDirs: credDirs.flatMap((d) => [d, safeReal(d)]).filter(Boolean) };
 }
 
 function inFixtures(real, ctx) {
@@ -133,14 +143,17 @@ function checkPath(text, glob, ctx, { write = false } = {}) {
     const lastSeg = t.split('/').pop();
     const canMatchEnv = lastLiteral.startsWith('.') && ('.env'.startsWith(lastLiteral) || lastLiteral.startsWith('.env'));
     if (canMatchEnv || lastSeg.startsWith('.env')) refuse(REASONS.envFile);
+    if (lastLiteral.startsWith('.') && PROTECTED_NAMES.some((n) => n.startsWith(lastLiteral))) refuse(REASONS.write);
   }
   const real = physical(ctx.cwd, target);
   for (const dir of ctx.credDirs) if (inside(real, dir)) refuse(REASONS.credential);
   if (!ctx.roots.some((r) => inside(real, r))) refuse(REASONS.outside);
   const base = path.basename(real);
   if (glob < 0 && base.startsWith('.env') && !inFixtures(real, ctx)) refuse(REASONS.envFile);
-  if (write) {
-    if (ctx.roots.some((r) => inside(real, path.join(r, '.guilda'))) || PROFILE_FILES.has(base)) refuse(REASONS.write);
+  {
+    const folder = ctx.roots.some((r) => inside(real, r) && path.relative(r, real).split(path.sep).some((seg) => PROTECTED_FOLDERS.has(seg)));
+    const gitDir = ctx.gitDirs.some((d) => inside(real, d));
+    if (folder || gitDir || PROTECTED_FILES.has(base)) refuse(REASONS.write);
   }
 }
 
@@ -274,6 +287,11 @@ function needSource(words) {
   if (!positional(words).some((w) => SOURCE_FILE.test(w.text))) refuse(REASONS.runTarget);
 }
 
+/** True when semgrep has `--metrics=off` or `--metrics off`. */
+function metricsOff(words) {
+  return words.some((w, i) => w.text === '--metrics=off' || (w.text === '--metrics' && words[i + 1]?.text === 'off'));
+}
+
 const VALIDATORS = {
   ls: () => {},
   cat: () => {},
@@ -332,7 +350,7 @@ const VALIDATORS = {
       if (w.text === '--config' || w.text === '-f') values.push(a[i + 1]?.text);
       else if (w.text.startsWith('--config=')) values.push(w.text.slice(9));
     });
-    if (values.length === 0) refuse(REASONS.option);
+    if (values.length === 0 || !metricsOff(a)) refuse(REASONS.option);
     // A value is a local path only when it exists on disk. `auto` and `p/ci` name the registry.
     for (const v of values) if (!v || !fs.existsSync(path.resolve(ctx.cwd, v))) refuse(REASONS.option);
   },
@@ -428,7 +446,6 @@ export function redteamGuard(projectDir, input, env = process.env) {
   try {
     const tool = input.tool_name;
     if (!ALLOWED_TOOLS.has(tool) && !PATH_TOOLS.has(tool)) refuse(REASONS.tool);
-    if (tool === 'Skill') return null;
     const ctx = makeContext(projectDir, input, env);
     if (tool === 'Bash') checkBash(input, ctx);
     else checkPathTool(input, ctx);

@@ -91,10 +91,15 @@ const APPROVALS_DIR = ['.guilda', 'security'];
 const APPROVALS_FILE = 'approvals.jsonl';
 const APPROVALS_MODE = 0o600;
 
-/** The task ID of a brief: the first word of its `ID / title:` field, or null. */
+/**
+ * The task ID of a brief: the first word of its `ID / title:` field. It must have the form of a queue task ID
+ * (letters and digits, 1 to 24) with at least one letter and one digit, and must not be an approval word. Else null.
+ */
 function taskIdOf(brief) {
-  const m = (lastValue(brief, 'ID / title') ?? '').match(/^([A-Za-z0-9][A-Za-z0-9._-]*)/);
-  return m ? m[1].replace(/[.]+$/, '') : null;
+  const m = (lastValue(brief, 'ID / title') ?? '').match(/^([A-Za-z0-9]{1,24})(?![A-Za-z0-9])/);
+  const id = m ? m[1] : null;
+  if (id === null || !/[A-Za-z]/.test(id) || !/\d/.test(id) || APPROVAL_WORDS.test(id)) return null;
+  return id;
 }
 
 /** True when the record text names the task ID as a whole word. */
@@ -122,6 +127,31 @@ function useApproval(projectDir, id) {
       fs.closeSync(fd);
     }
   });
+}
+
+const SETTINGS_FILES = ['settings.json', 'settings.local.json'];
+const SANDBOX_TEXT =
+  'R37: the project sandbox is off. The user must turn on the sandbox for the project (U5-8): set sandbox.enabled to true ' +
+  'in .claude/settings.json. guilda never writes this setting.';
+
+/** True when a project settings file has `sandbox.enabled: true`. A file that is not valid JSON counts as off (X9). */
+function sandboxOn(projectDir) {
+  let on = false;
+  for (const name of SETTINGS_FILES) {
+    let text;
+    try {
+      text = fs.readFileSync(path.join(projectDir, '.claude', name), 'utf8');
+    } catch (err) {
+      if (err && err.code === 'ENOENT') continue;
+      return false;
+    }
+    try {
+      if (JSON.parse(text)?.sandbox?.enabled === true) on = true;
+    } catch {
+      return false;
+    }
+  }
+  return on;
 }
 
 /** The refusal text of the R37 dispatch check when the project has no `.guilda` folder (X9). */
@@ -160,8 +190,10 @@ function securityDispatch(projectDir, toolInput) {
   if (record === null) return 'R37: the user record of the Approval line does not verify.';
   const text = typeof record.text === 'string' ? record.text : '';
   const id = taskIdOf(brief);
-  if (id === null || !namesTask(text, id)) return 'R37: the user record does not name the task ID of the brief.';
+  if (id === null) return 'R37: the brief has no task ID of the form of a queue task ID (letters and digits, one of each at least).';
+  if (!namesTask(text, id)) return 'R37: the user record does not name the task ID of the brief.';
   if (!APPROVAL_WORDS.test(text) || REFUSAL_WORDS.test(text)) return 'R37: the user record does not approve this run.';
+  if (!sandboxOn(projectDir)) return SANDBOX_TEXT;
   try {
     if (!useApproval(projectDir, record.id)) return 'R37: the user record was used for an earlier run.';
   } catch {

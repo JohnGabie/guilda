@@ -398,6 +398,22 @@ const R37 = {
   noProject: 'R37: the Security Executor needs a guilda project and a recorded approval (X9).',
 };
 
+const SANDBOX_ON = JSON.stringify({ sandbox: { enabled: true } });
+const SANDBOX_TEXT =
+  'R37: the project sandbox is off. The user must turn on the sandbox for the project (U5-8): set sandbox.enabled to true ' +
+  'in .claude/settings.json. guilda never writes this setting.';
+const NO_TASK_ID = 'R37: the brief has no task ID of the form of a queue task ID (letters and digits, one of each at least).';
+
+/** A project with the sandbox on in its settings file. */
+function sxDir(settings = SANDBOX_ON, name = 'settings.json') {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  if (settings !== null) {
+    fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.claude', name), settings);
+  }
+  return dir;
+}
+
 async function userRecord(dir, text = 'I approve the red team run of T1.') {
   const { writeUserRecord } = await import('../scripts/lib/records.mjs');
   const rec = writeUserRecord(dir, { session: 's1', kind: 'prompt', text }, process.env);
@@ -415,18 +431,18 @@ function sxReason(dir, prompt, type = SX_TYPE) {
 }
 
 test('S5-18: Risk area none is refused, even with a good approval', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   assert.equal(sxReason(dir, sxBrief('none', await userRecord(dir))), R37.none);
   assert.deepEqual(records(dir).map((r) => r.rule), ['R37']);
 });
 
 test('S5-18: no Approval line is refused', () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   assert.equal(sxReason(dir, sxBrief('auth', null)), R37.noLine);
 });
 
 test('S5-18: an unknown record and a malformed Approval are refused', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   await userRecord(dir);
   assert.equal(sxReason(dir, sxBrief('auth', 'u-00000001')), R37.verify);
   assert.equal(sxReason(dir, sxBrief('auth', 'nope')), R37.verify);
@@ -434,7 +450,7 @@ test('S5-18: an unknown record and a malformed Approval are refused', async () =
 });
 
 test('S5-18: a forged record (bad mac) is refused', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   const id = await userRecord(dir);
   const file = path.join(dir, '.guilda', 'bus', 'user.jsonl');
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/"mac":"[0-9a-f]{4}/, '"mac":"0000'));
@@ -442,7 +458,7 @@ test('S5-18: a forged record (bad mac) is refused', async () => {
 });
 
 test('S5-18: a record that verifies, names the task and approves passes one time', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   const id = await userRecord(dir);
   assert.equal(sxReason(dir, sxBrief('auth, secrets', id)), null);
   const used = fs.readFileSync(path.join(dir, '.guilda', 'security', 'approvals.jsonl'), 'utf8').trim().split('\n');
@@ -451,7 +467,7 @@ test('S5-18: a record that verifies, names the task and approves passes one time
 });
 
 test('S5-18: a second use of the same record is refused', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   const id = await userRecord(dir);
   assert.equal(sxReason(dir, sxBrief('auth', id)), null);
   assert.equal(sxReason(dir, sxBrief('auth', id)), R37.used);
@@ -460,7 +476,7 @@ test('S5-18: a second use of the same record is refused', async () => {
 });
 
 test('S5-18: a record for another task, with no approval word or with a refusal, fails', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'I approve the run of T2.'))), R37.task);
   assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'I approve T10.'))), R37.task);
   assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'Run T1 now.'))), R37.words);
@@ -471,13 +487,13 @@ test('S5-18: a record for another task, with no approval word or with a refusal,
 });
 
 test('S5-18: an approval with a refusal word is not written to the used list', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   sxReason(dir, sxBrief('auth', await userRecord(dir, 'No, T1.')));
   assert.equal(fs.existsSync(path.join(dir, '.guilda', 'security', 'approvals.jsonl')), false);
 });
 
 test('S5-18 (ARC6): a brief with a missing field is refused before the R37 checks', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   const id = await userRecord(dir);
   const prompt = sxBrief('auth', id).replace('Goal: g\n', '');
   assert.equal(sxReason(dir, prompt), 'ARC6: brief incomplete: Goal');
@@ -485,7 +501,7 @@ test('S5-18 (ARC6): a brief with a missing field is refused before the R37 check
 });
 
 test('S5-18: the hook fails closed with no prompt, with a non-string prompt and with no key', async () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   assert.equal(sxReason(dir, undefined), R37.noPrompt);
   assert.equal(sxReason(dir, 42), R37.noPrompt);
   const id = await userRecord(dir);
@@ -499,7 +515,7 @@ test('S5-18: the hook fails closed with no prompt, with a non-string prompt and 
 });
 
 test('S5-18: a case or space variant of the type gets the same check; other types do not', () => {
-  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const dir = sxDir();
   assert.equal(sxReason(dir, sxBrief('none', null), ' Guilda:Security-Executor '), R37.none);
   assert.equal(sxReason(dir, sxBrief('none', null), 'guilda:security'), null);
 });
@@ -508,4 +524,34 @@ test('S5-18: with no .guilda folder the dispatch is refused, with no record and 
   const dir = tempProject();
   assert.equal(sxReason(dir, sxBrief('auth', 'u-00000001')), R37.noProject);
   assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
+});
+
+test('U5-8: no settings file, a sandbox that is off and a bad JSON refuse, and the record is not used', async () => {
+  for (const settings of [null, '{"sandbox":{"enabled":false}}', '{}', '{"sandbox":{"enabled":"true"}}', '{ not json']) {
+    const dir = sxDir(settings);
+    assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), SANDBOX_TEXT, String(settings));
+    assert.equal(fs.existsSync(path.join(dir, '.guilda', 'security', 'approvals.jsonl')), false);
+  }
+});
+
+test('U5-8: enabled in settings.json or in settings.local.json passes; a bad file refuses even if the other is on', async () => {
+  for (const name of ['settings.json', 'settings.local.json']) {
+    const dir = sxDir(SANDBOX_ON, name);
+    assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), null, name);
+  }
+  const dir = sxDir(SANDBOX_ON);
+  fs.writeFileSync(path.join(dir, '.claude', 'settings.local.json'), '{ bad');
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), SANDBOX_TEXT);
+});
+
+test('S5-18: the task ID of the brief needs the form of a task ID and is not an approval word', async () => {
+  const dir = sxDir();
+  for (const title of ['yes — x', 'approve — x', 'Sim', 'Task — x', '123 — x', '--- x', 'T1-2 — x', 'T' + '1'.repeat(30) + ' — x']) {
+    const id = await userRecord(dir, 'I approve yes sim T1 Task 123 T1-2.');
+    const prompt = sxBrief('auth', id).replace('ID / title: T1 — x', `ID / title: ${title}`);
+    const reason = sxReason(dir, prompt);
+    // T1-2 reads as the ID T1, which the record names: only the form check refuses the others.
+    if (title === 'T1-2 — x') assert.equal(reason, null, title);
+    else assert.equal(reason, NO_TASK_ID, title);
+  }
 });

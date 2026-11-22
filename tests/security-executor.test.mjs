@@ -34,7 +34,7 @@ const TEXT = {
   credential: 'R37: a credential path.',
   envFile: 'R37: a .env file outside a fixtures folder.',
   glob: 'R37: a glob word needs a fixed prefix inside the project.',
-  write: 'R37: a write to .guilda or to a shell profile.',
+  write: 'R37: a protected folder or file (.git, .guilda, .claude, .husky, .vscode, .idea, .envrc, .npmrc, .pypirc, a shell profile).',
   failed: 'R37: the guard could not check the call (X9).',
 };
 
@@ -178,7 +178,37 @@ const REFUSED = [
   ['awk ENVIRON', "awk 'BEGIN{print ENVIRON[\"A\"]}'", 'option'],
   ['jq env', 'jq -n env', 'option'],
   ['rg --pre', 'rg --pre ./x a', 'option'],
-  ['semgrep with no config', 'semgrep src', 'option'],
+  ['semgrep with no config', 'semgrep --metrics=off src', 'option'],
+  ['semgrep with no --metrics=off', 'semgrep --config rules/r.yml src', 'option'],
+  ['semgrep with --metrics=on', 'semgrep --metrics=on --config rules/r.yml src', 'option'],
+  ['tar -x', 'tar -xf a.tar', 'command'],
+  ['unzip', 'unzip a.zip', 'command'],
+  ['read of .guilda', 'cat .guilda/bus/user.jsonl', 'write'],
+  ['ls of .guilda', 'ls .guilda', 'write'],
+  ['grep in .guilda', 'grep -r x .guilda/queue', 'write'],
+  ['uniq a .guilda/x', 'uniq a .guilda/x', 'write'],
+  ['sort -o .guilda/x', 'sort -o .guilda/x a', 'write'],
+  ['sort -o.guilda/x', 'sort -o.guilda/x a', 'write'],
+  ['sort --output=.guilda/x', 'sort --output=.guilda/x a', 'write'],
+  ['eslint -o .guilda/x', 'eslint -o .guilda/x src', 'write'],
+  ['eslint --output-file=.guilda/x', 'eslint --output-file=.guilda/x src', 'write'],
+  ['a glob that can match .guilda', 'cat .gu*', 'write'],
+  ['a glob that can match .git', 'ls .g*', 'write'],
+  ['a glob inside .guilda', 'cat .guilda/*', 'write'],
+  ['write into .git', 'cp src/a.js .git/hooks/pre-commit', 'write'],
+  ['write into .git by mv', 'mv src/a.js .git/config', 'write'],
+  ['write into .git by a redirect', 'cat src/a.js > .git/hooks/post-commit', 'write'],
+  ['touch the .git file', 'touch .git', 'write'],
+  ['write into .claude', 'cp src/a.js .claude/settings.json', 'write'],
+  ['mkdir .claude', 'mkdir .claude/x', 'write'],
+  ['write into .husky', 'cp src/a.js .husky/pre-commit', 'write'],
+  ['write into .vscode', 'touch .vscode/tasks.json', 'write'],
+  ['write into .idea', 'touch .idea/x', 'write'],
+  ['write .envrc', 'cat src/a.js > .envrc', 'envFile'],
+  ['write .npmrc', 'cat src/a.js > .npmrc', 'credential'],
+  ['write .pypirc', 'cat src/a.js > .pypirc', 'write'],
+  ['write a nested .npmrc', 'cp src/a.js app/.npmrc', 'credential'],
+  ['sed -i in .husky', 'sed -i s/a/b/ .husky/x', 'write'],
   ['semgrep registry', 'semgrep --config auto src', 'option'],
   ['semgrep registry path', 'semgrep --config p/ci src', 'option'],
   ['semgrep login', 'semgrep login', 'option'],
@@ -205,8 +235,8 @@ test('allowed local commands pass', () => {
     'sort src/a.js | uniq', 'ls && git status', 'ls; git diff', 'git status', 'git diff HEAD~1 -- src/a.js',
     'git log --oneline -5', 'git show HEAD', 'git blame src/a.js', 'git ls-files', 'git rev-parse --show-toplevel',
     'node --test tests/', 'node src/a.js', 'python3 tests/t.py', 'python3 -m pytest tests', 'pytest -q tests',
-    'npm test', 'npm run lint', 'npx --no-install eslint .', 'semgrep --config rules/r.yml src',
-    'semgrep --config=rules src', 'gitleaks detect --no-banner --source .', 'bandit -r src', 'gosec ./...',
+    'npm test', 'npm run lint', 'npx --no-install eslint .', 'semgrep --config rules/r.yml --metrics=off src',
+    'semgrep --config=rules --metrics=off src', 'semgrep --metrics off --config rules/r.yml src', 'gitleaks detect --no-banner --source .', 'bandit -r src', 'gosec ./...',
     'eslint src', 'osv-scanner --offline .', 'mkdir -p tests/sec', 'touch tests/sec/a.txt',
     'cp src/a.js tests/sec/a.js', 'mv tests/sec/a.js tests/sec/b.js', 'cat src/a.js > out.txt',
     'cat src/a.js >> out.txt', 'cat src/a.js 2>&1', 'cat src/a.js > /dev/null 2>&1', 'cat < src/a.js',
@@ -223,7 +253,6 @@ test('Read, Grep, Glob, Write and Edit take a path inside the project only', () 
   assert.equal(R('Glob', { pattern: 'src/**/*.js' }), null);
   assert.equal(R('Write', { file_path: path.join(dir, 'tests', 'sec.test.js'), content: 'x' }), null);
   assert.equal(R('Edit', { file_path: path.join(dir, 'src', 'a.js'), old_string: 'a', new_string: 'b' }), null);
-  assert.equal(R('Skill', { skill: 'x' }), null);
   const refuse = (tool, input, key) => assert.deepEqual(R(tool, input), { reason: TEXT[key] }, `${tool} ${JSON.stringify(input)}`);
   refuse('Read', { file_path: path.join(dir, '.env') }, 'envFile');
   refuse('Read', { file_path: '/etc/hosts' }, 'outside');
@@ -241,6 +270,13 @@ test('Read, Grep, Glob, Write and Edit take a path inside the project only', () 
   refuse('Write', { file_path: path.join(dir, '.bashrc'), content: '' }, 'write');
   refuse('Write', {}, 'failed');
   refuse('WebFetch', { url: 'http://localhost' }, 'tool');
+  refuse('Skill', { skill: 'x' }, 'tool');
+  refuse('Read', { file_path: path.join(dir, '.guilda', 'bus', 'user.jsonl') }, 'write');
+  refuse('Grep', { pattern: 'x', path: path.join(dir, '.guilda') }, 'write');
+  refuse('Write', { file_path: path.join(dir, '.git', 'hooks', 'pre-commit'), content: '' }, 'write');
+  refuse('Write', { file_path: path.join(dir, '.claude', 'settings.json'), content: '' }, 'write');
+  refuse('Edit', { file_path: path.join(dir, '.husky', 'pre-commit'), old_string: 'a', new_string: 'b' }, 'write');
+  refuse('Write', { file_path: path.join(dir, '.envrc'), content: '' }, 'envFile');
   refuse('WebSearch', { query: 'x' }, 'tool');
   refuse('mcp__x__y', {}, 'tool');
   refuse('Agent', {}, 'tool');
