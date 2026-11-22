@@ -19,6 +19,16 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - The pace: the supervisor reads the budget and sets the slots. It stops at the 5% floor.
 - The Stop hook branch for the supervisor session.
 
+## [0.4.1] - 2026-11-22
+
+### Fixed
+
+- R32: the writer of the queue is the Architect in the main session again, as in 0.3.0. In 0.4.0 the R32 hook
+  passed only the Architect agent, which the L4-1 NO-GO removed, so no session could write the queue. Each agent
+  is refused.
+- R34: an agent of the type `guilda:architect` no longer gets the address `architect`. `architect` is a second
+  name of the main session. Such an agent needs a binding, as each other agent does.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added
@@ -183,7 +193,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - Core rules, roles, hooks, `guilda:architect`, `guilda:init` and `guilda:update`. New rule IDs: R1 to R25, and ARC1
   to ARC6 in `guilda:architect`. The brief check of the Executor dispatch cites ARC6, not R3.
 
-[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.0...HEAD
+[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.1...HEAD
+[0.4.1]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.0...guilda--v0.4.1
 [0.4.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.1...guilda--v0.4.0
 [0.3.1]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.0...guilda--v0.3.1
 [0.3.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.2.0...guilda--v0.3.0
