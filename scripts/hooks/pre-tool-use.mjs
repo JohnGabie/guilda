@@ -338,21 +338,23 @@ const GLOB_WORD_SPLIT = /[\s;&|<>=:`$]+/;
 const GLOB_SIGN = /[*?[{(]/;
 const EXTGLOB = /[@+*?!]\(/;
 const DYNAMIC = /[$`]/;
-// Wrapper programs that run the next command word. The value lists the flags that take a separate value.
+// Wrapper programs that run the next command word. For each one: the flags that take a separate value (value), the
+// flags that take none (plain), and the long flags that are known (long: with a value after "=" or a separate one).
+// A flag that the table does not know makes the whole simple command uncertain (see commandPosition).
 const WRAPPERS = {
-  env: ['-u', '-C', '-S'],
-  xargs: ['-I', '-n', '-P', '-L', '-s', '-E', '-d', '-a'],
-  exec: [],
-  nohup: [],
-  time: [],
-  command: [],
-  builtin: [],
-  timeout: ['-s', '-k'],
-  nice: ['-n'],
-  sudo: ['-u', '-g', '-h', '-p', '-C', '-D', '-R', '-T', '-U'],
-  doas: ['-u', '-C'],
-  setsid: [],
-  stdbuf: ['-i', '-o', '-e'],
+  env: { value: ['-u', '-C', '-S'], plain: ['-i', '-0', '-v'], long: ['--ignore-environment', '--null'] },
+  xargs: { value: ['-I', '-n', '-P', '-L', '-s', '-E', '-d', '-a'], plain: ['-0', '-r', '-t', '-p', '-x'], long: ['--null', '--no-run-if-empty'] },
+  exec: { value: [], plain: ['-c', '-l'], long: [] },
+  nohup: { value: [], plain: [], long: [] },
+  time: { value: [], plain: ['-p'], long: [] },
+  command: { value: [], plain: ['-p', '-v', '-V'], long: [] },
+  builtin: { value: [], plain: [], long: [] },
+  timeout: { value: ['-s', '-k'], plain: ['-v'], long: ['--foreground', '--preserve-status', '--verbose'] },
+  nice: { value: ['-n'], plain: [], long: [] },
+  sudo: { value: ['-u', '-g', '-h', '-p', '-C', '-D', '-R', '-T', '-U'], plain: ['-E', '-H', '-i', '-n', '-S', '-s', '-b', '-k', '-K', '-P', '-A'], long: ['--preserve-env', '--login', '--non-interactive'] },
+  doas: { value: ['-u', '-C'], plain: ['-n', '-s'], long: [] },
+  setsid: { value: [], plain: ['-c', '-f', '-w'], long: [] },
+  stdbuf: { value: ['-i', '-o', '-e'], plain: [], long: [] },
 };
 const FIND_EXEC = new Set(['-exec', '-execdir', '-ok', '-okdir']);
 const baseName = (w) => path.basename(w.replace(/\\/g, '/'));
@@ -409,19 +411,24 @@ function globMatchesCswap(raw) {
   if (!GLOB_SIGN.test(word) || SYNTAX_WORDS.has(word)) return false;
   const last = word.slice(word.lastIndexOf('/') + 1);
   try {
-    return globRegex(word).test('cswap') || globRegex(last).test('cswap');
+    const value = word.includes('=') ? word.slice(word.indexOf('=') + 1) : null; // --option=glob
+    return globRegex(word).test('cswap') || globRegex(last).test('cswap') || (value !== null && globMatchesCswap(value));
   } catch {
     return true; // a glob that cannot be read fails closed
   }
 }
 
-/** The index of the command word after the wrapper words and their options. */
-function commandWordAt(words) {
+/**
+ * The command word after the wrapper words and their options: { at, uncertain }. A wrapper option that the table does
+ * not know (or whose value the table does not know) makes the command uncertain: the caller then checks all its words.
+ */
+function commandPosition(words) {
   let i = 0;
+  let uncertain = false;
   while (i < words.length) {
     const name = baseName(words[i]);
     if (!Object.hasOwn(WRAPPERS, name)) break;
-    const valueFlags = WRAPPERS[name];
+    const table = WRAPPERS[name];
     i += 1;
     while (i < words.length) {
       const w = words[i];
@@ -429,20 +436,31 @@ function commandWordAt(words) {
       else if (w === '--') {
         i += 1;
         break;
-      } else if (w.startsWith('-') && w.length > 1) i += valueFlags.includes(w) ? 2 : 1;
-      else break;
+      } else if (w.startsWith('--')) {
+        if (!table.long.includes(w.split('=')[0])) uncertain = true;
+        i += 1;
+      } else if (w.startsWith('-') && w.length > 1) {
+        if (table.value.includes(w)) i += 2;
+        else {
+          const known = table.plain.includes(w) || table.value.includes(w.slice(0, 2)) || (name === 'nice' && /^-\d+$/.test(w));
+          if (!known) uncertain = true;
+          i += 1;
+        }
+      } else break;
     }
     if (name === 'timeout' && i < words.length) i += 1; // the duration
   }
-  return i;
+  return { at: i, uncertain };
 }
 
-// Commands whose glob arguments are safe: they run no other program from their arguments.
-const GLOB_SAFE = new Set([
+// The commands whose glob arguments pass when they are plain words. It is not a list of safe commands: a quoted or
+// escaped glob is refused for each command, and some options below make a command unsafe.
+const GLOB_ARG_COMMANDS = new Set([
   'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'find', 'du', 'stat', 'file', 'git', 'diff', 'cp', 'mv', 'rm', 'mkdir',
-  'touch', 'chmod', 'tar', 'zip', 'unzip', 'echo', 'printf', 'sort', 'jq', 'sed', 'awk', 'node', 'npm', 'npx', 'pytest', 'make',
+  'touch', 'chmod', 'tar', 'zip', 'unzip', 'echo', 'printf', 'sort', 'jq', 'sed', 'awk', 'node', 'npm', 'pytest', 'make',
 ]);
 const FIND_RUNS = new Set([...FIND_EXEC, '-delete']);
+const TAR_RUNS = /^(?:-I|--use-compress-program|--to-command)/;
 // Shell runners: a command that runs text as shell code, or makes a command word from text.
 const SHELL_RUNNERS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'eval', 'source', '.', 'trap', 'function', 'coproc']);
 const HEREDOC = /<<-?[ \t]*['"\\]?\w/;
@@ -461,13 +479,29 @@ function simpleCommands(command, depth = 0, out = []) {
   return out;
 }
 
-/** True when the glob arguments of this simple command are safe: its command word is a known command. */
-function globSafe(rest, at) {
+/** True when the plain glob arguments of this simple command pass: its command word is on the list, with no unsafe option. */
+function globArgsPass(rest, at) {
   const name = baseName(rest[at]);
   const args = rest.slice(at + 1);
   if (name === 'find') return !args.some((w) => FIND_RUNS.has(w));
   if (name === 'node') return args[0] === '--test';
-  return GLOB_SAFE.has(name);
+  if (name === 'git') return !args.some((w) => w.startsWith('!') || w.includes('=!'));
+  if (name === 'tar') return !args.some((w) => TAR_RUNS.test(w));
+  return GLOB_ARG_COMMANDS.has(name);
+}
+
+/**
+ * The words that sit inside a quoted string or carry a backslash. The outer shell does not expand a glob there, so
+ * only another program can run it. A word of glob signs only (like '*') is not counted.
+ */
+function quotedWords(raw) {
+  const texts = [];
+  for (const m of raw.matchAll(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g)) texts.push(m[1] ?? m[2]);
+  for (const w of raw.split(/\s+/)) if (w.includes('\\')) texts.push(w.replace(/\\/g, ''));
+  return texts
+    .flatMap((t) => [...t.split(/[\s;&|<>=:`$!]+/), ...t.split(/[\s;&|<>=:`$!(),]+/)])
+    .map((w) => w.replace(/['"]/g, ''))
+    .filter((w) => /[A-Za-z0-9]/.test(w));
 }
 
 /** True when the text names cswap by rule 1, 2 or 3 above. */
@@ -476,14 +510,18 @@ function mentionsCswap(text) {
   const tokens = [...new Set([...flat.split(WORD_SPLIT), ...flat.split(GLOB_WORD_SPLIT)])].filter((w) => w !== '');
   if (tokens.some((w) => w === 'cswap' || w.endsWith('/cswap'))) return true;
   if (tokens.some((w) => EXTGLOB.test(w) && globMatchesCswap(w))) return true;
-  const commands = simpleCommands(text).map((rest) => ({ rest, at: commandWordAt(rest) })).filter((c) => c.at < c.rest.length);
+  if (quotedWords(text).some((w) => globMatchesCswap(w))) return true;
+  const commands = simpleCommands(text)
+    .map((rest) => ({ rest, ...commandPosition(rest) }))
+    .filter((c) => c.at < c.rest.length || c.uncertain);
   const hardText = () => tokens.some((w) => w.includes('cswap') || globMatchesCswap(w));
-  const runner = HEREDOC.test(text) || commands.some((c) => SHELL_RUNNERS.has(baseName(c.rest[c.at])));
-  const dynamic = commands.some((c) => DYNAMIC.test(c.rest[c.at]));
+  const word = (c) => c.rest[c.at] ?? '';
+  const runner = HEREDOC.test(text) || commands.some((c) => SHELL_RUNNERS.has(baseName(word(c))));
+  const dynamic = commands.some((c) => DYNAMIC.test(word(c)));
   if ((runner || dynamic) && hardText()) return true;
-  // A glob is refused at each position, except in the arguments of a known command.
+  // A glob is refused at each position, except in the plain arguments of a command on the list.
   return commands.some((c) => {
-    const checked = globSafe(c.rest, c.at) ? c.rest.slice(0, c.at + 1) : c.rest;
+    const checked = !c.uncertain && c.at < c.rest.length && globArgsPass(c.rest, c.at) ? c.rest.slice(0, c.at + 1) : c.rest;
     return checked.some((w) => globMatchesCswap(w));
   });
 }

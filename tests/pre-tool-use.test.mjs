@@ -1262,6 +1262,21 @@ test('R38 wrapper forms are refused', () => {
     '!(x)swap list',
     'c[swap list',
     'cswap\nbudget',
+    "sed '1e cs?ap list' f",
+    `awk 'BEGIN { system("cs?ap list") }'`,
+    `git -c alias.x="!cs?ap list" x`,
+    "git -c 'alias.x=!cs?ap list' x",
+    "make --eval='x: ; cs?ap list' x",
+    `npx -c "cs?ap list"`,
+    'npx /usr/local/bin/cs?ap list',
+    'tar --to-command=cs?ap -xf x.tar',
+    'tar -I /usr/local/bin/cs?ap -cf x.tar list',
+    'tar --use-compress-program=cs?ap -cf x.tar list',
+    'echo cs\\?ap list',
+    'exec -a ls cs?ap list',
+    'env --chdir ls cs?ap list',
+    'sudo --user ls cs?ap list',
+    'nohup --foo ls cs?ap list',
     "env -S 'cs?ap list'",
     "env --split-string='cs?ap list'",
     "script -qc 'cs?ap list' /dev/null",
@@ -1299,7 +1314,7 @@ test('R38 wrapper forms are refused', () => {
 
 test('R38 lets a glob in an argument and a plain dynamic command pass', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  for (const command of ['ls *', 'git add *', 'cat src/*', 'grep -rn foo *', 'du -sh ~/projects/*', "find . -name '*'", 'ls ?????', '$EDITOR file', 'echo "x {a,b}"']) {
+  for (const command of ['ls *', 'git add *', 'cat src/*', 'grep -rn foo *', 'du -sh ~/projects/*', "find . -name '*'", 'ls ?????', '$EDITOR file', 'ls "*.md"', "git commit -m 'fix: all *'", 'sudo -u root ls *', 'env FOO=1 ls *', 'xargs -n 1 ls *']) {
     const r = bash(dir, command);
     const reason = r.stdout === '' ? '' : JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason;
     assert.ok(!reason.startsWith('R38'), command);
