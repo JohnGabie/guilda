@@ -394,6 +394,15 @@ test('--register: a target outside the project, in the bus folder or through a l
   fs.symlinkSync(outside, path.join(ctx.dir, 'outlink'));
   fs.writeFileSync(path.join(outside, 'target.md'), '');
   fs.symlinkSync(path.join(outside, 'target.md'), path.join(ctx.dir, 'filelink.md'));
+  // A dangling link, and a link to a file inside the project, are refused too.
+  fs.symlinkSync(path.join(ctx.dir, 'not-there.md'), path.join(ctx.dir, 'dangling.md'));
+  fs.writeFileSync(path.join(ctx.dir, 'inside.md'), '');
+  fs.symlinkSync(path.join(ctx.dir, 'inside.md'), path.join(ctx.dir, 'insidelink.md'));
+  for (const target of ['dangling.md', 'insidelink.md']) {
+    assert.deepEqual(run(ctx, 'record', '--id', id, '--register', target), { code: 2, lines: ['bad register'] }, target);
+  }
+  assert.equal(fs.existsSync(path.join(ctx.dir, 'not-there.md')), false);
+  assert.equal(fs.readFileSync(path.join(ctx.dir, 'inside.md'), 'utf8'), '');
   for (const target of [path.join(outside, 'r.md'), path.join(bus, 'r.md'), 'buslink/r.md', 'outlink/r.md', 'filelink.md', '../r.md', bus, ctx.dir]) {
     assert.deepEqual(run(ctx, 'record', '--id', id, '--register', target), { code: 2, lines: ['bad register'] }, target);
   }
@@ -446,7 +455,7 @@ test('appendLine under the lock keeps two writers in order', () => {
 test('open needs a yes word and a council word in the record text', () => {
   const ctx = setup();
   const base = ['open', '--question', 'q.md', '--members', `${ARCH},${SEC}`, '--format', 'debate', '--record'];
-  for (const text of ['No, do not open the council.', 'Yes, go on.', 'Open the council.', 'okay conselho', 'nobody council']) {
+  for (const text of ['No, do not open the council.', 'Yes, go on.', 'Open the council.', 'okay conselho', 'nobody council', 'no council, ok', 'ok council, não', 'Never open the council, yes', "yes council, don't", 'nunca, sim, conselho']) {
     const r = run(ctx, ...base, userRecord(ctx, text));
     assert.deepEqual([r.code, r.lines], [1, ['refused: no council approval']], text);
   }

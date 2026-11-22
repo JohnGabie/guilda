@@ -59,6 +59,7 @@ const NO_APPROVAL = 'refused: no approval';
 const MAIN_LOCK = 'main';
 // The words of the approval text of `open` (Architect decision of 5h review).
 const YES_WORD = /(?<![\p{L}\p{N}])(approve|aprovo|sim|yes|ok)(?![\p{L}\p{N}])/iu;
+const NEGATION_WORD = /(?<![\p{L}\p{N}])(no|não|nao|not|don't|dont|never|nunca)(?![\p{L}\p{N}])/iu;
 const COUNCIL_WORD = /(?<![\p{L}\p{N}])(council|conselho)(?![\p{L}\p{N}])/iu;
 
 const usage = (text) => new BusError(2, text);
@@ -233,7 +234,7 @@ function cmdOpen(root, args, cwd, env) {
   const f = parseFlags(args, ['--question', '--members', '--format', '--record', '--max-rounds']);
   const approval = approved(root, f, env);
   // The approval text has a yes word and a council word, so a "no" or an unrelated answer cannot open a council.
-  if (!YES_WORD.test(approval.text) || !COUNCIL_WORD.test(approval.text)) throw refused('no council approval');
+  if (!YES_WORD.test(approval.text) || !COUNCIL_WORD.test(approval.text) || NEGATION_WORD.test(approval.text)) throw refused('no council approval');
   const questionFile = typeof f.question === 'string' && f.question !== '' ? path.resolve(cwd, f.question) : null;
   if (questionFile === null) throw usage('bad question');
   let question;
@@ -437,7 +438,13 @@ function registerTarget(root, cwd, value) {
   try {
     const wanted = path.resolve(cwd, value);
     const real = path.join(fs.realpathSync(path.dirname(wanted)), path.basename(wanted));
-    const target = fs.existsSync(real) ? fs.realpathSync(real) : real;
+    // A link is no register: lstat sees a dangling link too. A missing file is fine.
+    try {
+      if (fs.lstatSync(real).isSymbolicLink()) throw usage('bad register');
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    const target = real;
     const project = fs.realpathSync(root);
     const bus = path.join(project, '.guilda', 'bus');
     if (!inside(project, target) || target === bus || inside(bus, target)) throw usage('bad register');
@@ -457,9 +464,15 @@ function cmdRecord(root, args, cwd) {
     const file = registerTarget(root, cwd, f.register);
     try {
       // One entry for each council: a second run finds the heading and writes nothing.
-      const have = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-      if (!have.split('\n').some((l) => l.startsWith(`${entry[0].split(' — ')[0]} — `))) {
-        fs.appendFileSync(file, `${entry.join('\n')}\n`);
+      // The file opens with O_NOFOLLOW, so a link made after the check is refused too.
+      const fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o644);
+      try {
+        const have = fs.readFileSync(fd, 'utf8');
+        if (!have.split('\n').some((l) => l.startsWith(`${entry[0].split(' — ')[0]} — `))) {
+          fs.writeSync(fd, `${entry.join('\n')}\n`);
+        }
+      } finally {
+        fs.closeSync(fd);
       }
     } catch {
       throw usage('bad register');
