@@ -19,7 +19,7 @@ function bins(names, { atJob = '7' } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda resume bins '));
   for (const n of names) {
     const body = n === 'at'
-      ? `#!/bin/sh\nprintf 'at %s\\n' "$*" >> "$(dirname "$0")/log"\ncat >> "$(dirname "$0")/log"\nenv | grep '^GUILDA_RESUME' | sed 's/^/ENV /' >> "$(dirname "$0")/log"\necho "job ${atJob} at Mon" >&2\n`
+      ? `#!/bin/sh\nd="$(dirname "$0")"\nif [ "$1" = "-c" ]; then cat "$d/job-$2" 2>/dev/null; exit $?; fi\nprintf 'at %s\\n' "$*" >> "$d/log"\ncat > "$d/job-${atJob}"\ncat "$d/job-${atJob}" >> "$d/log"\nenv | grep '^GUILDA_RESUME' | sed 's/^/ENV /' >> "$(dirname "$0")/log"\necho "job ${atJob} at Mon" >&2\n`
       : n === 'cswap'
         ? '#!/bin/sh\ncat "$(dirname "$0")/cswap.json"\n'
         : `#!/bin/sh\nprintf '${n} %s\\n' "$*" >> "$(dirname "$0")/log"\n`;
@@ -68,7 +68,7 @@ test('arm falls back to at when systemd-run is absent', () => {
   const b = bins(['at', 'atrm']);
   const r = resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
   assert.equal(r.code, 0, r.out);
-  assert.match(logOf(b), /^at \d\d:\d\d$/m);
+  assert.match(logOf(b), /^at -t \d{12}$/m);
   assert.match(logOf(b), /resume\.mjs/);
   const rec = recOf(dir);
   assert.equal(rec.method, 'at');
@@ -322,6 +322,34 @@ test('the seam needs GUILDA_RESUME_TEST=1, and neither variable reaches the at j
   assert.equal(logOf(b), '');
   assert.equal(resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b).code, 0);
   assert.doesNotMatch(logOf(b), /^ENV /m);
+});
+
+test('at: a reset 3 days away keeps its date', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['at', 'atrm']);
+  const when = new Date(Date.now() + 3 * 86400000);
+  assert.equal(resume(dir, ['arm', '--session', SESSION, '--at', when.toISOString()], b).code, 0);
+  const p2 = (n) => String(n).padStart(2, '0');
+  const m = /^at -t (\d{12})$/m.exec(logOf(b));
+  assert.ok(m, logOf(b));
+  const got = new Date(+m[1].slice(0, 4), +m[1].slice(4, 6) - 1, +m[1].slice(6, 8), +m[1].slice(8, 10), +m[1].slice(10, 12));
+  assert.ok(Math.abs(got - when) <= 60000, `${m[1]} vs ${when.toISOString()} ${p2(0)}`);
+});
+
+test('at: a foreign job number is not removed, an own job is', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['at', 'atrm']);
+  resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  fs.writeFileSync(path.join(b, 'job-9'), 'rm -rf /tmp/other\n');
+  fs.writeFileSync(recFile(dir), JSON.stringify({ ...recOf(dir), job: '9' }));
+  fs.writeFileSync(b + '/log', '');
+  assert.equal(resume(dir, ['remove', '--session', SESSION], b).code, 0);
+  assert.doesNotMatch(logOf(b), /atrm/);
+  const b2 = bins(['at', 'atrm']);
+  const d2 = tempProject({ config: MINIMAL_CONFIG });
+  resume(d2, ['arm', '--session', SESSION, '--at', FUTURE()], b2);
+  assert.equal(resume(d2, ['remove', '--session', SESSION], b2).code, 0);
+  assert.match(logOf(b2), /^atrm 7$/m);
 });
 
 test('pure parts: unit name, record form, pause limit', () => {

@@ -53,7 +53,12 @@ function stopTrigger(record, id) {
     if (bin) call(bin, ['--user', 'stop', `${unitName(id)}.timer`]);
   } else if (record.method === 'at' && JOB_ID.test(String(record.job ?? ''))) {
     const bin = findBin('atrm');
-    if (bin) call(bin, [String(record.job)]);
+    const at = findBin('at');
+    // Remove only a job that is ours: its text holds the path of this script and the project id.
+    const text = at ? call(at, ['-c', String(record.job)]) : null;
+    if (bin && text && text.status === 0 && text.stdout.includes(SELF) && text.stdout.includes(id)) {
+      call(bin, [String(record.job)]);
+    }
   }
 }
 
@@ -69,10 +74,12 @@ function setTrigger(projectDir, id, whenMs) {
   const at = findBin('at');
   // The at job runs through sh: a path with $, a backtick or a newline could expand. Refuse it.
   if (at && !cmd.some((w) => /[$`\n]/.test(w))) {
-    const d = new Date(whenMs);
-    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    // `at -t CCYYMMDDhhmm`, in local time, rounded up to the next minute: it keeps a reset more than 24 h away.
+    const d = new Date(Math.ceil(whenMs / 60000) * 60000);
+    const p2 = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}${p2(d.getHours())}${p2(d.getMinutes())}`;
     const quoted = cmd.map((w) => `'${w.replace(/'/g, `'\\''`)}'`).join(' ');
-    const r = call(at, [hhmm], `${quoted}\n`);
+    const r = call(at, ['-t', stamp],`${quoted}\n`);
     if (r.status === 0) {
       const m = /job\s+(\d+)/.exec(`${r.stderr}${r.stdout}`);
       return { method: 'at', job: m ? m[1] : null };
