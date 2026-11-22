@@ -305,63 +305,18 @@ function innerText(rest) {
   return rest[at] !== undefined ? rest[at] : null;
 }
 
-const CSWAP_REFUSED = new Set(['switch', 'list']);
-// Wrapper programs that run the next command word. The value lists the flags that take a separate value.
-const WRAPPERS = {
-  env: ['-u', '-C', '-S'],
-  xargs: ['-I', '-n', '-P', '-L', '-s', '-E', '-d', '-a'],
-  exec: [],
-  nohup: [],
-  time: [],
-  command: [],
-  timeout: ['-s', '-k'],
-  nice: ['-n'],
-  sudo: ['-u', '-g', '-h', '-p', '-C', '-D', '-R', '-T', '-U'],
-  doas: ['-u', '-C'],
-  setsid: [],
-  stdbuf: ['-i', '-o', '-e'],
-};
-const FIND_EXEC = new Set(['-exec', '-execdir', '-ok', '-okdir']);
-const baseName = (w) => path.basename(w.replace(/\\/g, '/'));
+// R38: a fail-closed text rule. The flat text of the command (quotes and escapes removed, as for R34) names cswap,
+// and it has an account word, a shell expansion, or a package runner. A false refusal is accepted.
+const CSWAP_WORD = /(?:^|[^A-Za-z0-9_.-])cswap(?![A-Za-z0-9_-])/;
+const CSWAP_ACCOUNT_WORD = /(?:^|[^A-Za-z0-9_-])(?:switch|list|ls)(?![A-Za-z0-9_-])/;
+const CSWAP_EXPANSION = /[$`]/;
+const CSWAP_RUNNER = /(?:^|[^A-Za-z0-9_-])(?:npx|bunx|pnpm\s+dlx)(?![A-Za-z0-9_-]).*cswap/;
 
-/** The index of the command word after the wrapper words (env, xargs, timeout, sudo, ...) and their options. */
-function commandWordAt(words) {
-  let i = 0;
-  while (i < words.length) {
-    const name = baseName(words[i]);
-    if (!Object.hasOwn(WRAPPERS, name)) break;
-    const valueFlags = WRAPPERS[name];
-    i += 1;
-    while (i < words.length) {
-      const w = words[i];
-      if (name === 'env' && /^[A-Za-z_]\w*=/.test(w)) i += 1;
-      else if (w === '--') {
-        i += 1;
-        break;
-      } else if (w.startsWith('-') && w.length > 1) i += valueFlags.includes(w) ? 2 : 1;
-      else break;
-    }
-    if (name === 'timeout' && i < words.length) i += 1; // the duration
-  }
-  return i;
-}
-
-/** True when a shell command runs `cswap switch` or `cswap list`, in a list, a pipe, a wrapper or a shell text (R38). */
-function runsCswapAccountCommand(command, depth = 0) {
-  if (depth > MAX_DEPTH) return false;
-  const refused = (words) => {
-    const at = commandWordAt(words);
-    return at < words.length - 1 && baseName(words[at]) === 'cswap' && words.slice(at + 1).some((w) => CSWAP_REFUSED.has(w));
-  };
-  for (const words of splitCommands(command)) {
-    const { rest } = stripPrefix(words);
-    const inner = innerText(rest);
-    if (inner !== null && runsCswapAccountCommand(inner, depth + 1)) return true;
-    if (refused(rest)) return true;
-    // find -exec <command> ...
-    if (rest.some((w, j) => FIND_EXEC.has(w) && refused(rest.slice(j + 1)))) return true;
-  }
-  return false;
+/** True when a shell command can run `cswap switch` or `cswap list` (R38). */
+function runsCswapAccountCommand(command) {
+  const flat = plain(command);
+  if (!CSWAP_WORD.test(flat)) return false;
+  return CSWAP_ACCOUNT_WORD.test(flat) || CSWAP_EXPANSION.test(flat) || CSWAP_RUNNER.test(flat);
 }
 
 const isBusScript = (word) => path.basename(word.replace(/\\/g, '/')) === BUS_SCRIPT;

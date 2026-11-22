@@ -13,15 +13,22 @@ const defaultRun = (file, args, opts) => spawnSync(file, args, { ...opts, shell:
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 /** The longest string the guard keeps. */
 const MAX_STRING = 64;
-/** A kept value is a finite number, or a short string with no @. Any other value is dropped. */
-const keepable = (v) =>
-  (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.length <= MAX_STRING && !v.includes('@'));
-const pick = (obj, keys) => {
+const isText = (v) => typeof v === 'string' && v.length <= MAX_STRING && !v.includes('@');
+/** The types of a kept value. A value of another type is dropped. */
+const TYPES = {
+  str: isText,
+  strOrNull: (v) => v === null || isText(v),
+  num: (v) => typeof v === 'number' && Number.isFinite(v),
+  int: (v) => Number.isInteger(v),
+};
+/** Keep each field of the schema { key: type } whose value has that type. */
+const pick = (obj, schema) => {
   const out = {};
-  if (isObject(obj)) for (const k of keys) if (keepable(obj[k])) out[k] = obj[k];
+  if (isObject(obj)) for (const [k, type] of Object.entries(schema)) if (TYPES[type](obj[k])) out[k] = obj[k];
   return out;
 };
-const windowOf = (w) => (isObject(w) ? pick(w, ['usedPercent', 'resetsAt']) : undefined);
+const WINDOW = { usedPercent: 'num', resetsAt: 'strOrNull' };
+const windowOf = (w) => (isObject(w) ? pick(w, WINDOW) : undefined);
 
 /**
  * The data guard (D22): keep only the listed fields. An account id with an `@` becomes `account-<n>` (1-based).
@@ -29,15 +36,15 @@ const windowOf = (w) => (isObject(w) ? pick(w, ['usedPercent', 'resetsAt']) : un
  */
 function guard(raw) {
   const notices = [];
-  const budget = pick(raw, ['schemaVersion', 'status', 'fetchedAt']);
+  const budget = pick(raw, { schemaVersion: 'int', status: 'str', fetchedAt: 'str' });
   budget.advice = ADVICE_WORDS.has(raw.advice) ? raw.advice : 'unknown';
   if (isObject(raw.fleet)) {
-    budget.fleet = pick(raw.fleet, ['accounts', 'capacityUnits', 'remainingUnits', 'usableNow', 'nextUsableAt']);
+    budget.fleet = pick(raw.fleet, { accounts: 'int', capacityUnits: 'num', remainingUnits: 'num', usableNow: 'int', nextUsableAt: 'strOrNull' });
   }
-  if (Array.isArray(raw.resets)) budget.resets = raw.resets.filter(isObject).map((r) => pick(r, ['at']));
+  if (Array.isArray(raw.resets)) budget.resets = raw.resets.filter(isObject).map((r) => pick(r, { at: 'str' }));
   if (Array.isArray(raw.accounts)) {
     budget.accounts = raw.accounts.filter(isObject).map((a, i) => {
-      const acct = pick(a, ['id', 'plan']);
+      const acct = pick(a, { id: 'str', plan: 'str' });
       if (typeof a.id === 'string' && a.id.includes('@')) {
         acct.id = `account-${i + 1}`;
         notices.push(`account ${i + 1}: the id had an @ and was replaced`);

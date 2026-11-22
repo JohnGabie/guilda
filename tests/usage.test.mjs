@@ -44,7 +44,7 @@ test('S5-13: the budget keeps only the listed fields and no file holds the accou
     sevenDay: { usedPercent: 89, resetsAt: '2026-11-23T08:00:00Z' },
   });
   assert.equal(u.budget.accounts[1].id, 'work');
-  assert.equal(u.notices.length, 1);
+  assert.deepEqual(u.notices, ['account 1: the id had an @ and was replaced']);
   const text = JSON.stringify(u);
   for (const s of [EMAIL, TOKEN, ORG]) assert.ok(!text.includes(s), s);
   // The adapter writes nothing: a grep of the temp project finds neither string.
@@ -52,28 +52,61 @@ test('S5-13: the budget keeps only the listed fields and no file holds the accou
   assert.deepEqual(files, []);
 });
 
-test('typed guard: a kept field is a finite number or a short string with no @', () => {
-  const s = stub();
-  s.status = { nested: 'x' };
-  s.fetchedAt = 'x'.repeat(65);
-  s.fleet.capacityUnits = 'a@b.example';
-  s.fleet.remainingUnits = 1e999;
-  s.fleet.usableNow = ['list'];
-  s.accounts[1].plan = { org: ORG };
-  s.accounts[1].fiveHour.usedPercent = 'a@b';
-  s.accounts[1].sevenDay.resetsAt = null;
-  const u = readUsage(CFG, { run: () => ({ status: 0, stdout: JSON.stringify(s).replace('null', '1e999') }) });
-  assert.equal(u.state, 'ok');
-  assert.equal(u.budget.status, undefined);
-  assert.equal(u.budget.fetchedAt, undefined);
-  assert.deepEqual(Object.keys(u.budget.fleet).sort(), ['accounts', 'nextUsableAt']);
-  assert.deepEqual(u.budget.accounts[1], { id: 'work', fiveHour: {}, sevenDay: { usedPercent: 6 } });
-  assert.ok(!JSON.stringify(u).includes(ORG));
+test('typed guard: a value with a wrong type is dropped, in each field', () => {
+  const wrong = [{ nested: ORG }, [EMAIL], 'x'.repeat(65), EMAIL, true];
+  const run = (mutate) => {
+    const s = stub();
+    mutate(s);
+    return readUsage(CFG, { run: () => ({ status: 0, stdout: JSON.stringify(s) }) });
+  };
+  for (const w of wrong) {
+    const u = run((s) => {
+      s.schemaVersion = w;
+      s.status = w;
+      s.fetchedAt = w;
+      s.fleet.accounts = w;
+      s.fleet.capacityUnits = w;
+      s.fleet.remainingUnits = w;
+      s.fleet.usableNow = w;
+      s.fleet.nextUsableAt = w;
+      s.resets[0].at = w;
+      s.accounts[1].id = w;
+      s.accounts[1].plan = w;
+      s.accounts[1].fiveHour.usedPercent = w;
+      s.accounts[1].fiveHour.resetsAt = w;
+      s.accounts[1].sevenDay.usedPercent = w;
+      s.accounts[1].sevenDay.resetsAt = w;
+    });
+    assert.equal(u.state, 'ok');
+    assert.deepEqual(u.budget.fleet, {});
+    assert.deepEqual(u.budget.resets, [{}]);
+    // An id with an @ is replaced, not dropped.
+    const id = w === EMAIL ? { id: 'account-2' } : {};
+    assert.deepEqual(u.budget.accounts[1], { ...id, fiveHour: {}, sevenDay: {} });
+    for (const k of ['schemaVersion', 'status', 'fetchedAt']) assert.equal(u.budget[k], undefined, k);
+    assert.ok(!JSON.stringify(u).includes(ORG) && !JSON.stringify(u).includes(EMAIL));
+  }
+  // A float is not an integer; a null is kept only where the field allows it.
+  const u = run((s) => {
+    s.schemaVersion = 1.5;
+    s.fleet.usableNow = 2.5;
+    s.fleet.nextUsableAt = null;
+    s.accounts[1].fiveHour.resetsAt = null;
+    s.accounts[1].sevenDay.usedPercent = null;
+    s.fleet.remainingUnits = null;
+  });
+  assert.equal(u.budget.schemaVersion, undefined);
+  assert.deepEqual(Object.keys(u.budget.fleet).sort(), ['accounts', 'capacityUnits', 'nextUsableAt']);
+  assert.equal(u.budget.fleet.nextUsableAt, null);
+  assert.deepEqual(u.budget.accounts[1].fiveHour, { usedPercent: 0, resetsAt: null });
+  assert.deepEqual(u.budget.accounts[1].sevenDay, { resetsAt: '2026-11-28T12:59:59Z' });
 });
 
-test('a bad JSON gives the fixed reason with no parser text', () => {
-  const u = readUsage(CFG, { run: () => ({ status: 0, stdout: `{"token": "${TOKEN}" oops` }) });
-  assert.deepEqual(u, { state: 'error', reason: 'bad JSON' });
+test('a bad JSON gives the fixed reason with no parser text and no email', () => {
+  for (const out of [`{"token": "${TOKEN}", "email": "${EMAIL}" oops`, `${EMAIL} not json`]) {
+    const u = readUsage(CFG, { run: () => ({ status: 0, stdout: out }) });
+    assert.deepEqual(u, { state: 'error', reason: 'bad JSON' });
+  }
 });
 
 test('an advice word that is not known reads as unknown', () => {
@@ -90,7 +123,7 @@ test('exit codes 2, 3, 4 and others give off with a notice', () => {
   }
   const u = readUsage(CFG, { run: () => ({ status: 7, stdout: '' }) });
   assert.equal(u.state, 'off');
-  assert.match(u.notice, /7/);
+  assert.deepEqual(u, { state: 'off', notice: 'cswap budget exited with status 7' });
   for (const state of [u, { state: 'error', reason: 'x' }]) {
     assert.deepEqual(paceOf(state, { planSlots: 4 }), { slots: 4, lowTier: false, why: 'off', resumeAt: null });
   }
