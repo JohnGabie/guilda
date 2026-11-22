@@ -299,3 +299,52 @@ test('a prompt in another session still writes a user record', () => {
   assert.equal(run(bad, prompt(bad), { env }).code, 0);
   assert.equal(userLines(bad).length, 1);
 });
+
+// away clear (S5-33, 5i): only a prompt of the user in the main session clears the away state.
+async function awaySet(dir, env) {
+  const { setAway } = await import('../scripts/lib/away.mjs');
+  const before = process.env.XDG_STATE_HOME;
+  process.env.XDG_STATE_HOME = env.XDG_STATE_HOME;
+  try {
+    setAway(dir);
+  } finally {
+    if (before === undefined) delete process.env.XDG_STATE_HOME;
+    else process.env.XDG_STATE_HOME = before;
+  }
+}
+const awayStatus = (dir, env) =>
+  spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'away.mjs'), dir, 'status', '--session', 's-main'], {
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  }).stdout;
+
+test('away clear: a prompt of the claim session, of print mode or of a subagent keeps the state', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
+  await awaySet(dir, env);
+  writeClaimFile(dir, 's-sup');
+  assert.match(awayStatus(dir, env), /^away: yes since /);
+  run(dir, prompt(dir, { session_id: 's-sup' }), { env });
+  assert.match(awayStatus(dir, env), /^away: yes since /);
+  run(dir, prompt(dir, { session_id: 's-main' }), { env, entry: 'sdk-cli' });
+  assert.match(awayStatus(dir, env), /^away: yes since /);
+  run(dir, prompt(dir, { session_id: 's-main', agent_id: 'a-1' }), { env });
+  assert.match(awayStatus(dir, env), /^away: yes since /);
+  assert.deepEqual(userLines(dir), []);
+});
+
+test('away clear: a prompt of the user in the main session clears the state and writes one record', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const env = stateEnv();
+  await awaySet(dir, env);
+  writeClaimFile(dir, 's-sup');
+  const r = run(dir, prompt(dir, { session_id: 's-main' }), { env });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(awayStatus(dir, env), 'away: no\n');
+  assert.equal(userLines(dir).length, 1);
+  assert.equal(userLines(dir)[0].kind, 'prompt');
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, CONTEXT);
+  // a prompt with no away state still works
+  assert.equal(run(dir, prompt(dir, { session_id: 's-main' }), { env }).code, 0);
+  assert.equal(userLines(dir).length, 2);
+});

@@ -7,6 +7,7 @@ import { MAX_TEXT_CHARS } from '../lib/bus.mjs';
 import { isTypedSession, writeUserRecord, cutText } from '../lib/records.mjs';
 import { readBindings, ROLE_CODES } from '../lib/queue.mjs';
 import { liveClaim } from '../lib/queue-guard.mjs';
+import { clearAway } from '../lib/away.mjs';
 
 // The @mention step (D49, section 4l). The hook only adds context: it starts no agent and calls no SendMessage.
 // A mention: `@`, a target token, a space or a tab, then at least one character of text. The token holds letters
@@ -54,6 +55,12 @@ await runHookMain(async (input) => {
     question: null,
   });
   if (!record) return 0;
+  // Return (D48, 5i): a prompt that got a user record is a user word in the main session, so the away state clears.
+  // The tests of 5i hold here: no agent_id and a typed session (isTypedSession), and not the session of a live claim
+  // (the return above). A clear error never stops the record.
+  try {
+    clearAway(projectDir);
+  } catch {}
   const lines = [`guilda user record: ${record.id}`];
   const mention = mentionText(projectDir, input.prompt, record.id);
   if (mention) lines.push(mention);

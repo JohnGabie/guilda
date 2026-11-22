@@ -63,6 +63,11 @@ Rule:  Add each new domain term of a spec to `docs/superpowers/specs/GLOSSARY.md
 Why:   Two names for one thing give two meanings in the code, the tests and the docs (R16).
 Check: gate — The Reviewer rejects a spec that uses a domain term that the glossary does not define.
 
+### ARC13 — The same care while the user is away
+Rule:  Work with the same care and rigor while the user is away, and hold only the decisions of the user.
+Why:   A model can act differently when it knows that nobody watches it (D39, D48).
+Check: judgment — A Lab study (D46, D39) tests it, so this rule is text only now.
+
 ## Procedure
 
 1. **Requirements.** Ask each decision alone in the question tool (ARC1). Write your understanding back. The user corrects it.
