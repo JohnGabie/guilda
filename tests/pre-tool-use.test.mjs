@@ -659,8 +659,8 @@ const rawHook = (dir, text) =>
 const queuePath = (dir, name) => path.join(dir, '.guilda', 'queue', name);
 
 // Each case of S16: a run of the hook, and the deny text (true for any R32 text) or null for a pass.
-// The writer role of 0.4.0 (S4-40): the Architect agent, with an agent_id.
-const ARC = { agent_type: 'guilda:architect', agent_id: 'a-arc' };
+// The writer role (0.4.1, the 0.3.0 row of X2 after the L4-1 NO-GO): the Architect in the main session, with no agent_id.
+const ARC = {};
 const S16 = [
   ['1 Write of journal.jsonl, no agent_id', (d) => call(d, 'Write', { file_path: queuePath(d, 'journal.jsonl'), content: 'x' }), true],
   ['2 Edit of state.json', (d) => call(d, 'Edit', { file_path: queuePath(d, 'state.json') }), true],
@@ -821,7 +821,7 @@ const R34_CASES = [
   ['3 send --from main from a subagent', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('main') })), `R34: --from main is not your address (${BOUND})`],
   ['4 send --from its own address', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) })), null],
   ['5 send from an agent ID with no binding', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd(BOUND) }, { agent_id: 'a-9' })), NO_BINDING],
-  ['6 the Architect agent with no binding', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('architect') }, { agent_id: 'a-9', agent_type: 'guilda:architect' })), null],
+  ['6 a guilda:architect agent cannot send --from architect', (d) => hookEnv(d, sub(d, 'Bash', { command: sendCmd('architect') }, { agent_id: 'a-9', agent_type: 'guilda:architect' })), NO_BINDING],
   ['7 an input that is not JSON', (d) => hookEnv(d, null, { raw: `{"tool_name":"Bash","tool_input":{"command":${JSON.stringify(sendCmd(BOUND))}}` }), NO_READ],
   ['8 a state.json that cannot be read', (d) => {
     fs.writeFileSync(queuePath(d, 'state.json'), '{}');
@@ -920,16 +920,39 @@ test('key folder', () => {
   assertAllow(hookEnv(dir, sub(dir, 'Grep', { pattern: 'x', path: dir }), { env }));
 });
 
-// S4-40: the writer row of 0.4.0. Only the Architect agent calls the queue script.
-test('R32 role row of 0.4.0', () => {
+// S4-40 after the L4-1 NO-GO: the writer row is the main session. An agent_id is always refused.
+const AGENT_REASON = 'R32: only the writer role calls the queue script; that is the Architect in the main session, never an agent';
+const queueCall = (dir, command, extra) => call(dir, 'Bash', { command }, { session_id: 's1', ...extra });
+const SYNC = 'node scripts/queue.mjs . sync --session s1';
+
+test('the main session with no agent_id and its own --session runs queue.mjs', () => {
   const dir = queueProject();
-  const command = 'node scripts/queue.mjs . sync --session s1';
-  const q = (extra) => call(dir, 'Bash', { command }, { session_id: 's1', ...extra });
-  assertAllow(q({ agent_type: 'guilda:architect', agent_id: 'a-9' }));
-  assert.match(assertDeny(q({})), /^R32: /);
-  assert.match(assertDeny(q({ agent_type: 'guilda:executor', agent_id: 'a-7' })), /^R32: /);
-  assert.match(assertDeny(q({ agent_type: 'guilda:architect' })), /^R32: /);
-  assert.deepEqual(violations(dir).map((x) => x.rule), ['R32', 'R32', 'R32']);
+  assertAllow(queueCall(dir, SYNC, {}));
+  assertAllow(queueCall(dir, SYNC, { agent_type: undefined, agent_id: undefined }));
+  assert.equal(violations(dir).length, 0);
+});
+
+test('an agent with agent_type guilda:architect is refused', () => {
+  const dir = queueProject();
+  assert.equal(assertDeny(queueCall(dir, SYNC, { agent_type: 'guilda:architect', agent_id: 'a-9' })), AGENT_REASON);
+  assert.deepEqual(violations(dir).map((x) => x.rule), ['R32']);
+});
+
+test('any other agent is refused', () => {
+  const dir = queueProject();
+  assert.equal(assertDeny(queueCall(dir, SYNC, { agent_type: 'guilda:executor', agent_id: 'a-7' })), AGENT_REASON);
+  assert.equal(assertDeny(queueCall(dir, SYNC, { agent_id: 'a-8' })), AGENT_REASON);
+  assert.deepEqual(violations(dir).map((x) => x.rule), ['R32', 'R32']);
+});
+
+test('the main session with no --session is refused (noSession)', () => {
+  const dir = queueProject();
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/queue.mjs . sync', {})), 'R32: no --session');
+});
+
+test('the main session with the --session of another session is refused (session)', () => {
+  const dir = queueProject();
+  assert.match(assertDeny(queueCall(dir, 'node scripts/queue.mjs . sync --session s2', {})), /^R32: the --session value is not the session of this call/);
 });
 
 // S4-35, the robust forms (Security, round 1): other quoting, a cd, a walk of a parent, a search in a parent.
