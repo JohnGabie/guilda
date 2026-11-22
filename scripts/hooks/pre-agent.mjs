@@ -5,6 +5,7 @@ import { appendViolation } from '../lib/violations.mjs';
 import { validateBrief, briefFileOf, isExecutorDispatch } from '../lib/formats.mjs';
 import { resolveProjectDir, runHookMain } from '../lib/hook-io.mjs';
 import { verifyRecord } from '../lib/records.mjs';
+import { MAIN, withMailboxLock } from '../lib/bus.mjs';
 import { SECURITY_EXECUTOR } from '../lib/redteam-guard.mjs';
 
 /** True when `target` is `root` or a path below it. */
@@ -84,10 +85,53 @@ function lastValue(text, label) {
   return value;
 }
 
+const APPROVAL_WORDS = /(?<![\p{L}])(approve|approved|aprovo|aprovado|sim|yes)(?![\p{L}])/iu;
+const REFUSAL_WORDS = /(?<![\p{L}])(no|not|never|don't|dont|nao|não|deny|denied|reject|rejected|cancel)(?![\p{L}])/iu;
+const APPROVALS_DIR = ['.guilda', 'security'];
+const APPROVALS_FILE = 'approvals.jsonl';
+const APPROVALS_MODE = 0o600;
+
+/** The task ID of a brief: the first word of its `ID / title:` field, or null. */
+function taskIdOf(brief) {
+  const m = (lastValue(brief, 'ID / title') ?? '').match(/^([A-Za-z0-9][A-Za-z0-9._-]*)/);
+  return m ? m[1].replace(/[.]+$/, '') : null;
+}
+
+/** True when the record text names the task ID as a whole word. */
+function namesTask(text, id) {
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![A-Za-z0-9_-])${escaped}(?![A-Za-z0-9_-])`).test(text);
+}
+
 /**
- * R37: the refusal text for a dispatch of the Security Executor, or null when it passes. The brief needs a `Risk area:`
- * that is not none and an `Approval: <user record ID>` that the check of `bus.mjs verify` accepts (R35). It fails
- * closed (X9): no prompt, no brief file, no key or an error refuses. The text never holds the record text.
+ * Use one approval: refuse an ID that `.guilda/security/approvals.jsonl` holds, else append it. The read and the
+ * append run under the lock of the user channel. Returns true when the ID was new. An error throws (X9).
+ */
+function useApproval(projectDir, id) {
+  return withMailboxLock(projectDir, MAIN, () => {
+    const dir = path.join(projectDir, ...APPROVALS_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, APPROVALS_FILE);
+    const fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, APPROVALS_MODE);
+    try {
+      const used = fs.readFileSync(fd, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l).id);
+      if (used.includes(id)) return false;
+      fs.writeSync(fd, `${JSON.stringify({ id, time: new Date().toISOString() })}\n`);
+      return true;
+    } finally {
+      fs.closeSync(fd);
+    }
+  });
+}
+
+/** The refusal text of the R37 dispatch check when the project has no `.guilda` folder (X9). */
+const NO_PROJECT_TEXT = 'R37: the Security Executor needs a guilda project and a recorded approval (X9).';
+
+/**
+ * R37: the refusal text for a dispatch of the Security Executor, or null when it passes. The brief is complete (ARC6),
+ * has a `Risk area:` that is not none, and has an `Approval: <user record ID>` line. The record verifies (R35), its
+ * text names the task ID and holds one of the words approve, aprovo, sim, yes and no word of refusal, and the ID
+ * was not used before. It fails closed (X9). The text never holds the record text.
  */
 function securityDispatch(projectDir, toolInput) {
   if (typeof toolInput.prompt !== 'string') return 'R37: the dispatch has no brief text (X9).';
@@ -98,18 +142,32 @@ function securityDispatch(projectDir, toolInput) {
     if (file.refused) return 'R37: the brief file cannot be read (X9).';
     brief = file.text;
   }
+  const missing = validateBrief(brief);
+  if (missing.length > 0) return `ARC6: brief incomplete: ${missing.join(', ')}`;
   const area = lastValue(brief, 'Risk area');
   if (area === null || area === '' || /^none\b/i.test(area)) {
     return 'R37: the Security Executor needs a Risk area that is not none.';
   }
   const approval = lastValue(brief, 'Approval');
   if (approval === null || approval === '') return 'R37: the brief has no `Approval: <user record ID>` line.';
+  let record = null;
   try {
-    if (verifyRecord(projectDir, approval, process.env).ok) return null;
+    const result = verifyRecord(projectDir, approval, process.env);
+    record = result.ok ? result.record : null;
   } catch {
-    // An error counts as a record that does not verify (X9).
+    record = null; // An error counts as a record that does not verify (X9).
   }
-  return 'R37: the user record of the Approval line does not verify.';
+  if (record === null) return 'R37: the user record of the Approval line does not verify.';
+  const text = typeof record.text === 'string' ? record.text : '';
+  const id = taskIdOf(brief);
+  if (id === null || !namesTask(text, id)) return 'R37: the user record does not name the task ID of the brief.';
+  if (!APPROVAL_WORDS.test(text) || REFUSAL_WORDS.test(text)) return 'R37: the user record does not approve this run.';
+  try {
+    if (!useApproval(projectDir, record.id)) return 'R37: the user record was used for an earlier run.';
+  } catch {
+    return 'R37: the approval list cannot be written (X9).';
+  }
+  return null;
 }
 
 function deny(projectDir, rule, action, reason) {
@@ -132,6 +190,20 @@ await runHookMain(async (input) => {
   const projectDir = resolveProjectDir(input);
   const project = projectState(projectDir);
   if (project.state === 'none') {
+    // R37 fails closed (X9): the Security Executor needs a project. The refusal writes no record and no folder.
+    const named = (input.tool_input ?? {}).subagent_type;
+    if (typeof named === 'string' && named.trim().toLowerCase() === SECURITY_EXECUTOR) {
+      process.stdout.write(
+        JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny',
+            permissionDecisionReason: NO_PROJECT_TEXT,
+          },
+        }) + '\n',
+      );
+      return 0;
+    }
     // R28: tell the user at each dispatch of a guilda agent. Never refuse, never record.
     const type = (input.tool_input ?? {}).subagent_type;
     if (typeof type === 'string' && type.startsWith('guilda:')) {
@@ -150,7 +222,7 @@ await runHookMain(async (input) => {
   const type = typeof toolInput.subagent_type === 'string' ? toolInput.subagent_type.trim().toLowerCase() : '';
   if (type === SECURITY_EXECUTOR) {
     const text = securityDispatch(projectDir, toolInput);
-    return text === null ? 0 : deny(projectDir, 'R37', 'security executor dispatch refused', text);
+    return text === null ? 0 : deny(projectDir, text.startsWith('ARC6') ? 'ARC6' : 'R37', 'security executor dispatch refused', text);
   }
   if (!isExecutorDispatch(toolInput)) return 0;
 

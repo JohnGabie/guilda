@@ -380,80 +380,119 @@ test('ARC6: a case or space variant of guilda:executor still gets the brief chec
   }
 });
 
-// R37 (S5-18): a dispatch of the Security Executor needs a Risk area that is not none and an approval that verifies.
+// R37 (S5-18): a dispatch of the Security Executor needs a complete brief, a Risk area that is not none and an
+// approval that verifies, names the task and is used one time. ARC9: each case asserts the exact reason text.
 const SX_TYPE = 'guilda:security-executor';
 const sxState = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda-state-'));
 process.env.XDG_STATE_HOME = sxState;
 const sxBrief = (area, approval) =>
   BRIEF.replace('Risk area: none', `Risk area: ${area}`) + (approval === null ? '' : `\nApproval: ${approval}`);
+const R37 = {
+  none: 'R37: the Security Executor needs a Risk area that is not none.',
+  noLine: 'R37: the brief has no `Approval: <user record ID>` line.',
+  verify: 'R37: the user record of the Approval line does not verify.',
+  task: 'R37: the user record does not name the task ID of the brief.',
+  words: 'R37: the user record does not approve this run.',
+  used: 'R37: the user record was used for an earlier run.',
+  noPrompt: 'R37: the dispatch has no brief text (X9).',
+  noProject: 'R37: the Security Executor needs a guilda project and a recorded approval (X9).',
+};
 
-async function userRecord(dir) {
+async function userRecord(dir, text = 'I approve the red team run of T1.') {
   const { writeUserRecord } = await import('../scripts/lib/records.mjs');
-  const rec = writeUserRecord(dir, { session: 's1', kind: 'prompt', text: 'I approve the red team run of T1.' }, process.env);
+  const rec = writeUserRecord(dir, { session: 's1', kind: 'prompt', text }, process.env);
   assert.ok(rec, 'a user record was written');
   return rec.id;
 }
 
-function sxDecision(dir, prompt) {
-  const r = runHook(HOOK, dispatch(SX_TYPE, prompt), dir);
+function sxReason(dir, prompt, type = SX_TYPE) {
+  const r = runHook(HOOK, dispatch(type, prompt), dir);
   assert.equal(r.code, 0);
-  return r.stdout === '' ? null : JSON.parse(r.stdout).hookSpecificOutput;
+  if (r.stdout === '') return null;
+  const out = JSON.parse(r.stdout).hookSpecificOutput;
+  assert.equal(out.permissionDecision, 'deny');
+  return out.permissionDecisionReason;
 }
 
-test('S5-18: Risk area none is refused with R37, even with a good approval', async () => {
+test('S5-18: Risk area none is refused, even with a good approval', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  const out = sxDecision(dir, sxBrief('none', await userRecord(dir)));
-  assert.equal(out.permissionDecision, 'deny');
-  assert.match(out.permissionDecisionReason, /^R37: /);
+  assert.equal(sxReason(dir, sxBrief('none', await userRecord(dir))), R37.none);
   assert.deepEqual(records(dir).map((r) => r.rule), ['R37']);
 });
 
-test('S5-18: no Approval line is refused with R37', () => {
+test('S5-18: no Approval line is refused', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  const out = sxDecision(dir, sxBrief('auth', null));
-  assert.equal(out.permissionDecision, 'deny');
-  assert.match(out.permissionDecisionReason, /^R37: /);
+  assert.equal(sxReason(dir, sxBrief('auth', null)), R37.noLine);
 });
 
 test('S5-18: an unknown record and a malformed Approval are refused', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   await userRecord(dir);
-  for (const approval of ['u-00000001', 'nope', '']) {
-    const out = sxDecision(dir, sxBrief('auth', approval));
-    assert.match(out.permissionDecisionReason, /^R37: /, approval);
-  }
+  assert.equal(sxReason(dir, sxBrief('auth', 'u-00000001')), R37.verify);
+  assert.equal(sxReason(dir, sxBrief('auth', 'nope')), R37.verify);
+  assert.equal(sxReason(dir, sxBrief('auth', '')), R37.noLine);
 });
 
-test('S5-18: a forged record (bad mac) is refused with R37', async () => {
+test('S5-18: a forged record (bad mac) is refused', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const id = await userRecord(dir);
   const file = path.join(dir, '.guilda', 'bus', 'user.jsonl');
-  const forged = fs.readFileSync(file, 'utf8').replace(/"mac":"[0-9a-f]{4}/, '"mac":"0000');
-  fs.writeFileSync(file, forged);
-  const out = sxDecision(dir, sxBrief('auth', id));
-  assert.equal(out.permissionDecision, 'deny');
-  assert.match(out.permissionDecisionReason, /^R37: /);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/"mac":"[0-9a-f]{4}/, '"mac":"0000'));
+  assert.equal(sxReason(dir, sxBrief('auth', id)), R37.verify);
 });
 
-test('S5-18: a record that verify accepts passes', async () => {
+test('S5-18: a record that verifies, names the task and approves passes one time', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
   const id = await userRecord(dir);
-  assert.equal(sxDecision(dir, sxBrief('auth', id)), null);
-  assert.equal(sxDecision(dir, sxBrief('auth', id).replace('Risk area: auth', 'Risk area: auth, secrets')), null);
+  assert.equal(sxReason(dir, sxBrief('auth, secrets', id)), null);
+  const used = fs.readFileSync(path.join(dir, '.guilda', 'security', 'approvals.jsonl'), 'utf8').trim().split('\n');
+  assert.deepEqual(used.map((l) => JSON.parse(l).id), [id]);
   assert.deepEqual(records(dir), []);
+});
+
+test('S5-18: a second use of the same record is refused', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const id = await userRecord(dir);
+  assert.equal(sxReason(dir, sxBrief('auth', id)), null);
+  assert.equal(sxReason(dir, sxBrief('auth', id)), R37.used);
+  const again = await userRecord(dir);
+  assert.equal(sxReason(dir, sxBrief('auth', again)), null);
+});
+
+test('S5-18: a record for another task, with no approval word or with a refusal, fails', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'I approve the run of T2.'))), R37.task);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'I approve T10.'))), R37.task);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'Run T1 now.'))), R37.words);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'No, do not run T1.'))), R37.words);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'No. I do not approve T1.'))), R37.words);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'Sim, aprovo T1.'))), null);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir, 'yes T1'))), null);
+});
+
+test('S5-18: an approval with a refusal word is not written to the used list', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  sxReason(dir, sxBrief('auth', await userRecord(dir, 'No, T1.')));
+  assert.equal(fs.existsSync(path.join(dir, '.guilda', 'security', 'approvals.jsonl')), false);
+});
+
+test('S5-18 (ARC6): a brief with a missing field is refused before the R37 checks', async () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const id = await userRecord(dir);
+  const prompt = sxBrief('auth', id).replace('Goal: g\n', '');
+  assert.equal(sxReason(dir, prompt), 'ARC6: brief incomplete: Goal');
+  assert.deepEqual(records(dir).map((r) => r.rule), ['ARC6']);
 });
 
 test('S5-18: the hook fails closed with no prompt, with a non-string prompt and with no key', async () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  for (const prompt of [undefined, 42]) {
-    const out = sxDecision(dir, prompt);
-    assert.match(out.permissionDecisionReason, /^R37: /);
-  }
+  assert.equal(sxReason(dir, undefined), R37.noPrompt);
+  assert.equal(sxReason(dir, 42), R37.noPrompt);
   const id = await userRecord(dir);
   const saved = process.env.XDG_STATE_HOME;
   process.env.XDG_STATE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda-nokey-'));
   try {
-    assert.match(sxDecision(dir, sxBrief('auth', id)).permissionDecisionReason, /^R37: /);
+    assert.equal(sxReason(dir, sxBrief('auth', id)), R37.verify);
   } finally {
     process.env.XDG_STATE_HOME = saved;
   }
@@ -461,13 +500,12 @@ test('S5-18: the hook fails closed with no prompt, with a non-string prompt and 
 
 test('S5-18: a case or space variant of the type gets the same check; other types do not', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  const r = runHook(HOOK, dispatch(' Guilda:Security-Executor ', sxBrief('none', null)), dir);
-  assert.match(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason, /^R37: /);
-  assert.equal(runHook(HOOK, dispatch('guilda:security', sxBrief('none', null)), dir).stdout, '');
+  assert.equal(sxReason(dir, sxBrief('none', null), ' Guilda:Security-Executor '), R37.none);
+  assert.equal(sxReason(dir, sxBrief('none', null), 'guilda:security'), null);
 });
 
-test('S5-18: with no .guilda folder the notice is the only output', () => {
+test('S5-18: with no .guilda folder the dispatch is refused, with no record and no folder', () => {
   const dir = tempProject();
-  const r = runHook(HOOK, dispatch(SX_TYPE, sxBrief('none', null)), dir);
-  assert.equal(JSON.parse(r.stdout).hookSpecificOutput, undefined);
+  assert.equal(sxReason(dir, sxBrief('auth', 'u-00000001')), R37.noProject);
+  assert.equal(fs.existsSync(path.join(dir, '.guilda')), false);
 });

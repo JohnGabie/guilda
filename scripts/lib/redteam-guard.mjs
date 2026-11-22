@@ -1,8 +1,10 @@
 // R37: the limits of the Security Executor (spec 0.5.0, sections 3 and 5g). The PreToolUse hook calls
-// redteamGuard() for each tool call. It refuses an outside action of agent_type guilda:security-executor and
-// returns null for each other caller. It reads the text of a command, so it catches the common forms and not each
-// form (R4 has the same limit). SX1 asks the agent to stop first. Any error refuses the call (X9).
-// A reason is a fixed text that starts with `R37: ` and never holds the command, so a record holds no command text.
+// redteamGuard() for each tool call. For agent_type guilda:security-executor it is an ALLOW LIST: a Bash command
+// passes only when each simple command is on the list below and each path word is inside the project or the task
+// worktree. Everything else is refused (deny by default). Each other caller gets null.
+// The guard reads the text of a command with its own shell reader (quotes join, no expansion is read), so a form that
+// it cannot read is refused. A reason is a fixed text that starts with `R37: ` and never holds the command (a
+// violation record holds no command text). Any error refuses the call (X9).
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -10,47 +12,32 @@ import { keyFolder } from './records.mjs';
 
 export const SECURITY_EXECUTOR = 'guilda:security-executor';
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-const NET_CLIENTS = new Set(['curl', 'wget', 'nc', 'ncat', 'netcat', 'nmap', 'ssh', 'scp', 'sftp', 'ftp', 'telnet', 'rsync']);
-const ROOT_TOOLS = new Set(['sudo', 'pkexec', 'doas', 'su', 'run0']);
-const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'eval']);
-const INTERPRETERS = /^(node|nodejs|deno|bun|python|python3|ruby|perl|php)$/;
-const WRAPPERS = new Set(['xargs', 'exec', 'command', 'time', 'nohup', 'nice', 'stdbuf', 'builtin', 'then', 'do', 'else', '{', '!']);
-const PERSIST_TOOLS = new Set(['crontab', 'systemctl', 'systemd-run', 'at', 'launchctl']);
+/** The refusal texts. A test asserts each one (ARC9). */
+export const REASONS = Object.freeze({
+  tool: 'R37: this tool is not allowed for the Security Executor.',
+  command: 'R37: the command is not on the allow list of the Security Executor. Stop and report (SX1).',
+  syntax: 'R37: the shell text has a form that the guard does not read (expansion, substitution, heredoc, group or background).',
+  option: 'R37: an option or an argument of this command is not allowed.',
+  runTarget: 'R37: this command may run only a script or a test file of the project.',
+  outside: 'R37: a path is outside the project and the task worktree.',
+  credential: 'R37: a credential path.',
+  envFile: 'R37: a .env file outside a fixtures folder.',
+  glob: 'R37: a glob word needs a fixed prefix inside the project.',
+  write: 'R37: a write to .guilda or to a shell profile.',
+  failed: 'R37: the guard could not check the call (X9).',
+});
+
+const ALLOWED_TOOLS = new Set(['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'Skill']);
+const PATH_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const GIT_VERBS = new Set(['status', 'diff', 'log', 'show', 'blame', 'ls-files', 'rev-parse']);
 const PROFILE_FILES = new Set(['.bashrc', '.zshrc', '.profile', '.bash_profile', '.zprofile', '.bash_login']);
-// Verbs that install or publish, by package manager. `*` means each use, so a bare `yarn` counts too.
-const PKG_VERBS = {
-  npm: ['install', 'i', 'add', 'ci', 'publish', 'update', 'link'],
-  pnpm: ['install', 'i', 'add', 'publish', 'update', 'dlx'],
-  yarn: ['*'],
-  bun: ['install', 'i', 'add', 'x'],
-  pip: ['install', 'download'],
-  pip3: ['install', 'download'],
-  gem: ['install'],
-  cargo: ['install', 'add', 'publish', 'fetch'],
-  go: ['get', 'install'],
-  composer: ['install', 'require', 'update'],
-  uv: ['pip', 'add', 'sync', 'tool'],
-  dnf: ['install', 'upgrade', 'reinstall'],
-  yum: ['install', 'upgrade', 'reinstall'],
-  apt: ['install', 'upgrade'],
-  'apt-get': ['install', 'upgrade'],
-  brew: ['install', 'upgrade', 'reinstall'],
-  flatpak: ['install'],
-  snap: ['install'],
-  pacman: ['-S', '-Sy', '-Syu'],
-  zypper: ['install', 'in'],
-  apk: ['add'],
-};
-const PKG_RUNNERS = new Set(['npx', 'pnpx', 'bunx']);
-const SECRET_VAR = /\$\{?[A-Za-z0-9_]*(SECRET|TOKEN|KEY|PASSWORD|PASSWD|PASS|CREDENTIAL|AUTH)[A-Za-z0-9_]*\}?/;
-const PROC_ENVIRON = /\/proc\/[^\s/]+\/environ/;
 const LEXICAL_CRED = /(^|[\s"'=:/~])(\.ssh|\.aws|\.gnupg|\.netrc|\.npmrc|\.config\/gcloud|\.config\/gh|\.claude\/\.credentials[\w.]*|guilda\/keys)(\/|\s|$|["'])/;
-const MAX_DEPTH = 3;
+const GLOB_CHARS = new Set(['*', '?', '[']);
+const SOURCE_FILE = /\.(m?js|cjs|ts|mts|py)$/;
 
 class Refusal extends Error {}
-const refuse = (why) => {
-  throw new Refusal(why);
+const refuse = (reason) => {
+  throw new Refusal(reason);
 };
 
 const inside = (p, root) => p === root || p.startsWith(root + path.sep);
@@ -65,34 +52,44 @@ function gitTop(cwd) {
   }
 }
 
-/** The real path of p, or the real path of its nearest existing parent plus the rest. */
-function realish(p) {
-  let cur = p;
-  const rest = [];
-  while (!fs.existsSync(cur)) {
-    rest.unshift(path.basename(cur));
-    const up = path.dirname(cur);
-    if (up === cur) break;
-    cur = up;
+function safeReal(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return null;
   }
-  return path.join(fs.realpathSync(cur), ...rest);
 }
 
-/** The context of one check: the project and worktree roots, the home folder and the credential locations. */
+/**
+ * The physical path of `rel` from `base`: each `..` applies to the real path so far, and each existing part that is a
+ * link is followed. A lexical normalize would let `link/../x` hide a path outside.
+ */
+function physical(base, rel) {
+  let cur = path.isAbsolute(rel) ? path.parse(rel).root : base;
+  for (const part of rel.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') {
+      cur = path.dirname(cur);
+      continue;
+    }
+    const next = path.join(cur, part);
+    const real = safeReal(next);
+    cur = real ?? next;
+  }
+  return safeReal(cur) ?? cur;
+}
+
 function makeContext(projectDir, input, env) {
-  const cwd = typeof input.cwd === 'string' && path.isAbsolute(input.cwd) ? input.cwd : path.resolve(projectDir);
+  const cwdRaw = typeof input.cwd === 'string' && path.isAbsolute(input.cwd) ? input.cwd : path.resolve(projectDir);
   const home = typeof env.HOME === 'string' && path.isAbsolute(env.HOME) ? env.HOME : null;
   const roots = [];
-  for (const candidate of [path.resolve(projectDir), gitTop(cwd)]) {
-    if (candidate === null) continue;
-    try {
-      const real = fs.realpathSync(candidate);
-      if (!roots.includes(real)) roots.push(real);
-    } catch {
-      // A root that does not exist is not a root.
-    }
+  for (const candidate of [path.resolve(projectDir), gitTop(cwdRaw)]) {
+    const real = candidate === null ? null : safeReal(candidate);
+    if (real !== null && !roots.includes(real)) roots.push(real);
   }
-  if (roots.length === 0) refuse('no project or worktree root (X9)');
+  if (roots.length === 0) refuse(REASONS.failed);
+  const cwd = safeReal(cwdRaw);
+  if (cwd === null || !roots.some((r) => inside(cwd, r))) refuse(REASONS.outside);
   const credDirs = [];
   if (home !== null) {
     for (const rel of ['.ssh', '.aws', '.gnupg', '.claude', '.codex', '.netrc', '.npmrc', '.config/gcloud', '.config/gh']) {
@@ -103,269 +100,340 @@ function makeContext(projectDir, input, env) {
   return { cwd, home, roots, credDirs: credDirs.flatMap((d) => [d, safeReal(d)]).filter(Boolean) };
 }
 
-function safeReal(p) {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    return null;
-  }
-}
-
-/** Make a token an absolute path: `~`, `$HOME` and `${HOME}` become the home folder, the rest resolves from cwd. */
-function resolveToken(token, ctx) {
-  let t = token;
-  if (ctx.home !== null) t = t.replace(/^~(?=\/|$)/, ctx.home).replace(/^\$\{?HOME\}?(?=\/|$)/, ctx.home);
-  return path.resolve(ctx.cwd, t);
-}
-
-/** True when the path is under a folder named `fixtures` inside a root. */
 function inFixtures(real, ctx) {
   const root = ctx.roots.find((r) => inside(real, r));
   if (!root) return false;
   return path.relative(root, real).split(path.sep).slice(0, -1).includes('fixtures');
 }
 
-/** Refuse a credential path (R37): a credential folder or file, a key folder or a `.env*` file outside fixtures. */
-function checkCredentialPath(token, ctx) {
-  if (token === '' || token.startsWith('-') && !token.includes('=')) return;
-  const bare = token.includes('=') ? token.slice(token.indexOf('=') + 1) : token;
-  for (const candidate of new Set([token, bare])) {
-    if (candidate === '') continue;
-    const abs = resolveToken(candidate, ctx);
-    let real;
-    try {
-      real = realish(abs);
-    } catch {
-      real = abs;
-    }
-    for (const dir of ctx.credDirs) {
-      if (inside(abs, dir) || inside(real, dir)) refuse('read of a credential path');
-    }
-    if (path.basename(abs).startsWith('.env') || path.basename(real).startsWith('.env')) {
-      if (!inFixtures(real, ctx)) refuse('read of a .env file outside fixtures');
-    }
+/**
+ * Check one path word: it must resolve inside a root, must not be a credential path and must not be a .env file
+ * outside fixtures. `write` also refuses .guilda and a shell profile. A glob word needs a fixed prefix inside a root.
+ */
+function checkPath(text, glob, ctx, { write = false } = {}) {
+  if (text === '/dev/null') return;
+  let t = text;
+  if (t === '~' || t.startsWith('~/')) {
+    if (ctx.home === null) refuse(REASONS.outside);
+    t = ctx.home + t.slice(1);
+    if (glob >= 0) glob += ctx.home.length - 1;
+  } else if (t.startsWith('~')) {
+    refuse(REASONS.outside); // ~user
   }
-  if (LEXICAL_CRED.test(` ${token} `)) refuse('read of a credential path');
+  if (LEXICAL_CRED.test(` ${t} `)) refuse(REASONS.credential);
+  let target = t;
+  if (glob >= 0) {
+    if (t.split('/').includes('..') || t.includes('/../')) refuse(REASONS.glob);
+    const prefix = t.slice(0, glob);
+    const slash = prefix.lastIndexOf('/');
+    const dirPart = slash < 0 ? '.' : prefix.slice(0, slash + 1);
+    target = dirPart;
+    // A glob whose last part can match a .env file (`.e*`, `.*`, `.env*`, `**/.env`) is refused.
+    const lastLiteral = prefix.slice(slash + 1);
+    const lastSeg = t.split('/').pop();
+    const canMatchEnv = lastLiteral.startsWith('.') && ('.env'.startsWith(lastLiteral) || lastLiteral.startsWith('.env'));
+    if (canMatchEnv || lastSeg.startsWith('.env')) refuse(REASONS.envFile);
+  }
+  const real = physical(ctx.cwd, target);
+  for (const dir of ctx.credDirs) if (inside(real, dir)) refuse(REASONS.credential);
+  if (!ctx.roots.some((r) => inside(real, r))) refuse(REASONS.outside);
+  const base = path.basename(real);
+  if (glob < 0 && base.startsWith('.env') && !inFixtures(real, ctx)) refuse(REASONS.envFile);
+  if (write) {
+    if (ctx.roots.some((r) => inside(real, path.join(r, '.guilda'))) || PROFILE_FILES.has(base)) refuse(REASONS.write);
+  }
 }
 
-/** Refuse a write target outside the project and the worktree, or a shell profile. */
-function checkWriteTarget(token, ctx) {
-  if (token === '' || token === '/dev/null' || token.startsWith('/dev/std') || token.startsWith('&')) return;
-  if (/[$`]/.test(token) && !/^\$\{?HOME\}?\//.test(token)) refuse('write to a target that the guard cannot resolve');
-  const abs = resolveToken(token, ctx);
-  if (PROFILE_FILES.has(path.basename(abs))) refuse('write to a shell profile');
-  const real = realish(abs);
-  if (!ctx.roots.some((r) => inside(real, r))) refuse('write outside the project and the worktree');
-}
+// ---------------------------------------------------------------- the shell reader
 
-/** True when the token is a host that the guard allows. */
-function localHost(host) {
-  return LOCAL_HOSTS.has(host.toLowerCase());
-}
+/**
+ * Read a command text into simple commands: { words: [{ text, glob }], redirs: [{ op, target }] }. Quotes join into
+ * the word (no split at a quote). Any expansion ($, backtick), group, heredoc, process substitution, brace or
+ * background form is refused: the guard does not read it.
+ */
+function lex(text) {
+  const commands = [];
+  let words = [];
+  let redirs = [];
+  let cur = '';
+  let glob = -1;
+  let has = false;
+  let pending = null;
+  const bad = () => refuse(REASONS.syntax);
 
-/** Hosts that a network client names, or [] when the guard reads none. */
-function clientHosts(args) {
-  const hosts = [];
-  const bare = [];
-  for (const raw of args) {
-    if (raw.startsWith('-')) continue;
-    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
-      try {
-        hosts.push(new URL(raw).hostname);
-      } catch {
-        hosts.push('unreadable.invalid');
+  const endWord = () => {
+    if (!has) return;
+    const word = { text: cur, glob };
+    if (pending !== null) {
+      redirs.push({ op: pending, target: word });
+      pending = null;
+    } else words.push(word);
+    cur = '';
+    glob = -1;
+    has = false;
+  };
+  const endCommand = () => {
+    endWord();
+    if (pending !== null) bad();
+    if (words.length > 0) commands.push({ words, redirs });
+    else if (redirs.length > 0) bad();
+    words = [];
+    redirs = [];
+  };
+
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (c === ' ' || c === '\t' || c === '\r') endWord();
+    else if (c === '\n') endCommand();
+    else if (c === '\\') {
+      if (next === undefined) bad();
+      if (next !== '\n') {
+        cur += next;
+        has = true;
       }
-      continue;
-    }
-    const noUser = raw.includes('@') ? raw.slice(raw.lastIndexOf('@') + 1) : raw;
-    if (raw.includes('@')) hosts.push(noUser.replace(/[:/].*$/, ''));
-    const host = noUser.replace(/^\[([^\]]+)\].*$/, '[$1]').replace(/(?<!^)[:/].*$/, '');
-    if (/^(\[[0-9a-f:]+\]|localhost|\d{1,3}(\.\d{1,3}){3}|[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,})$/i.test(host)) bare.push(host);
-  }
-  return hosts.length > 0 ? hosts : bare;
-}
-
-function checkNetworkClient(args) {
-  const hosts = clientHosts(args);
-  if (hosts.length === 0) refuse('network client with no target that the guard can read');
-  if (hosts.some((h) => !localHost(h))) refuse('network target outside localhost');
-}
-
-/** The first argument that is not a flag. */
-const verbOf = (args) => args.find((a) => !a.startsWith('-')) ?? null;
-
-function checkPackages(cmd, args) {
-  if (PKG_RUNNERS.has(cmd)) refuse('package install or run');
-  const verbs = PKG_VERBS[cmd];
-  if (!verbs) return;
-  const verb = cmd === 'pacman' ? args.find((a) => /^-S/.test(a)) ?? null : verbOf(args);
-  if (verbs.includes('*') || (verb !== null && verbs.includes(verb))) refuse('package install or publish');
-}
-
-/** Split a command into segments at ; & | newline and the start of a substitution. */
-function segments(text) {
-  return text
-    .replace(/\$\(|`/g, ';')
-    .split(/&&|\|\||[;&|\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-const tokensOf = (segment) =>
-  segment
-    .split(/[\s"']+/)
-    .map((t) => t.replace(/^[({]+(?=.)/, ''))
-    .filter(Boolean);
-
-/** The command of a segment and its arguments, after env assignments and wrappers. */
-function commandOf(tokens) {
-  let i = 0;
-  for (;;) {
-    while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i += 1;
-    if (i >= tokens.length) return null;
-    const name = path.basename(tokens[i]);
-    if (name === 'env' && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i + 1] ?? '')) {
       i += 1;
-      continue;
+    } else if (c === "'") {
+      const end = text.indexOf("'", i + 1);
+      if (end < 0) bad();
+      cur += text.slice(i + 1, end);
+      has = true;
+      i = end;
+    } else if (c === '"') {
+      let j = i + 1;
+      for (; j < text.length && text[j] !== '"'; j += 1) {
+        const d = text[j];
+        if (d === '$' || d === '`') bad();
+        if (d === '\\') {
+          const e = text[j + 1];
+          if (e === undefined) bad();
+          if (e === '"' || e === '\\' || e === '$' || e === '`') cur += e;
+          else if (e !== '\n') cur += `\\${e}`;
+          j += 1;
+        } else cur += d;
+      }
+      if (j >= text.length) bad();
+      has = true;
+      i = j;
+    } else if (c === '$' || c === '`' || c === '(' || c === ')' || c === '{' || c === '}') bad();
+    else if (c === '#' && !has) {
+      while (i < text.length && text[i] !== '\n') i += 1;
+      i -= 1;
+    } else if (c === ';') endCommand();
+    else if (c === '|') {
+      if (next === '|' || next === '&') i += 1;
+      endCommand();
+    } else if (c === '&') {
+      if (next === '&') {
+        i += 1;
+        endCommand();
+      } else if (next === '>') {
+        endWord();
+        i += 1;
+        pending = '&>';
+        if (text[i + 1] === '>') i += 1;
+      } else bad();
+    } else if (c === '<') {
+      if (next === '<' || next === '(' || next === '>') bad();
+      endWord();
+      pending = '<';
+    } else if (c === '>') {
+      if (next === '(') bad();
+      // A word of digits right before > is a file descriptor.
+      if (has && /^\d+$/.test(cur)) {
+        cur = '';
+        has = false;
+      } else endWord();
+      if (next === '&') {
+        const dup = text.slice(i + 2).match(/^(\d+|-)/);
+        if (dup) {
+          i += 1 + dup[0].length;
+          continue;
+        }
+        i += 1;
+      } else if (next === '>' || next === '|') i += 1;
+      pending = '>';
+    } else {
+      if (GLOB_CHARS.has(c) && glob < 0) glob = cur.length;
+      cur += c;
+      has = true;
     }
-    if (name === 'timeout') {
-      i += 1;
-      while (i < tokens.length && tokens[i].startsWith('-')) i += 1;
-      i += 1;
-      continue;
-    }
-    if (WRAPPERS.has(name)) {
-      i += 1;
-      while (i < tokens.length && tokens[i].startsWith('-')) i += 1;
-      continue;
-    }
-    const args = tokens.slice(i + 1);
-    // `python -m pip install x` is the command `pip`.
-    if (/^python[\d.]*$/.test(name) && args[0] === '-m' && args[1]) return { cmd: path.basename(args[1]), args: args.slice(2) };
-    return { cmd: name, args };
   }
+  endCommand();
+  return commands;
 }
 
-function checkInlineCode(args) {
-  const text = args.join(' ');
-  if (/process\.env|os\.environ|ENV\[|getenv\(/.test(text)) refuse('environment secrets');
-  for (const m of text.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s)'"`]+/gi)) {
-    let host;
-    try {
-      host = new URL(m[0]).hostname;
-    } catch {
-      host = 'unreadable.invalid';
-    }
-    if (!localHost(host)) refuse('network target outside localhost');
-  }
+// ---------------------------------------------------------------- the allowed commands
+
+const flag = (w) => w.text.startsWith('-') && w.text !== '-';
+const texts = (words) => words.map((w) => w.text);
+const has = (words, re) => words.some((w) => re.test(w.text));
+const positional = (words) => words.filter((w) => !flag(w));
+
+function needSource(words) {
+  if (!positional(words).some((w) => SOURCE_FILE.test(w.text))) refuse(REASONS.runTarget);
 }
 
-function checkSegment(tokens, ctx, depth) {
-  const parsed = commandOf(tokens);
-  if (parsed === null) return;
-  const { cmd, args } = parsed;
-
-  if (ROOT_TOOLS.has(cmd)) refuse('sudo, pkexec, doas, su or run0');
-  if (PERSIST_TOOLS.has(cmd)) refuse('crontab, systemctl, systemd-run or at');
-  checkPackages(cmd, args);
-  if (NET_CLIENTS.has(cmd)) checkNetworkClient(args);
-  if (cmd === 'gh') refuse('network client gh');
-  if (cmd === 'git' && args.some((a) => ['push', 'fetch', 'pull', 'clone', 'ls-remote'].includes(a))) refuse('git network command');
-  if (cmd === 'trufflehog' && !args.includes('--no-verification')) refuse('live verification of a secret');
-  if (cmd === 'osv-scanner' && args.includes('fix')) refuse('osv-scanner fix can run package scripts');
-
-  if (cmd === 'printenv') refuse('environment secrets');
-  if (cmd === 'env') refuse('environment secrets');
-  if (cmd === 'set' && args.length === 0) refuse('environment secrets');
-  if (['export', 'declare', 'typeset', 'readonly'].includes(cmd) && (args.length === 0 || args.includes('-p'))) {
-    refuse('environment secrets');
-  }
-  if (cmd === 'compgen' && args.includes('-e')) refuse('environment secrets');
-  if (INTERPRETERS.test(cmd) && args.some((a) => ['-e', '-c', '-p', '--eval', '-r'].includes(a))) checkInlineCode(args);
-
-  // Writes by command.
-  if (['tee', 'touch', 'mkdir', 'truncate'].includes(cmd)) {
-    for (const a of args.filter((x) => !x.startsWith('-'))) checkWriteTarget(a, ctx);
-  }
-  if (['cp', 'mv', 'ln', 'install'].includes(cmd)) {
-    const operands = args.filter((x) => !x.startsWith('-'));
-    if (operands.length > 0) checkWriteTarget(operands[operands.length - 1], ctx);
-    const t = args.findIndex((x) => x === '-t' || x === '--target-directory');
-    if (t >= 0 && args[t + 1]) checkWriteTarget(args[t + 1], ctx);
-  }
-  if (['sed', 'perl', 'ruby'].includes(cmd) && args.some((a) => /^-[a-zA-Z]*i/.test(a))) {
-    for (const a of args.filter((x) => !x.startsWith('-'))) {
-      if (a.includes('/') || a.startsWith('~') || a.startsWith('.')) checkWriteTarget(a, ctx);
+const VALIDATORS = {
+  ls: () => {},
+  cat: () => {},
+  head: () => {},
+  tail: () => {},
+  wc: () => {},
+  diff: () => {},
+  uniq: () => {},
+  sort: (a) => {
+    if (has(a, /^--compress-program/)) refuse(REASONS.option);
+  },
+  grep: () => {},
+  rg: (a) => {
+    if (has(a, /^--(pre|pre-glob|hostname-bin)(=|$)/)) refuse(REASONS.option);
+  },
+  find: (a) => {
+    if (has(a, /^-(exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)$/)) refuse(REASONS.option);
+  },
+  git: (a) => {
+    const verb = a[0]?.text;
+    if (!GIT_VERBS.has(verb)) refuse(REASONS.option);
+    if (has(a, /^(--output|--exec-path|--upload-pack|--open-files-in-pager|-O|--ext-diff|--textconv)/)) refuse(REASONS.option);
+  },
+  node: (a) => {
+    if (has(a, /^(-[a-zA-Z]*[epri][a-zA-Z]*|--(eval|print|require|import|interactive|inspect.*|loader|experimental-loader|env-file.*))(=.*)?$/)) {
+      refuse(REASONS.option);
     }
-  }
-  if (cmd === 'dd') {
-    for (const a of args.filter((x) => x.startsWith('of='))) checkWriteTarget(a.slice(3), ctx);
-  }
-  if (cmd === 'tar') {
-    const c = args.findIndex((x) => x === '-C' || x === '--directory');
-    if (c >= 0 && args[c + 1]) checkWriteTarget(args[c + 1], ctx);
-  }
+    if (!has(a, /^--test(-.*)?$/)) needSource(a);
+  },
+  python3: (a) => {
+    if (has(a, /^-[A-Za-z]*c/) || has(a, /^-$/) || has(a, /^-[A-Za-z]*i/)) refuse(REASONS.option);
+    const m = a.findIndex((w) => w.text === '-m');
+    if (m >= 0) {
+      if (!['pytest', 'unittest'].includes(a[m + 1]?.text)) refuse(REASONS.runTarget);
+    } else needSource(a);
+  },
+  pytest: (a) => {
+    if (has(a, /^(-p.*|--pyargs)$/)) refuse(REASONS.option);
+  },
+  npm: (a) => {
+    const verb = positional(a)[0]?.text;
+    if (!['test', 't', 'run', 'run-script'].includes(verb)) refuse(REASONS.option);
+    if (a.length === 0 || a[0].text !== verb) refuse(REASONS.option);
+  },
+  npx: (a) => {
+    if (!has(a, /^(--no-install|--no)$/)) refuse(REASONS.runTarget);
+    if (has(a, /^(-p|--package.*|-c|--call.*|-y|--yes)$/)) refuse(REASONS.option);
+    const bin = positional(a)[0]?.text;
+    if (!bin || !/^[a-z0-9][a-z0-9._-]*$/i.test(bin)) refuse(REASONS.runTarget);
+  },
+  semgrep: (a, ctx) => {
+    if (positional(a)[0] && ['login', 'logout', 'ci', 'publish', 'install-semgrep-pro', 'install-deep-semgrep'].includes(positional(a)[0].text)) refuse(REASONS.option);
+    if (has(a, /^--(pro|login)/)) refuse(REASONS.option);
+    const values = [];
+    a.forEach((w, i) => {
+      if (w.text === '--config' || w.text === '-f') values.push(a[i + 1]?.text);
+      else if (w.text.startsWith('--config=')) values.push(w.text.slice(9));
+    });
+    if (values.length === 0) refuse(REASONS.option);
+    // A value is a local path only when it exists on disk. `auto` and `p/ci` name the registry.
+    for (const v of values) if (!v || !fs.existsSync(path.resolve(ctx.cwd, v))) refuse(REASONS.option);
+  },
+  gitleaks: (a) => {
+    if (a[0]?.text !== 'detect' || !has(a, /^--no-banner$/)) refuse(REASONS.option);
+  },
+  bandit: () => {},
+  gosec: () => {},
+  eslint: () => {},
+  'osv-scanner': (a) => {
+    if (!has(a, /^--offline$/) || has(a, /^(fix|update|--download-offline-databases.*)$/)) refuse(REASONS.option);
+  },
+  jq: (a) => {
+    if (has(a, /(^|[^A-Za-z_])(env|input_filename)([^A-Za-z_]|$)|\$ENV|\$__prog/)) refuse(REASONS.option);
+  },
+  sed: (a) => {
+    const scripts = positional(a).map((w) => w.text);
+    if (scripts.some((s) => /(^|[;{}\n])\s*[0-9$,/]*\s*[ew]\s|\/[a-zA-Z]*[ew][a-zA-Z]*\s*($|;|\n)/.test(s))) refuse(REASONS.option);
+  },
+  awk: (a) => {
+    if (has(a, /^-[A-Za-z]*i/)) refuse(REASONS.option);
+    if (positional(a).some((w) => /system|getline|ENVIRON|\||>/.test(w.text))) refuse(REASONS.option);
+  },
+  mkdir: () => {},
+  touch: () => {},
+  cp: (a) => {
+    if (has(a, /^-[A-Za-z]*t/)) refuse(REASONS.option);
+  },
+  mv: (a) => {
+    if (has(a, /^-[A-Za-z]*t/)) refuse(REASONS.option);
+  },
+};
+VALIDATORS.python = VALIDATORS.python3;
 
-  // A shell that runs a string: check the string as a command (the quotes split it into tokens).
-  if (SHELLS.has(cmd) && depth < MAX_DEPTH) {
-    const i = cmd === 'eval' ? 0 : args.findIndex((a) => /^-[a-z]*c$/.test(a)) + 1;
-    if (cmd === 'eval' || i > 0) checkText(args.slice(i).join(' '), ctx, depth + 1);
-  }
+const WRITERS = new Set(['mkdir', 'touch', 'cp', 'mv']);
+
+/** The text of an option that could carry a path: `--x=value`, or the tail of `-Xvalue`. */
+function optionValue(text) {
+  if (text.startsWith('--')) return text.includes('=') ? text.slice(text.indexOf('=') + 1) : null;
+  const tail = text.replace(/^-[A-Za-z]*/, '');
+  return tail === '' || tail === text ? null : tail;
 }
 
-function checkText(text, ctx, depth) {
-  if (/\/dev\/(tcp|udp)\//.test(text)) refuse('network through /dev/tcp');
-  if (PROC_ENVIRON.test(text)) refuse('environment secrets');
-  if (SECRET_VAR.test(text)) refuse('environment secrets');
-  // Redirections.
-  for (const m of text.matchAll(/(?:^|[^<>&\d])\d?&?>{1,2}\s*([^\s;&|<>]+)/g)) checkWriteTarget(m[1].replace(/^["']|["']$/g, ''), ctx);
-  for (const segment of segments(text)) {
-    const tokens = tokensOf(segment);
-    for (const token of tokens) {
-      checkCredentialPath(token, ctx);
-      if (PROFILE_FILES.has(path.basename(token))) refuse('shell profile');
-    }
-    checkSegment(tokens, ctx, depth);
+function checkCommand(cmd, ctx) {
+  const name = cmd.words[0];
+  if (name.glob >= 0 || !/^[a-z][a-z0-9._-]*$/.test(name.text)) refuse(REASONS.command);
+  const validate = VALIDATORS[name.text];
+  if (!validate) refuse(REASONS.command);
+  const args = cmd.words.slice(1);
+  validate(args, ctx);
+  const sedWrite = name.text === 'sed' && args.some((w) => /^-[A-Za-z]*i|^--in-place/.test(w.text));
+  const write = WRITERS.has(name.text) || sedWrite;
+  for (const w of args) {
+    if (flag(w)) {
+      const value = optionValue(w.text);
+      if (value !== null && value !== '' && !/^\d+$/.test(value)) checkPath(value, w.glob >= 0 ? [...value].findIndex((ch) => GLOB_CHARS.has(ch)) : -1, ctx, { write });
+    } else checkPath(w.text, w.glob, ctx, { write });
   }
+  for (const r of cmd.redirs) checkPath(r.target.text, r.target.glob, ctx, { write: r.op !== '<' });
 }
 
 function checkBash(input, ctx) {
   const command = input.tool_input?.command;
-  if (typeof command !== 'string') refuse('Bash call with no command text (X9)');
-  checkText(command, ctx, 0);
+  if (typeof command !== 'string') refuse(REASONS.failed);
+  for (const cmd of lex(command)) checkCommand(cmd, ctx);
 }
 
-function checkReadTool(input, ctx) {
+function checkPathTool(input, ctx) {
   const ti = input.tool_input ?? {};
-  const fields = [ti.file_path, ti.path, ti.glob, input.tool_name === 'Glob' ? ti.pattern : undefined];
-  for (const f of fields) if (typeof f === 'string') checkCredentialPath(f, ctx);
-}
-
-function checkWriteTool(input, ctx) {
-  const ti = input.tool_input ?? {};
-  const fp = typeof ti.file_path === 'string' ? ti.file_path : typeof ti.notebook_path === 'string' ? ti.notebook_path : '';
-  if (fp === '') refuse('write with no path (X9)');
-  checkWriteTarget(fp, ctx);
+  const tool = input.tool_name;
+  if (PATH_TOOLS.has(tool)) {
+    const fp = typeof ti.file_path === 'string' ? ti.file_path : ti.notebook_path;
+    if (typeof fp !== 'string' || fp === '') refuse(REASONS.failed);
+    checkPath(fp, -1, ctx, { write: true });
+    return;
+  }
+  // Read, Grep, Glob: each path field, and the glob pattern, must be inside the project.
+  for (const f of [ti.file_path, ti.path, ti.glob, tool === 'Glob' ? ti.pattern : undefined]) {
+    if (typeof f !== 'string' || f === '') continue;
+    const g = [...f].findIndex((ch) => GLOB_CHARS.has(ch));
+    checkPath(f, g, ctx);
+  }
 }
 
 /**
- * The R37 check. Returns null to let the call pass, or { reason } to refuse it. Only the agent_type
- * guilda:security-executor is checked; each other caller gets null. Any error refuses (X9).
+ * The R37 check. Returns null to let the call pass, or { reason } to refuse it. agent_type is compared in lower case
+ * with the spaces cut, as pre-agent reads a type. Each other caller gets null. Any error refuses (X9).
  */
 export function redteamGuard(projectDir, input, env = process.env) {
-  if (!input || typeof input !== 'object' || input.agent_type !== SECURITY_EXECUTOR) return null;
+  if (!input || typeof input !== 'object') return null;
+  const type = typeof input.agent_type === 'string' ? input.agent_type.trim().toLowerCase() : '';
+  if (type !== SECURITY_EXECUTOR) return null;
   try {
     const tool = input.tool_name;
-    if (tool === 'WebFetch' || tool === 'WebSearch' || (typeof tool === 'string' && tool.startsWith('mcp__'))) {
-      refuse('web or MCP tool');
-    }
+    if (!ALLOWED_TOOLS.has(tool) && !PATH_TOOLS.has(tool)) refuse(REASONS.tool);
+    if (tool === 'Skill') return null;
     const ctx = makeContext(projectDir, input, env);
     if (tool === 'Bash') checkBash(input, ctx);
-    else if (tool === 'Read' || tool === 'Grep' || tool === 'Glob') checkReadTool(input, ctx);
-    else if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) checkWriteTool(input, ctx);
+    else checkPathTool(input, ctx);
     return null;
   } catch (err) {
-    if (err instanceof Refusal) return { reason: `R37: ${err.message}` };
-    return { reason: 'R37: the guard could not check the call (X9)' };
+    return { reason: err instanceof Refusal ? err.message : REASONS.failed };
   }
 }
