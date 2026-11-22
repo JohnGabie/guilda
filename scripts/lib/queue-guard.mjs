@@ -431,11 +431,29 @@ function isLiteralText(command) {
 }
 
 /**
+ * The allow list of the claim exemption: the whole command is ONE simple command, with no pipe, list, background or
+ * subshell, and its words are `node <path>/queue.mjs <project> claim ...`. No prefix is skipped: `env`, `command`,
+ * `xargs`, a variable assignment or any other first word gives no exemption.
+ */
+function isOneClaimCommand(command) {
+  if (/[|;&\n\r]/.test(command)) return false;
+  const all = quotedCommands(command);
+  if (all.length !== 1) return false;
+  const words = all[0];
+  return (
+    words.length >= 4 &&
+    NODE_WORD.test(path.basename(words[0])) &&
+    path.basename(words[1].replace(/\\/g, '/')) === QUEUE_SCRIPT &&
+    words[3] === 'claim'
+  );
+}
+
+/**
  * True when each queue script call of the command is a `queue.mjs ... claim` call (R32: the script decides a claim,
  * exit 3). Both readings must find the same calls, and each call must be a claim call.
  */
 export function queueClaimOnly(command) {
-  if (typeof command !== 'string' || command === '' || !isLiteralText(command)) return false;
+  if (typeof command !== 'string' || command === '' || !isLiteralText(command) || !isOneClaimCommand(command)) return false;
   const quoted = callsIn(quotedCommands(command));
   const flat = callsIn(splitCommands(flatten(command)));
   return quoted.length > 0 && flat.length === quoted.length && quoted.every((c) => c.claim) && flat.every((c) => c.claim);

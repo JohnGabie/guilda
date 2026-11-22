@@ -1156,9 +1156,16 @@ test('a claim call with a variable word is refused during another live claim', (
     'node scripts/queue.mjs . cl* --session s1',
     'echo . | xargs node scripts/queue.mjs claim --session s1',
     'env node scripts/queue.mjs . claim --session s1',
+    'echo sync | /usr/bin/xargs -I claim node scripts/queue.mjs . claim --session s1',
+    'echo sync | parallel node scripts/queue.mjs . {} --session s1',
+    'echo x | node scripts/queue.mjs . claim --session s1',
+    'command node scripts/queue.mjs . claim --session s1',
+    'FOO=1 node scripts/queue.mjs . claim --session s1',
+    'node scripts/queue.mjs . claim --session s1 & node scripts/queue.mjs . claim --session s1',
   ]) {
     assert.equal(assertDeny(queueCall(dir, command, {})), CLAIM_REASON, command);
   }
   // A literal claim call still passes.
   assertAllow(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', {}));
+  assertAllow(queueCall(dir, `node ${REPO_ROOT}/scripts/queue.mjs ${os.tmpdir()}/proj claim --ttl 600 --session s1`, {}));
 });
