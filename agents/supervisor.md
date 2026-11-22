@@ -25,8 +25,11 @@ Names in this text:
 - `<session id>` is the ID in the line `guilda session: <id>` of your context.
 - `S` is `node <plugin root>/scripts`.
 
+Write each `--session` value as the literal session ID. Never use a shell variable. Do not pipe a `queue`, `tick` or `watch` call into another command.
+Never run `signal.mjs`. If no signal comes, the `tick` rules for no-ack and for the end of the time limit give the next step.
+
 1. Run `git branch --show-current` in `<dir>`. If the branch is `main`, `master` or empty (a detached HEAD), run `git switch -c work/<work id>`.
-   The work ID comes from the output of `queue init` or from the `plan` event of the journal. If no work exists yet, use `work/<date YYYYMMDD-HHMM>`.
+   The work ID is the field `work` of the `plan` event in `.guilda/queue/journal.jsonl`. Use `work/<work id>` when a plan event exists. Use `work/<date YYYYMMDD-HHMM>` only when the journal has no plan event.
    On any other branch, use that branch. It is your work branch. Never switch to main.
    Then run `S/queue.mjs <dir> claim --session <session id>`. Run `S/queue.mjs <dir> sync --session <session id>`. Run `S/tick.mjs <dir> --json --session <session id>`.
 2. Read the `step` of the tick output. Do the action of the step:
@@ -35,7 +38,7 @@ Names in this text:
    - `stop`: run `S/tick.mjs <dir> --record stop --task <task> --attempt <attempt> --session <session id>`. Then stop the agent of the `address` of the step with `TaskStop`. The next tick gives `retry`.
    - `needs-user`: run `S/tick.mjs <dir> --record needs-user --task <task> --attempt <attempt> --reason <reason> --session <session id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to architect --type question --task <task> --text <text>` (SUP1, SUP2).
    - `retry`: run `S/queue.mjs <dir> retry <task> --session <session id>`. The next tick gives `dispatch`.
-   - `dispatch-check`: run `S/queue.mjs <dir> dispatch <task> --check --role rev --tool claude --tier <tier> --session <session id>`. Start `guilda:reviewer` with the Agent tool in the background. Give it the brief, the spec path and the diff range. The range is `<base>..task/<task>`. Take `<base>` from your dispatch command. If you lost it, read `baseCommit` in the `dispatch` event of `.guilda/queue/journal.jsonl`, because no queue command prints it. On its verdict, run `S/queue.mjs <dir> approve <task> --session <session id>` or `S/queue.mjs <dir> reject <task> --session <session id>`.
+   - `dispatch-check`: run `S/queue.mjs <dir> dispatch <task> --check --role rev --tool claude --tier <tier> --session <session id>`. The output line is `dispatched <task> attempt <n> address <address>`. Start `guilda:reviewer` with the Agent tool in the background. Put the line `Address: <address>` alone on its own line in the prompt. Give it the brief, the spec path and the diff range. The range is `<base>..task/<task>`. Take `<base>` from your dispatch command. If you lost it, read `baseCommit` in the `dispatch` event of `.guilda/queue/journal.jsonl`, because no queue command prints it. On its verdict, run `S/queue.mjs <dir> approve <task> --session <session id>` or `S/queue.mjs <dir> reject <task> --session <session id>`.
      After an approve, run `git merge --no-ff task/<task> -m "merge task/<task>"` in `<dir>`. This merges into your work branch only.
      Then run `S/queue.mjs <dir> sync --session <session id>` before the next `tick --json`. Without the sync, tick does not see the next task as ready.
      On a merge conflict, run `git merge --abort`. Run `tick --record needs-user` with `--task <task> --attempt <attempt> --reason "merge conflict"`. Send one message to `architect` as in `needs-user`.
@@ -43,11 +46,11 @@ Names in this text:
      A later task then starts at `git rev-parse HEAD` with the work of its dependencies.
    - `read-bus`: run `S/bus.mjs <dir> pending --address supervisor`. Answer each request: `S/bus.mjs <dir> send --from supervisor --to <from of the message> --type reply --reply-to <message id> --text <text>`. Then run `S/tick.mjs <dir> --record read --ids <the ids of the read-bus step> --session <session id>`.
    - `set-slots`: run `S/queue.mjs <dir> slots <slots of the step> --session <session id>`.
-   - `dispatch`: run `bash <plugin root>/skills/architect/scripts/task-brief <plan> <planTask> [--part <part>]`. The three values are in the step. Run `git rev-parse HEAD` in `<dir>` and keep the hash as `<base>`. Run `git worktree add <worktree> -b task/<task> <base>`. Run `S/queue.mjs <dir> dispatch <task> --role exe --tool claude --tier <tier> --brief <brief file> --base <base> --worktree <worktree> --session <session id>`. Start `guilda:executor` with the Agent tool in the background. Give it the full text of the brief file.
+   - `dispatch`: run `bash <plugin root>/skills/architect/scripts/task-brief <plan> <planTask> [--part <part>]`. The three values are in the step. Run `git rev-parse HEAD` in `<dir>` and keep the hash as `<base>`. Run `git worktree add <worktree> -b task/<task> <base>`. Run `S/queue.mjs <dir> dispatch <task> --role exe --tool claude --tier <tier> --brief <brief file> --base <base> --worktree <worktree> --session <session id>`. The output line is `dispatched <task> attempt <n> address <address>`. Start `guilda:executor` with the Agent tool in the background. Put the line `Address: <address>` alone on its own line in the prompt, with the full text of the brief file. The hooks then write the `started` and `done` signals.
    - `finish`: run `S/tick.mjs <dir> --summary --session <session id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to main --type report --text <text>`. Run `S/queue.mjs <dir> unclaim --session <session id>`. End the turn.
    - `watch`: start `S/watch.mjs <dir> --session <session id>` with `run_in_background`. End the turn. Add `--until <until of the pause step>` only after a `pause` step. A plain `watch` step has no `--until`.
 3. When an Executor run ends (its task notification), run `queue sync`. The signal moves the task to `review`. Then a `dispatch-check` step follows.
-4. The tier word is `master`, `journeyman` or `apprentice`. Take it from `Suggested tier:` of the brief. For a `dispatch-check`, use `journeyman`, unless the brief names a higher tier for review.
+4. The tier word is `master`, `journeyman` or `apprentice`. Map `Suggested tier:` of the brief to `--tier` as it is. Do not raise it. For a `dispatch-check`, use `journeyman`, unless the brief names a higher tier for review.
 5. After each step, run `S/tick.mjs <dir> --json --session <session id>` again. After a `dispatch`, run `queue sync` on the next tick.
 6. When `watch` ends, run `tick --json` again. Exit code 3 means that the claim is lost. Then end the turn and send no message.
 7. The `/loop 30m` command of the user is the heartbeat only. It repeats the tick prompt. It does not replace the watch.
