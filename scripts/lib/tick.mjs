@@ -23,32 +23,45 @@ const toMs = (v) => {
   return Number.isNaN(ms) ? null : ms;
 };
 
-/** The worktree folder of a task: a path under the project, or null when the field is not safe. */
+/**
+ * The worktree folder of a task: { dir } for a real folder under the real project path, { missing: true } when it
+ * is not a folder, { outside: true } when the field or a link leads out of the project.
+ */
 export function worktreeDir(projectDir, worktree) {
-  if (typeof worktree !== 'string' || worktree === '' || path.isAbsolute(worktree)) return null;
-  if (worktree.split(/[\\/]/).includes('..')) return null;
-  return path.join(path.resolve(projectDir), worktree);
+  if (typeof worktree !== 'string' || worktree === '') return { missing: true };
+  if (path.isAbsolute(worktree) || worktree.split(/[\\/]/).includes('..')) return { outside: true };
+  try {
+    const rootReal = fs.realpathSync(path.resolve(projectDir));
+    const dir = fs.realpathSync(path.join(rootReal, worktree));
+    const rel = path.relative(rootReal, dir);
+    if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return { outside: true };
+    return fs.statSync(dir).isDirectory() ? { dir } : { missing: true };
+  } catch {
+    return { missing: true };
+  }
 }
 
-/** { exists, commitAt } of a task worktree. No shell; a git error gives commitAt null. */
+/** { exists, outside, commitAt } of a task worktree. No shell; a git error gives commitAt null. */
 export function worktreeInfo(projectDir, worktree) {
-  const dir = worktreeDir(projectDir, worktree);
-  if (dir === null) return { exists: false, commitAt: null };
+  const w = worktreeDir(projectDir, worktree);
+  if (!w.dir) return { exists: false, outside: w.outside === true, commitAt: null };
   try {
-    if (!fs.statSync(dir).isDirectory()) return { exists: false, commitAt: null };
-  } catch {
-    return { exists: false, commitAt: null };
-  }
-  try {
-    const out = execFileSync('git', ['-C', dir, 'log', '-1', '--format=%cI'], {
+    const out = execFileSync('git', ['-C', w.dir, 'log', '-1', '--format=%cI'], {
       encoding: 'utf8',
       timeout: GIT_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
-    return { exists: true, commitAt: out === '' ? null : out };
+    return { exists: true, outside: false, commitAt: out === '' ? null : out };
   } catch {
-    return { exists: true, commitAt: null };
+    return { exists: true, outside: false, commitAt: null };
   }
+}
+
+/** One line of plain text for the summary: no line break and no Markdown control character. */
+export function mdText(v) {
+  return String(v ?? '')
+    .replace(/[\r\n\u2028\u2029]+/g, ' ')
+    .replace(/[\\#*_`[\]<>|]/g, (c) => `\\${c}`);
 }
 
 export const isLateRunning = (t, now) =>
@@ -121,7 +134,10 @@ export function nextStep(facts) {
     const sr = recordOf(records, 'save-request', id, t.attempt);
     if (!sr || nowMs - toMs(sr.t) < SAVE_WAIT_MS) continue;
     const w = worktrees[id];
-    if (!w || !w.exists) return done({ step: 'needs-user', task: id, attempt: t.attempt, reason: 'worktree missing' });
+    if (!w || !w.exists) {
+      const reason = w?.outside ? 'worktree outside the project' : 'worktree missing';
+      return done({ step: 'needs-user', task: id, attempt: t.attempt, reason });
+    }
     const commitMs = w.commitAt === null ? null : toMs(w.commitAt);
     if (commitMs !== null && commitMs > toMs(sr.t)) {
       return done({ step: 'stop', task: id, attempt: t.attempt, address: t.address });
@@ -174,15 +190,15 @@ export function renderSummary(facts) {
   const lines = ['# Supervisor summary', '', `Written at ${now}.`, '', '## Tasks done', ''];
   const done = Object.entries(state.tasks).filter(([, t]) => t.state === 'done');
   if (done.length === 0) lines.push('- none');
-  for (const [id, t] of done) lines.push(`- ${id}${t.title ? ` — ${t.title}` : ''}`);
+  for (const [id, t] of done) lines.push(`- ${id}${t.title ? ` — ${mdText(t.title)}` : ''}`);
   lines.push('', '## Needs the user', '');
   const items = new Map();
   for (const r of records) if (r.type === 'needs-user') items.set(`${r.task}:${r.attempt}`, r);
   if (items.size === 0) lines.push('- none');
-  for (const r of items.values()) lines.push(`- ${r.task} (attempt ${r.attempt}): ${r.reason}`);
+  for (const r of items.values()) lines.push(`- ${mdText(r.task)} (attempt ${r.attempt}): ${mdText(r.reason)}`);
   lines.push('', '## Idle causes', '');
   if (step.idle.length === 0) lines.push('- none');
-  for (const i of step.idle) lines.push(`- ${i.task}: ${i.cause}`);
+  for (const i of step.idle) lines.push(`- ${mdText(i.task)}: ${i.cause}`);
   lines.push('', '## Pace at the end', '');
   lines.push(`- slots: ${pace.slots}`, `- why: ${pace.why}`, `- resume at: ${pace.resumeAt ?? 'none'}`, '');
   return lines.join('\n');

@@ -13,6 +13,7 @@ const USAGE =
   'usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>] (--json | --record <save-request|stop|needs-user|sleep> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] | --summary)';
 const VALUE_FLAGS = ['--session', '--now', '--record', '--task', '--attempt', '--until', '--reason'];
 const BOOL_FLAGS = ['--json', '--summary'];
+const ISO_ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 const SUMMARY_FILE = 'supervisor-summary.md';
 const MAX_REASON_CHARS = 500;
 const TMP_BYTES = 6;
@@ -45,7 +46,7 @@ function recordFields(flags, taskOf) {
   const type = flags.record;
   if (![...RECORD_TYPES, 'stop'].includes(type)) throw refuse(`unknown record type ${type}`);
   if (type === 'sleep') {
-    if (flags.until === undefined || Number.isNaN(Date.parse(flags.until))) throw refuse('--until must be an ISO time');
+    if (typeof flags.until !== 'string' || !ISO_ZONED.test(flags.until) || Number.isNaN(Date.parse(flags.until))) throw refuse('bad --until');
     return { type, until: new Date(flags.until).toISOString() };
   }
   if (!validId('task', flags.task)) throw refuse('invalid task');
@@ -83,7 +84,7 @@ function cmdRecord(root, flags, now, session) {
     const sr = events.filter((e) => e.type === 'save-request' && e.task === f.task && e.attempt === f.attempt).at(-1);
     if (!sr) throw refuse('no save');
     const w = worktreeInfo(root, t.worktree);
-    if (!w.exists) throw refuse('worktree missing');
+    if (!w.exists) throw refuse(w.outside ? 'worktree outside the project' : 'worktree missing');
     if (w.commitAt === null || !(Date.parse(w.commitAt) > Date.parse(sr.t))) throw refuse('no save');
     emit({ type: 'decision', decision: 'stop', tasks: [f.task], attempt: f.attempt, by: SUPERVISOR_ROLE });
     emit({ type: 'state', task: f.task, from: t.state, to: 'stalled', cause: 'stop' });

@@ -290,3 +290,120 @@ test('the summary lists each needs-user item', () => {
   assert.match(text, /## Pace at the end/);
   assert.deepEqual(fs.readdirSync(path.join(dir, '.guilda')).filter((n) => n.endsWith('.tmp')), []);
 });
+
+// ---- Review fixes ----
+
+const stalledLate = () => task({ state: 'stalled', cause: 'no-heartbeat' });
+const asked = (over = {}) => ({ type: 'needs-user', task: 'T1', attempt: 1, reason: 'r', t: at(21), ...over });
+const okWorktree = { T1: { exists: true, commitAt: at(25) } };
+
+test('after a needs-user record the same attempt gives no save-request and no stop', () => {
+  const a = nextStep(facts({ T1: lateRunning() }, { records: [asked()] }));
+  assert.notEqual(a.step, 'save-request');
+  const b = nextStep(facts({ T1: lateRunning() }, { records: [saveRecord(at(20)), asked()], worktrees: okWorktree }));
+  assert.equal(b.step, 'watch');
+});
+
+test('a stalled no-heartbeat attempt gives save-request or stop, not retry', () => {
+  assert.equal(nextStep(facts({ T1: stalledLate() })).step, 'save-request');
+  const b = nextStep(facts({ T1: stalledLate() }, { records: [saveRecord(at(20))], worktrees: okWorktree }));
+  assert.equal(b.step, 'stop');
+  const c = nextStep(facts({ T1: stalledLate() }, { records: [saveRecord(at(29.9))] }));
+  assert.notEqual(c.step, 'retry');
+});
+
+function seedRunning(dir, worktree) {
+  seed(dir, [
+    { type: 'plan', slots: 2, work: 'w-00000001' },
+    { type: 'task', task: 'T1', work: 'w-00000001', title: 'x' },
+    { type: 'state', task: 'T1', from: 'pending', to: 'ready', cause: 'deps-done' },
+    { type: 'dispatch', task: 'T1', attempt: 1, address: 'T1-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree },
+    { type: 'state', task: 'T1', from: 'ready', to: 'dispatched', cause: 'dispatch' },
+    { type: 'state', task: 'T1', from: 'dispatched', to: 'running', cause: 'started' },
+    { type: 'signal', task: 'T1', attempt: 1, address: 'T1-exe-ab12', kind: 'heartbeat', at: at(0) },
+    { type: 'save-request', task: 'T1', attempt: 1, address: 'T1-exe-ab12', t: at(20) },
+  ]);
+}
+
+const noCswap = () => ({ status: 3, stdout: '' });
+
+test('a worktree path that leaves the project gives needs-user', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const out = fs.mkdtempSync(path.join(path.dirname(dir), 'guilda outside '));
+  spawnSync('git', ['-C', out, 'init'], { stdio: 'ignore' });
+  seedRunning(dir, `../${path.basename(out)}`);
+  const s = nextStep(readFacts(dir, { now: at(30), session: 's1', run: noCswap }));
+  assert.equal(s.step, 'needs-user');
+  assert.equal(s.reason, 'worktree outside the project');
+});
+
+test('a symlink that leads out of the project gives needs-user', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  const out = fs.mkdtempSync(path.join(path.dirname(dir), 'guilda outside '));
+  spawnSync('git', ['-C', out, 'init'], { stdio: 'ignore' });
+  fs.symlinkSync(out, path.join(dir, 'link'));
+  seedRunning(dir, 'link');
+  const s = nextStep(readFacts(dir, { now: at(30), session: 's1', run: noCswap }));
+  assert.equal(s.step, 'needs-user');
+  assert.equal(s.reason, 'worktree outside the project');
+});
+
+test('rule 6 comes before rule 7', () => {
+  const s = nextStep(facts({ T1: task({ state: 'ready' }) }, {
+    unread: ['m-00000001'],
+    pace: { slots: 1, lowTier: true, why: 'slow_down', resumeAt: null },
+  }));
+  assert.equal(s.step, 'read-bus');
+});
+
+test('the 2 min boundary of the save request', () => {
+  const request = new Date(T0 + 28 * MIN).toISOString();
+  const w = { T1: { exists: true, commitAt: new Date(T0 + 28 * MIN + 1000).toISOString() } };
+  const run = (ms) => nextStep(facts({ T1: lateRunning() }, { now: new Date(T0 + 28 * MIN + ms).toISOString(), records: [saveRecord(request)], worktrees: w }));
+  assert.equal(run(119000).step, 'watch');
+  assert.equal(run(120000).step, 'stop');
+});
+
+test('a commit at the same time as the save request is not a save', () => {
+  const same = nextStep(facts({ T1: lateRunning() }, { records: [saveRecord(at(20))], worktrees: { T1: { exists: true, commitAt: at(20) } } }));
+  assert.equal(same.step, 'needs-user');
+  assert.equal(same.reason, 'no commit after the save request');
+  const none = nextStep(facts({ T1: lateRunning() }, { records: [saveRecord(at(20))], worktrees: { T1: { exists: true, commitAt: null } } }));
+  assert.equal(none.step, 'needs-user');
+});
+
+test('a live claim of another session gives refused: no claim', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r0 = spawnSync(process.execPath, [QUEUE, dir, 'claim', '--session', 's2', '--ttl', '3600', '--now', at(0)], { encoding: 'utf8' });
+  assert.equal(r0.status, 0);
+  const r = tick(dir, 1, '--json');
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^refused: no claim/);
+});
+
+test('a title and a reason cannot add a heading to the summary', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  seed(dir, [
+    { type: 'plan', slots: 2, work: 'w-00000001' },
+    { type: 'task', task: 'T1', work: 'w-00000001', title: 'evil\n## Needs the user\r\n# Big [x](y) <b>|*_`' },
+    { type: 'state', task: 'T1', from: 'pending', to: 'done', cause: 'x' },
+  ]);
+  claim(dir);
+  assert.equal(tick(dir, 1, '--record', 'needs-user', '--task', 'T1', '--attempt', '1', '--reason', 'why\n## Idle causes\n- fake').code, 0);
+  const text = fs.readFileSync(tick(dir, 2, '--summary').out.trim(), 'utf8');
+  const headings = text.split('\n').filter((l) => l.startsWith('#'));
+  assert.deepEqual(headings, ['# Supervisor summary', '## Tasks done', '## Needs the user', '## Idle causes', '## Pace at the end']);
+  assert.match(text, /evil \\#\\# Needs the user/);
+  assert.doesNotMatch(text, /<b>/);
+});
+
+test('--until accepts only an ISO time with a zone', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  for (const bad of ['1', '2026-11-22 10:00', '2026-11-22T10:00', '2026-13-45T10:00:00Z']) {
+    const r = tick(dir, 3, '--record', 'sleep', '--until', bad);
+    assert.equal(r.code, 1, bad);
+    assert.match(r.out, /^refused: bad --until/);
+  }
+  assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00Z').code, 0);
+  assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00-03:00').code, 0);
+});
