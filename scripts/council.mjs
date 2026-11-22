@@ -57,6 +57,9 @@ const NO_POSITION = 'none';
 const NO_APPROVAL = 'refused: no approval';
 // The user channel lock of the bus: the user records are in its file.
 const MAIN_LOCK = 'main';
+// The words of the approval text of `open` (Architect decision of 5h review).
+const YES_WORD = /(?<![\p{L}\p{N}])(approve|aprovo|sim|yes|ok)(?![\p{L}\p{N}])/iu;
+const COUNCIL_WORD = /(?<![\p{L}\p{N}])(council|conselho)(?![\p{L}\p{N}])/iu;
 
 const usage = (text) => new BusError(2, text);
 const refused = (text) => new BusError(1, `refused: ${text}`);
@@ -122,7 +125,7 @@ const makeLine = (council, from, type, fields) => ({
  * floor with its next `claim` or `call`. After a `deny`, and at the start, no member holds it (5h).
  */
 export function councilState(lines) {
-  const state = { create: null, opened: false, closed: false, decided: false, holder: null, openTime: null, claims: 0, byId: new Map() };
+  const state = { create: null, opened: false, closed: false, decided: false, holder: null, openTime: null, claims: 0, calls: 0, claimsBy: new Map(), answered: new Set(), byId: new Map() };
   for (const l of lines) {
     if (typeof l.id === 'string') state.byId.set(l.id, l);
     if (l.type === 'create' && state.create === null) {
@@ -133,10 +136,19 @@ export function councilState(lines) {
       state.opened = true;
       state.openTime ??= l.time;
     }
-    else if (l.type === 'floor' || l.type === 'grant') state.holder = l.to;
-    else if (l.type === 'deny') state.holder = null;
+    else if (l.type === 'floor' || l.type === 'grant') {
+      state.holder = l.to;
+      if (typeof l.call === 'string') state.answered.add(l.call);
+    }
+    else if (l.type === 'deny') {
+      state.holder = null;
+      if (typeof l.call === 'string') state.answered.add(l.call);
+    }
     else if (l.type === 'claim' || l.type === 'call') {
-      if (l.type === 'claim') state.claims += 1;
+      if (l.type === 'claim') {
+        state.claims += 1;
+        state.claimsBy.set(l.from, (state.claimsBy.get(l.from) ?? 0) + 1);
+      } else state.calls += 1;
       if (state.holder === l.from) state.holder = null;
     } else if (l.type === 'close') {
       state.closed = true;
@@ -219,7 +231,9 @@ function newCouncilName(root) {
 
 function cmdOpen(root, args, cwd, env) {
   const f = parseFlags(args, ['--question', '--members', '--format', '--record', '--max-rounds']);
-  approved(root, f, env);
+  const approval = approved(root, f, env);
+  // The approval text has a yes word and a council word, so a "no" or an unrelated answer cannot open a council.
+  if (!YES_WORD.test(approval.text) || !COUNCIL_WORD.test(approval.text)) throw refused('no council approval');
   const questionFile = typeof f.question === 'string' && f.question !== '' ? path.resolve(cwd, f.question) : null;
   if (questionFile === null) throw usage('bad question');
   let question;
@@ -276,11 +290,14 @@ function checkJudgeLine(type, f, state) {
     fields.to = to;
   }
   if ((type === 'floor' || type === 'grant') && state.claims >= maxRounds * members.length) throw refused('round limit');
+  if ((type === 'floor' || type === 'grant') && (state.claimsBy.get(fields.to) ?? 0) >= maxRounds) throw refused('round limit');
   if (type === 'grant' || type === 'deny') {
-    if (f.call !== undefined) {
-      if (!COUNCIL_ID.test(f.call) || state.byId.get(f.call)?.type !== 'call') throw usage('bad call');
-      fields.call = f.call;
+    // The call must be in this council, have no answer yet, and ask the member that the Judge names (5h review).
+    const call = typeof f.call === 'string' ? state.byId.get(f.call) : undefined;
+    if (!COUNCIL_ID.test(f.call ?? '') || call?.type !== 'call' || state.answered.has(f.call) || call.to !== fields.to) {
+      throw refused('no call');
     }
+    fields.call = f.call;
   }
   if (type === 'close') {
     const given = new Map();
@@ -311,7 +328,10 @@ function checkJudgeLine(type, f, state) {
 
 function checkFloorLine(root, type, from, f, state, env) {
   if (state.holder !== from) throw refused('no floor');
-  const { members } = state.create;
+  const { members, maxRounds } = state.create;
+  // A member claims maxRounds times at most, and the council holds maxRounds x members calls at most (U5-9).
+  if (type === 'claim' && (state.claimsBy.get(from) ?? 0) >= maxRounds) throw refused('round limit');
+  if (type === 'call' && state.calls >= maxRounds * members.length) throw refused('round limit');
   if (type === 'call') {
     const to = member(f, 'to');
     if (!members.includes(to) || to === from) throw usage('bad to');
@@ -436,7 +456,11 @@ function cmdRecord(root, args, cwd) {
   if (f.register !== undefined) {
     const file = registerTarget(root, cwd, f.register);
     try {
-      fs.appendFileSync(file, `${entry.join('\n')}\n`);
+      // One entry for each council: a second run finds the heading and writes nothing.
+      const have = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+      if (!have.split('\n').some((l) => l.startsWith(`${entry[0].split(' — ')[0]} — `))) {
+        fs.appendFileSync(file, `${entry.join('\n')}\n`);
+      }
     } catch {
       throw usage('bad register');
     }

@@ -50,7 +50,7 @@ test('council skill: a member of an open council passes; others and a closed cou
   const refused = (r) => JSON.parse(r.stdout).hookSpecificOutput.permissionDecision === 'deny';
   // No council yet: the AI lead is not a member.
   assert.equal(refused(runHook(HOOK, call('guilda:council', 'guilda:ai-lead'), dir)), true);
-  const rec = writeUserRecord(dir, { session: 's1', kind: 'answer', text: 'yes', question: null }, env);
+  const rec = writeUserRecord(dir, { session: 's1', kind: 'answer', text: 'yes, open the council', question: null }, env);
   const opened = council(
     ['open', '--question', 'q.md', '--members', 'architect,guilda:ai-lead', '--format', 'debate', '--record', rec.id],
     { cwd: dir, env },

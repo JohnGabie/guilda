@@ -25,7 +25,7 @@ function setup() {
 }
 
 /** One user record that `verify` accepts. */
-function userRecord(ctx, text = 'Yes, open it.') {
+function userRecord(ctx, text = 'Yes, open the council.') {
   const rec = writeUserRecord(ctx.dir, { session: 's1', kind: 'answer', text, question: 'open the council?' }, ctx.env);
   assert.ok(rec, 'record written');
   return rec.id;
@@ -196,7 +196,7 @@ test('S5-45 judge lines: grant, deny, refusals and read --last', () => {
   const callId = JSON.parse(call.lines[0]).id;
   assert.deepEqual(say(ctx, id, SEC, 'grant', '--to', SEC).lines, ['refused: not the Judge']);
   assert.equal(say(ctx, id, SEC, 'claim', ...claimArgs).lines[0], 'refused: no floor');
-  assert.equal(judge(ctx, id, 'grant', '--to', SEC, '--call', 'c-00000000').code, 2);
+  assert.equal(judge(ctx, id, 'grant', '--to', SEC, '--call', 'c-00000000').lines[0], 'refused: no call');
   assert.equal(judge(ctx, id, 'grant', '--to', SEC, '--call', callId).code, 0);
   assert.equal(say(ctx, id, SEC, 'claim', ...claimArgs).code, 0);
   assert.equal(say(ctx, id, SEC, 'claim', ...claimArgs).lines[0], 'refused: no floor');
@@ -282,7 +282,7 @@ test('close needs the last claim of each lead; the decision needs the user recor
   const register = path.join(ctx.dir, 'register.md');
   assert.equal(run(ctx, 'record', '--id', id, '--register', register).code, 0);
   assert.equal(run(ctx, 'record', '--id', id, '--register', register).code, 0);
-  assert.equal(fs.readFileSync(register, 'utf8').split('### Council').length, 3);
+  assert.equal(fs.readFileSync(register, 'utf8').split('### Council').length, 2);
   assert.equal(run(ctx, 'record', '--id', id, '--register', path.join(ctx.dir, '.guilda', 'bus', 'x.md')).code, 2);
 });
 
@@ -332,7 +332,7 @@ test('a user record opens one council, and makes one claim or decision in one co
   // The record of an open cannot make a claim or a decision in another council.
   const other = started(ctx, `${ARCH},${SEC},user`);
   judge(ctx, other, 'floor', '--to', 'user');
-  assert.deepEqual(say(ctx, other, 'user', 'claim', '--claim', 'Yes, open it.', '--record', rec).lines, ['refused: record already used']);
+  assert.deepEqual(say(ctx, other, 'user', 'claim', '--claim', 'Yes, open the council.', '--record', rec).lines, ['refused: record already used']);
   // A record that decided one council cannot decide another.
   const id = other;
   const c = JSON.parse(say(ctx, id, 'user', 'claim', '--claim', 'Keep it.', '--record', userRecord(ctx, 'Keep it.')).lines[0]).id;
@@ -440,4 +440,61 @@ test('appendLine under the lock keeps two writers in order', () => {
   const id = started(ctx);
   withMailboxLock(ctx.dir, id, () => appendLine(ctx.dir, id, { v: 1, id: 'c-00000001', council: id, from: 'x', type: 'note', time: 't' }));
   assert.equal(raw(ctx, id).at(-1).id, 'c-00000001');
+});
+
+// Review: the approval words, the call check, the rounds for each member.
+test('open needs a yes word and a council word in the record text', () => {
+  const ctx = setup();
+  const base = ['open', '--question', 'q.md', '--members', `${ARCH},${SEC}`, '--format', 'debate', '--record'];
+  for (const text of ['No, do not open the council.', 'Yes, go on.', 'Open the council.', 'okay conselho', 'nobody council']) {
+    const r = run(ctx, ...base, userRecord(ctx, text));
+    assert.deepEqual([r.code, r.lines], [1, ['refused: no council approval']], text);
+  }
+  for (const text of ['Sim, abra o conselho', 'I approve the council', 'ok council']) {
+    assert.equal(run(ctx, ...base, userRecord(ctx, text)).code, 0, text);
+  }
+  assert.equal(fs.readdirSync(path.join(ctx.dir, '.guilda', 'bus')).filter((f) => /^council-[0-9a-f]{4}\.jsonl$/.test(f)).length, 3);
+});
+
+test('grant and deny need a call of this council with no answer yet, for the member that the Judge names', () => {
+  const ctx = setup();
+  const id = started(ctx, `${ARCH},${SEC},${DEVOPS}`);
+  const other = started(ctx, `${ARCH},${SEC},${DEVOPS}`);
+  judge(ctx, other, 'floor', '--to', ARCH);
+  const foreign = JSON.parse(say(ctx, other, ARCH, 'call', '--to', SEC).lines[0]).id;
+  judge(ctx, id, 'floor', '--to', ARCH);
+  const call = JSON.parse(say(ctx, id, ARCH, 'call', '--to', SEC).lines[0]).id;
+  const floorId = raw(ctx, id).find((l) => l.type === 'floor').id;
+  for (const args of [['--to', SEC], ['--to', SEC, '--call', foreign], ['--to', SEC, '--call', floorId], ['--to', DEVOPS, '--call', call]]) {
+    for (const type of ['grant', 'deny']) assert.deepEqual(judge(ctx, id, type, ...args).lines, ['refused: no call'], `${type} ${args}`);
+  }
+  assert.equal(judge(ctx, id, 'grant', '--to', SEC, '--call', call).code, 0);
+  // The call has its answer now.
+  assert.deepEqual(judge(ctx, id, 'deny', '--to', SEC, '--call', call).lines, ['refused: no call']);
+  assert.deepEqual(judge(ctx, id, 'grant', '--to', SEC, '--call', call).lines, ['refused: no call']);
+});
+
+test('one member cannot use all the rounds, and a call and grant loop ends', () => {
+  const ctx = setup();
+  const id = started(ctx, `${ARCH},${SEC}`);
+  for (let i = 0; i < 3; i++) {
+    assert.equal(judge(ctx, id, 'floor', '--to', SEC).code, 0);
+    assert.equal(say(ctx, id, SEC, 'claim', ...claimArgs).code, 0);
+  }
+  assert.deepEqual(judge(ctx, id, 'floor', '--to', SEC).lines, ['refused: round limit']);
+  assert.equal(judge(ctx, id, 'floor', '--to', ARCH).code, 0);
+  assert.equal(say(ctx, id, ARCH, 'claim', ...claimArgs).code, 0);
+
+  const r = run(ctx, 'open', '--question', 'q.md', '--members', `${ARCH},${SEC}`, '--format', 'debate', '--record', userRecord(ctx), '--max-rounds', '1');
+  const c = r.lines[0];
+  judge(ctx, c, 'open');
+  judge(ctx, c, 'floor', '--to', ARCH);
+  let from = ARCH;
+  let to = SEC;
+  for (let i = 0; i < 2; i++) {
+    const call = JSON.parse(say(ctx, c, from, 'call', '--to', to).lines[0]).id;
+    assert.equal(judge(ctx, c, 'grant', '--to', to, '--call', call).code, 0);
+    [from, to] = [to, from];
+  }
+  assert.deepEqual(say(ctx, c, from, 'call', '--to', to).lines, ['refused: round limit']);
 });
