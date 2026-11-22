@@ -24,6 +24,7 @@ export const REASONS = Object.freeze({
   envFile: 'R37: a .env file outside a fixtures folder.',
   glob: 'R37: a glob word needs a fixed prefix inside the project.',
   write: 'R37: a protected folder or file (.git, .guilda, .claude, .husky, .vscode, .idea, .envrc, .npmrc, .pypirc, a shell profile).',
+  sandbox: 'R37: a Bash call that sets dangerouslyDisableSandbox is not allowed.',
   failed: 'R37: the guard could not check the call (X9).',
 });
 
@@ -94,7 +95,17 @@ function makeContext(projectDir, input, env) {
   const roots = [];
   for (const candidate of [path.resolve(projectDir), gitTop(cwdRaw)]) {
     const real = candidate === null ? null : safeReal(candidate);
-    if (real !== null && !roots.includes(real)) roots.push(real);
+    if (real === null || roots.includes(real)) continue;
+    // A root inside a protected folder of the project is only a task worktree of the supervisor:
+    // .guilda/worktrees/<dir> or .claude/worktrees/<dir>. Any other folder there is not a root.
+    const first = roots[0];
+    if (first !== undefined && inside(real, first)) {
+      const rel = path.relative(first, real).split(path.sep);
+      const inProtected = rel.slice(0, -1).some((seg) => PROTECTED_FOLDERS.has(seg)) || PROTECTED_FOLDERS.has(rel[rel.length - 1]);
+      const isWorktree = rel.length === 3 && ['.guilda', '.claude'].includes(rel[0]) && rel[1] === 'worktrees';
+      if (inProtected && !isWorktree) continue;
+    }
+    roots.push(real);
   }
   if (roots.length === 0) refuse(REASONS.failed);
   const cwd = safeReal(cwdRaw);
@@ -110,8 +121,13 @@ function makeContext(projectDir, input, env) {
   return { cwd, home, roots, gitDirs, credDirs: credDirs.flatMap((d) => [d, safeReal(d)]).filter(Boolean) };
 }
 
+/** The most specific root that holds the path (a task worktree inside .guilda wins over the project), or undefined. */
+function rootOf(real, ctx) {
+  return ctx.roots.filter((r) => inside(real, r)).sort((a, b) => b.length - a.length)[0];
+}
+
 function inFixtures(real, ctx) {
-  const root = ctx.roots.find((r) => inside(real, r));
+  const root = rootOf(real, ctx);
   if (!root) return false;
   return path.relative(root, real).split(path.sep).slice(0, -1).includes('fixtures');
 }
@@ -134,6 +150,8 @@ function checkPath(text, glob, ctx, { write = false } = {}) {
   let target = t;
   if (glob >= 0) {
     if (t.split('/').includes('..') || t.includes('/../')) refuse(REASONS.glob);
+    // A literal part of the glob that names a protected folder or file (`*/.git/config`) is refused.
+    if (t.split('/').some((part) => !/[*?[]/.test(part) && PROTECTED_NAMES.includes(part))) refuse(REASONS.write);
     const prefix = t.slice(0, glob);
     const slash = prefix.lastIndexOf('/');
     const dirPart = slash < 0 ? '.' : prefix.slice(0, slash + 1);
@@ -151,7 +169,8 @@ function checkPath(text, glob, ctx, { write = false } = {}) {
   const base = path.basename(real);
   if (glob < 0 && base.startsWith('.env') && !inFixtures(real, ctx)) refuse(REASONS.envFile);
   {
-    const folder = ctx.roots.some((r) => inside(real, r) && path.relative(r, real).split(path.sep).some((seg) => PROTECTED_FOLDERS.has(seg)));
+    const root = rootOf(real, ctx);
+    const folder = root !== undefined && path.relative(root, real).split(path.sep).some((seg) => PROTECTED_FOLDERS.has(seg));
     const gitDir = ctx.gitDirs.some((d) => inside(real, d));
     if (folder || gitDir || PROTECTED_FILES.has(base)) refuse(REASONS.write);
   }
@@ -415,6 +434,7 @@ function checkCommand(cmd, ctx) {
 function checkBash(input, ctx) {
   const command = input.tool_input?.command;
   if (typeof command !== 'string') refuse(REASONS.failed);
+  if (input.tool_input && 'dangerouslyDisableSandbox' in input.tool_input) refuse(REASONS.sandbox);
   for (const cmd of lex(command)) checkCommand(cmd, ctx);
 }
 

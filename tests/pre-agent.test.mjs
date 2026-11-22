@@ -534,6 +534,20 @@ test('U5-8: no settings file, a sandbox that is off and a bad JSON refuse, and t
   }
 });
 
+test('U5-8: true with false refuses (in both orders); true with an absent file passes', async () => {
+  for (const [a, b] of [['settings.json', 'settings.local.json'], ['settings.local.json', 'settings.json']]) {
+    const dir = sxDir(SANDBOX_ON, a);
+    fs.writeFileSync(path.join(dir, '.claude', b), '{"sandbox":{"enabled":false}}');
+    assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), SANDBOX_TEXT, `${a} true, ${b} false`);
+    fs.writeFileSync(path.join(dir, '.claude', b), '{"sandbox":{"enabled":"yes"}}');
+    assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), SANDBOX_TEXT, `${b} string`);
+    fs.writeFileSync(path.join(dir, '.claude', b), '{"other":1}');
+    assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), null, `${b} with no sandbox key`);
+  }
+  const dir = sxDir(SANDBOX_ON);
+  assert.equal(sxReason(dir, sxBrief('auth', await userRecord(dir))), null);
+});
+
 test('U5-8: enabled in settings.json or in settings.local.json passes; a bad file refuses even if the other is on', async () => {
   for (const name of ['settings.json', 'settings.local.json']) {
     const dir = sxDir(SANDBOX_ON, name);

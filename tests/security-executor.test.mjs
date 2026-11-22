@@ -35,6 +35,7 @@ const TEXT = {
   envFile: 'R37: a .env file outside a fixtures folder.',
   glob: 'R37: a glob word needs a fixed prefix inside the project.',
   write: 'R37: a protected folder or file (.git, .guilda, .claude, .husky, .vscode, .idea, .envrc, .npmrc, .pypirc, a shell profile).',
+  sandbox: 'R37: a Bash call that sets dangerouslyDisableSandbox is not allowed.',
   failed: 'R37: the guard could not check the call (X9).',
 };
 
@@ -194,6 +195,10 @@ const REFUSED = [
   ['eslint --output-file=.guilda/x', 'eslint --output-file=.guilda/x src', 'write'],
   ['a glob that can match .guilda', 'cat .gu*', 'write'],
   ['a glob that can match .git', 'ls .g*', 'write'],
+  ['a glob with a .git part', 'cat */.git/config', 'write'],
+  ['a glob with a .git part, cp', 'cp x */.git/hooks/', 'write'],
+  ['a glob with a .guilda part', 'cat src/*/.guilda/x', 'write'],
+  ['a glob with a .claude part', 'ls **/.claude/*', 'write'],
   ['a glob inside .guilda', 'cat .guilda/*', 'write'],
   ['write into .git', 'cp src/a.js .git/hooks/pre-commit', 'write'],
   ['write into .git by mv', 'mv src/a.js .git/config', 'write'],
@@ -299,6 +304,69 @@ test('agent_type is matched in lower case with the spaces cut; other types are u
   }
   assert.equal(redteamGuard(dir, null, ENV), null);
   assert.equal(redteamGuard(dir, 'x', ENV), null);
+});
+
+test('a Bash input with dangerouslyDisableSandbox is refused, for any value', () => {
+  for (const value of [true, false, 'yes', 0, null]) {
+    const input = call('Bash', { command: 'ls', dangerouslyDisableSandbox: value });
+    assert.deepEqual(guard(input), { reason: TEXT.sandbox }, String(value));
+    assert.equal(guard({ ...input, agent_type: 'guilda:executor' }), null);
+  }
+});
+
+// A task worktree of the supervisor lives under .guilda/worktrees/<dir> or .claude/worktrees/<dir>.
+const git = (cwd, ...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], { cwd });
+git(dir, 'commit', '-q', '--allow-empty', '-m', 'x');
+fs.mkdirSync(path.join(dir, '.guilda', 'worktrees'), { recursive: true });
+fs.mkdirSync(path.join(dir, '.claude', 'worktrees'), { recursive: true });
+const WT = [
+  path.join(dir, '.guilda', 'worktrees', 't1-1'),
+  path.join(dir, '.claude', 'worktrees', 't2-1'),
+];
+for (const wt of WT) git(dir, 'worktree', 'add', '-q', wt, '-b', `b-${path.basename(path.dirname(path.dirname(wt)))}-${path.basename(wt)}`);
+
+for (const wt of WT) {
+  const where = path.relative(dir, wt);
+  const wcall = (tool, input) => redteamGuard(dir, { tool_name: tool, tool_input: input, agent_type: SX, cwd: wt }, ENV);
+  const wbash = (command) => wcall('Bash', { command });
+  test(`worktree ${where}: a write inside it passes`, () => {
+    fs.mkdirSync(path.join(wt, 'src'), { recursive: true });
+    assert.equal(wcall('Write', { file_path: path.join(wt, 'src', 'sec.test.js'), content: 'x' }), null);
+    assert.equal(wcall('Edit', { file_path: path.join(wt, 'src', 'sec.test.js'), old_string: 'a', new_string: 'b' }), null);
+    assert.equal(wcall('Read', { file_path: path.join(wt, 'src', 'sec.test.js') }), null);
+    for (const command of ['ls', 'cat src/sec.test.js > out.txt', 'touch src/n.txt', 'cp src/sec.test.js src/b.js', 'git status', 'node --test src/']) {
+      assert.equal(wbash(command), null, command);
+    }
+  });
+  test(`worktree ${where}: .guilda of the project stays refused`, () => {
+    const refuse = (r) => assert.deepEqual(r, { reason: TEXT.write });
+    refuse(wcall('Write', { file_path: path.join(dir, '.guilda', 'queue', 'journal.jsonl'), content: 'x' }));
+    refuse(wcall('Read', { file_path: path.join(dir, '.guilda', 'bus', 'user.jsonl') }));
+    refuse(wbash(`cat src/sec.test.js > ${dir}/.guilda/queue/x`));
+    refuse(wbash('cat ../../queue/journal.jsonl'));
+    refuse(wbash('touch ../../../.guilda/x'));
+    // Another worktree of the project is not this one.
+    refuse(wcall('Write', { file_path: path.join(dir, '.guilda', 'worktrees', 'other-1', 'a.js'), content: 'x' }));
+    refuse(wcall('Write', { file_path: path.join(dir, '.guilda', 'worktrees', 'other-1', 'a.js'), content: 'x' }));
+  });
+  test(`worktree ${where}: its own .git and the protected names inside it stay refused`, () => {
+    const refuse = (r) => assert.deepEqual(r, { reason: TEXT.write });
+    refuse(wcall('Write', { file_path: path.join(wt, '.git'), content: 'x' }));
+    refuse(wbash('touch .git'));
+    refuse(wbash('cat src/sec.test.js > .git'));
+    refuse(wcall('Write', { file_path: path.join(wt, '.husky', 'pre-commit'), content: 'x' }));
+    refuse(wcall('Write', { file_path: path.join(wt, '.claude', 'settings.json'), content: 'x' }));
+    refuse(wcall('Edit', { file_path: path.join(dir, '.git', 'hooks', 'pre-commit'), old_string: 'a', new_string: 'b' }));
+    refuse(wbash('ls */.git/*'));
+  });
+}
+
+test('a git folder inside .guilda that is not a worktree is not a root', () => {
+  const fake = path.join(dir, '.guilda', 'fake-root');
+  fs.mkdirSync(fake, { recursive: true });
+  spawnSync('git', ['init', '-q'], { cwd: fake });
+  const input = { tool_name: 'Write', tool_input: { file_path: path.join(fake, 'a.js'), content: 'x' }, agent_type: SX, cwd: fake };
+  assert.deepEqual(redteamGuard(dir, input, ENV), { reason: TEXT.write });
 });
 
 test('a reason holds no command text', () => {

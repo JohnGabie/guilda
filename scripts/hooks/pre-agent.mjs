@@ -146,7 +146,10 @@ function sandboxOn(projectDir) {
       return false;
     }
     try {
-      if (JSON.parse(text)?.sandbox?.enabled === true) on = true;
+      const enabled = JSON.parse(text)?.sandbox?.enabled;
+      // A file that sets anything other than true turns the gate off, even when the other file sets true.
+      if (enabled !== undefined && enabled !== true) return false;
+      if (enabled === true) on = true;
     } catch {
       return false;
     }
