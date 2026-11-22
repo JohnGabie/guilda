@@ -1192,7 +1192,7 @@ test('S5-14: cswap switch and cswap list are refused with R38; cswap budget pass
     assert.equal(rec.level, 'law');
     assert.ok(!JSON.stringify(rec).includes('cswap'), 'no command text');
   }
-  for (const command of ['cswap budget --json', 'cswap budget', 'echo hello', 'find . -name x']) assertAllow(bash(dir, command));
+  for (const command of ['cswap budget --json', 'cswap budget', '/usr/local/bin/cswap budget --json', '~/.local/bin/cswap budget', 'cswap budget --json | jq .advice', 'echo hello', 'find . -name x']) assertAllow(bash(dir, command));
   // An agent is refused the same way.
   const agent = runHook(SCRIPT, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'cswap list' }, cwd: dir, agent_id: 'a-1', agent_type: 'guilda:executor' }, dir);
   assert.equal(assertDeny(agent), R38_REASON);
@@ -1239,6 +1239,20 @@ test('R38 wrapper forms are refused', () => {
     'cswap ls',
     '/opt/bin/cswap switch 2',
     "cswap 'switch' 2",
+    '~/.local/bin/cs?ap l?st',
+    '[c]swap list',
+    'c*p switch 1',
+    '/usr/local/bin/c[s]wap switch 2',
+    '{cswap,x} list',
+    'cswap budget; cswap list',
+    'cswap budget --json | cswap list',
+    'cswap budget --json && cswap switch 1',
+    'cswap budget extra',
+    'cswap budget --json > out.txt',
+    'cswap $(echo budget)',
+    'cswap budget --json | $(which cswap) list',
+    'cs\\\nwap list',
+    'cs\\\r\nwap switch 1',
   ]) assert.equal(assertDeny(bash(dir, command)), R38_REASON, command);
 });
 

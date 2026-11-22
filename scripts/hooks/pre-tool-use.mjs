@@ -305,18 +305,71 @@ function innerText(rest) {
   return rest[at] !== undefined ? rest[at] : null;
 }
 
-// R38: a fail-closed text rule. The flat text of the command (quotes and escapes removed, as for R34) names cswap,
-// and it has an account word, a shell expansion, or a package runner. A false refusal is accepted.
-const CSWAP_WORD = /(?:^|[^A-Za-z0-9_.-])cswap(?![A-Za-z0-9_-])/;
-const CSWAP_ACCOUNT_WORD = /(?:^|[^A-Za-z0-9_-])(?:switch|list|ls)(?![A-Za-z0-9_-])/;
-const CSWAP_EXPANSION = /[$`]/;
-const CSWAP_RUNNER = /(?:^|[^A-Za-z0-9_-])(?:npx|bunx|pnpm\s+dlx)(?![A-Za-z0-9_-]).*cswap/;
+// R38: an allow list on the text. A command passes only when no word of it is `cswap`, a path that ends in /cswap, or a
+// glob that can match one of them. The one exception is the exact command `cswap budget` or `cswap budget --json`
+// (with an optional path to cswap, and no $ or backtick), alone or as the first part of a pipe. A false refusal is
+// accepted. Accepted limit (as R32): a binary copied under another name, and an interpreter that builds the name at
+// run time (node -e, python3 -c, a script file made with Write), are not seen.
+const BUDGET_COMMAND = /^(?:[A-Za-z0-9_.~+\/-]*\/)?cswap\s+budget(?:\s+--json)?$/;
+const WORD_SPLIT = /[\s;&|()<>=:,`$]+/;
+// The same split that keeps a comma, so a brace group like {cswap,x} stays one glob word.
+const GLOB_WORD_SPLIT = /[\s;&|()<>=:`$]+/;
+const GLOB_SIGN =/[*?[{]/;
 
-/** True when a shell command can run `cswap switch` or `cswap list` (R38). */
-function runsCswapAccountCommand(command) {
-  const flat = plain(command);
-  if (!CSWAP_WORD.test(flat)) return false;
-  return CSWAP_ACCOUNT_WORD.test(flat) || CSWAP_EXPANSION.test(flat) || CSWAP_RUNNER.test(flat);
+/** The regex of a shell glob, anchored. A brace group with a comma is an alternation; other braces are literal. */
+function globRegex(glob) {
+  let out = '';
+  let depth = 0;
+  for (let i = 0; i < glob.length; i += 1) {
+    const ch = glob[i];
+    if (ch === '*') out += '.*';
+    else if (ch === '?') out += '.';
+    else if (ch === '[') {
+      const end = glob.indexOf(']', i + 2);
+      if (end < 0) out += '\\[';
+      else {
+        const body = glob.slice(i + 1, end).replace(/^[!^]/, '^').replace(/\\/g, '\\\\');
+        out += `[${body}]`;
+        i = end;
+      }
+    } else if (ch === '{' && glob.indexOf('}', i) > i && glob.slice(i, glob.indexOf('}', i)).includes(',')) {
+      out += '(?:';
+      depth += 1;
+    } else if (ch === '}' && depth > 0) {
+      out += ')';
+      depth -= 1;
+    } else if (ch === ',' && depth > 0) out += '|';
+    else out += ch.replace(/[.+^$()|\\\]{}]/g, '\\$&');
+  }
+  return new RegExp(`^${out}$`);
+}
+
+/** True when a word is cswap, a path that ends in /cswap, or a glob that can match one of them. */
+function namesCswap(word) {
+  if (word === 'cswap' || word.endsWith('/cswap')) return true;
+  if (!GLOB_SIGN.test(word)) return false;
+  const last = word.slice(word.lastIndexOf('/') + 1);
+  try {
+    return globRegex(word).test('cswap') || globRegex(last).test('cswap');
+  } catch {
+    return true; // a glob that cannot be read fails closed
+  }
+}
+
+const mentionsCswap = (text) => {
+  const flat = plain(text);
+  return [WORD_SPLIT, GLOB_WORD_SPLIT].some((re) => flat.split(re).some((w) => w !== '' && namesCswap(w)));
+};
+
+/** True when a shell command must be refused by R38. */
+function runsCswapAccountCommand(raw) {
+  // A backslash-newline pair joins two lines, so \`cs\\<newline>wap\` is the word cswap.
+  const command = raw.replace(/\\\r?\n/g, '');
+  if (!mentionsCswap(command)) return false;
+  if (/[$`]/.test(command)) return true;
+  const parts = command.trim().split(/(?<!\|)\|(?!\|)/);
+  if (!BUDGET_COMMAND.test(parts[0].trim())) return true;
+  return mentionsCswap(parts.slice(1).join(' '));
 }
 
 const isBusScript = (word) => path.basename(word.replace(/\\/g, '/')) === BUS_SCRIPT;
@@ -542,10 +595,19 @@ async function main(input) {
   // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
   if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
   // R38: the account commands are refused in each folder, also one with no .guilda folder.
-  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && runsCswapAccountCommand(toolInput.command)) {
-    record('R38', 'usage account command refused');
-    deny('R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts');
-    return 0;
+  // An error inside the check denies the call.
+  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string') {
+    let refused;
+    try {
+      refused = runsCswapAccountCommand(toolInput.command);
+    } catch {
+      refused = true;
+    }
+    if (refused) {
+      record('R38', 'usage account command refused');
+      deny('R38: read usage only (cswap budget or the cswap MCP tools); never switch or list accounts');
+      return 0;
+    }
   }
   if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
 
