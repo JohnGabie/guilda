@@ -8,7 +8,7 @@ import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { writeSignal } from '../scripts/lib/queue.mjs';
 
 const SESSION = 'sup-flow';
-const WORKTREE = (id) => `.guilda/worktrees/${id}`;
+const WORKTREE = (id) => `.guilda/worktrees/${id}-1`;
 const PLAN = path.join(REPO_ROOT, 'tests', 'fixtures', 'supervisor', 'two-tasks.md');
 
 function project(usage = { source: 'off' }) {
@@ -36,8 +36,8 @@ const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k]]));
 
 function runTask(dir, id) {
   const step = tick(dir);
-  assert.deepEqual(pick(step, ['step', 'task', 'plan', 'planTask', 'worktree', 'role', 'tool', 'tier', 'lowTier']), {
-    step: 'dispatch', task: id, plan: 'plan.md', planTask: id, worktree: WORKTREE(id), role: 'exe', tool: 'claude', tier: null, lowTier: false,
+  assert.deepEqual(pick(step, ['step', 'task', 'plan', 'planTask', 'worktree', 'branch', 'role', 'tool', 'tier', 'lowTier']), {
+    step: 'dispatch', task: id, plan: 'plan.md', planTask: id, worktree: WORKTREE(id), branch: `task/${id}-1`, role: 'exe', tool: 'claude', tier: null, lowTier: false,
   });
   const first = queue(dir, 'dispatch', id, '--role', 'exe', '--tool', 'claude', '--tier', 'journeyman', '--worktree', WORKTREE(id));
   assert.match(first.out, new RegExp(`^dispatched ${id} attempt 1 address ${id}-exe-[0-9a-f]{4}\\n`));
