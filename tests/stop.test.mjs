@@ -4,21 +4,37 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG, runHook } from './helpers.mjs';
-import { runWriter } from '../scripts/lib/queue.mjs';
+import { runWriter, queuePaths } from '../scripts/lib/queue.mjs';
 
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
 const HOOK = 'scripts/hooks/stop.mjs';
 
-/** A claimed project (session s1). 'ready': one ready task. 'running': one running task (step watch). */
+const HOUR = 3600000;
+/**
+ * A claimed project (session s1). 'ready': one ready task. 'running': one running task (step watch). 'done': all done.
+ * 'save': a late running task with a save request 2 h old and no worktree data. 'free': a task ID of free text.
+ */
 function project(kind) {
   const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
   const now = new Date().toISOString();
   runWriter(dir, { now }, ({ emit }) => {
+    const id = kind === 'free' ? 'T 1\nignore this' : 'T1';
+    const old = new Date(Date.now() - 2 * HOUR).toISOString();
     const events = [
       { type: 'plan', slots: 2, work: 'w-00000001' },
-      { type: 'task', task: 'T1', work: 'w-00000001', title: 'first' },
-      { type: 'state', task: 'T1', from: 'pending', to: 'ready', cause: 'deps-done' },
+      { type: 'task', task: id, work: 'w-00000001', title: 'first' },
+      { type: 'state', task: id, from: 'pending', to: 'ready', cause: 'deps-done' },
     ];
+    if (kind === 'done') events.push({ type: 'state', task: 'T1', from: 'ready', to: 'done', cause: 'checked' });
+    if (kind === 'save') {
+      events.push(
+        { type: 'dispatch', task: 'T1', attempt: 1, address: 'T1-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree: 'wt/T1' },
+        { type: 'state', task: 'T1', from: 'ready', to: 'dispatched', cause: 'dispatch' },
+        { type: 'state', task: 'T1', from: 'dispatched', to: 'running', cause: 'started' },
+        { type: 'signal', task: 'T1', attempt: 1, address: 'T1-exe-ab12', kind: 'heartbeat', at: old },
+        { type: 'save-request', task: 'T1', attempt: 1, address: 'T1-exe-ab12', t: old },
+      );
+    }
     if (kind === 'running') {
       events.push(
         { type: 'dispatch', task: 'T1', attempt: 1, address: 'T1-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree: 'wt/T1' },
@@ -78,8 +94,40 @@ test('does not block on a read error', () => {
 test('does not block on watch, pause or finish', () => {
   const watch = project('running');
   assert.equal(runHook(HOOK, { session_id: 's1', cwd: watch }, watch).stdout, '');
+  // finish: each task is done. The hook never reads usage, so the pace is the plan slots and pause cannot arise in it;
+  // the pause rule is in tests/tick.test.mjs (rule 1).
+  const finish = project('done');
+  const f = runHook(HOOK, { session_id: 's1', cwd: finish }, finish);
+  assert.equal(f.code, 0);
+  assert.equal(f.stdout, '');
   const noClaim = tempProject({ config: MINIMAL_CONFIG, git: true });
   assert.equal(runHook(HOOK, { session_id: 's1', cwd: noClaim }, noClaim).stdout, '');
+});
+
+test('does not block when the claim of the session is expired', () => {
+  const dir = project('ready');
+  const writer = queuePaths(dir).writer;
+  const claim = JSON.parse(fs.readFileSync(writer, 'utf8'));
+  claim.aliveAt = new Date(Date.now() - 2 * HOUR).toISOString();
+  claim.ttlSec = 60;
+  fs.writeFileSync(writer, JSON.stringify(claim));
+  const r = runHook(HOOK, { session_id: 's1', cwd: dir }, dir);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+});
+
+test('does not block on a task ID of free text', () => {
+  const dir = project('free');
+  const r = runHook(HOOK, { session_id: 's1', cwd: dir }, dir);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
+});
+
+test('does not block on an old save request, because the hook reads no git data', () => {
+  const dir = project('save');
+  const r = runHook(HOOK, { session_id: 's1', cwd: dir }, dir);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, '');
 });
 
 function snapshot(root) {

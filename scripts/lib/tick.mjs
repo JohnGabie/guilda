@@ -41,13 +41,25 @@ export function worktreeDir(projectDir, worktree) {
   }
 }
 
+/** The git arguments of the commit time read: a worktree config cannot run code (fsmonitor, hooks, signature program). */
+export function gitLogArgs(dir) {
+  return [
+    '-c', 'core.fsmonitor=false',
+    '-c', 'log.showSignature=false',
+    '-c', 'core.hooksPath=/dev/null',
+    '-C', dir,
+    'log', '-1', '--no-show-signature', '--format=%cI',
+  ];
+}
+
 /** { exists, outside, commitAt } of a task worktree. No shell; a git error gives commitAt null. */
 export function worktreeInfo(projectDir, worktree) {
   const w = worktreeDir(projectDir, worktree);
   if (!w.dir) return { exists: false, outside: w.outside === true, commitAt: null };
   try {
-    const out = execFileSync('git', ['-C', w.dir, 'log', '-1', '--format=%cI'], {
+    const out = execFileSync('git', gitLogArgs(w.dir), {
       encoding: 'utf8',
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' },
       timeout: GIT_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
@@ -76,9 +88,9 @@ function recordOf(records, type, id, attempt) {
 
 /**
  * Read the files that the decision needs: { now, session, claim, state, pace, usage, unread, records, worktrees }.
- * `run` is the seam of readUsage. It never runs cswap by itself in a test.
+ * `git: false` skips every git call: `worktrees` stays empty. `run` is the seam of readUsage. It never runs cswap by itself in a test.
  */
-export function readFacts(projectDir, { now, session, run } = {}) {
+export function readFacts(projectDir, { now, session, run, git = true } = {}) {
   const root = path.resolve(projectDir);
   const at = now ?? new Date().toISOString();
   const state = readState(root, { now: at });
@@ -91,7 +103,7 @@ export function readFacts(projectDir, { now, session, run } = {}) {
   const records = events.filter((e) => RECORD_TYPES.includes(e.type) || (e.type === 'decision' && e.decision === 'stop'));
   const worktrees = {};
   for (const [id, t] of Object.entries(state.tasks)) {
-    if (recordOf(records, 'save-request', id, t.attempt)) worktrees[id] = worktreeInfo(root, t.worktree);
+    if (git && recordOf(records, 'save-request', id, t.attempt)) worktrees[id] = worktreeInfo(root, t.worktree);
   }
   return { now: at, session: session ?? null, claim, state, pace, usage, unread, records, worktrees };
 }

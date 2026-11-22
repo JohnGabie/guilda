@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { runWriter } from '../scripts/lib/queue.mjs';
-import { nextStep, readFacts } from '../scripts/lib/tick.mjs';
+import { nextStep, readFacts, gitLogArgs } from '../scripts/lib/tick.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'tick.mjs');
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
@@ -420,4 +420,20 @@ test('--until accepts only an ISO time with a zone', () => {
   }
   assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00Z').code, 0);
   assert.equal(tick(dir, 3, '--record', 'sleep', '--until', '2026-11-22T10:00:00-03:00').code, 0);
+});
+
+test('the git read holds the hardening values', () => {
+  const args = gitLogArgs('/some/dir');
+  for (const v of ['core.fsmonitor=false', 'log.showSignature=false', 'core.hooksPath=/dev/null']) {
+    const i = args.indexOf(v);
+    assert.ok(i > 0 && args[i - 1] === '-c', v);
+  }
+  assert.deepEqual(args.slice(args.indexOf('-C')), ['-C', '/some/dir', 'log', '-1', '--no-show-signature', '--format=%cI']);
+});
+
+test('readFacts with git false makes no worktree data', () => {
+  const { dir } = runningProject({ withWorktree: true });
+  seed(dir, [{ type: 'save-request', task: 'T1', attempt: 1, address: 'T1-exe-ab12', t: at(20) }]);
+  assert.deepEqual(readFacts(dir, { now: at(30), session: 's1', git: false }).worktrees, {});
+  assert.deepEqual(Object.keys(readFacts(dir, { now: at(30), session: 's1' }).worktrees), ['T1']);
 });
