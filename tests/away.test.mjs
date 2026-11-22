@@ -119,6 +119,10 @@ test('each read form of the away file is refused for an agent with the exact tex
     ['Bash', { command: 'node scripts/{away,x}.mjs . status' }],
     ['Bash', { command: 'node */aw?y.mjs . status' }],
     ['Bash', { command: 'cd scripts && node aw?y.mjs . status' }],
+    ['Bash', { command: 'node scripts/./aw?y.mjs . status' }],
+    ['Bash', { command: 'cd scripts/lib && node ../aw?y.mjs . status' }],
+    ['Bash', { command: 'node sc/aw?y.mjs . status' }],
+    ['Bash', { command: 'node /opt/x/y/a*y.mjs . status' }],
   ];
   for (const [tool, input] of forms) {
     const g = awayGuard(dir, call(dir, tool, input, agent));
@@ -143,7 +147,7 @@ test('the Architect side may read the away file; plain reads of other files pass
   assert.equal(awayGuard(dir, bash(dir, 'cat ~/projects/guilda/scripts/queue.mjs', agent)), null);
   assert.equal(awayGuard(dir, call(dir, 'Edit', { file_path: F }, agent)), null);
   // glob words that cannot reach the folder or the script pass
-  for (const c of ['cat src/*.js', 'node --test tests/*.test.mjs', 'ls scripts/lib/*.mjs', "grep 'a.*b' README.md", 'node scripts/tick.mjs . status']) {
+  for (const c of ['cat src/*.js', 'node --test tests/*.test.mjs', "grep 'a.*b' README.md", 'node scripts/tick.mjs . status']) {
     assert.equal(awayGuard(dir, bash(dir, c, agent)), null, c);
   }
 });

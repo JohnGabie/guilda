@@ -160,8 +160,6 @@ function globRegex(name) {
 function globMayBeAwayScript(word) {
   const name = path.basename(word);
   if (!GLOB_CHAR.test(name)) return false;
-  const dir = path.dirname(word);
-  if (!(dir === '.' || GLOB_CHAR.test(dir) || path.basename(dir) === 'scripts')) return false;
   try {
     return new RegExp(`^(?:${globRegex(name)})$`).test('away.mjs');
   } catch {
