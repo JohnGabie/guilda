@@ -151,7 +151,7 @@ test('an I/O error gives exit 2 and an io-error line', { timeout: TIMEOUT }, asy
   try {
     const r = await watch(dir).exited;
     assert.equal(r.code, 2);
-    assert.match(r.out, /^io-error /);
+    assert.equal(r.out, `io-error ${queuePaths(dir).writer}\n`);
   } finally {
     fs.chmodSync(folder, 0o755);
   }
