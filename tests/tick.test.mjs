@@ -265,6 +265,20 @@ test('a stop with no commit is refused', () => {
   assert.deepEqual({ step: step.step, task: step.task }, { step: 'retry', task: 'T1' });
 });
 
+test('a stop with a commit at the same time as the save request is refused', () => {
+  const { dir, wt } = runningProject({ withWorktree: true });
+  assert.equal(tick(dir, 21, '--record', 'save-request', '--task', 'T1', '--attempt', '1').code, 0);
+  const git = (...a) => spawnSync('git', ['-C', wt, ...a], { encoding: 'utf8', env: { ...process.env, GIT_COMMITTER_DATE: at(21), GIT_AUTHOR_DATE: at(21) } });
+  git('config', 'user.name', 'T');
+  git('config', 'user.email', 't@example.com');
+  fs.writeFileSync(path.join(wt, 'a.txt'), 'a');
+  git('add', 'a.txt');
+  git('commit', '-m', 'work');
+  const r = tick(dir, 24, '--record', 'stop', '--task', 'T1', '--attempt', '1');
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^refused: no save/);
+});
+
 test('a stop with a missing worktree is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   assert.equal(tick(dir, 21, '--record', 'save-request', '--task', 'T1', '--attempt', '1').code, 0);
