@@ -55,6 +55,8 @@ const COUNCIL_ID_BYTES = 2;
 const COUNCIL_DRAWS = 10;
 const NO_POSITION = 'none';
 const NO_APPROVAL = 'refused: no approval';
+// The user channel lock of the bus: the user records are in its file.
+const MAIN_LOCK = 'main';
 
 const usage = (text) => new BusError(2, text);
 const refused = (text) => new BusError(1, `refused: ${text}`);
@@ -120,14 +122,17 @@ const makeLine = (council, from, type, fields) => ({
  * floor with its next `claim` or `call`. After a `deny`, and at the start, no member holds it (5h).
  */
 export function councilState(lines) {
-  const state = { create: null, opened: false, closed: false, decided: false, holder: null, claims: 0, byId: new Map() };
+  const state = { create: null, opened: false, closed: false, decided: false, holder: null, openTime: null, claims: 0, byId: new Map() };
   for (const l of lines) {
     if (typeof l.id === 'string') state.byId.set(l.id, l);
     if (l.type === 'create' && state.create === null) {
       state.create = l;
     } else if (state.create === null) {
       continue;
-    } else if (l.type === 'open') state.opened = true;
+    } else if (l.type === 'open') {
+      state.opened = true;
+      state.openTime ??= l.time;
+    }
     else if (l.type === 'floor' || l.type === 'grant') state.holder = l.to;
     else if (l.type === 'deny') state.holder = null;
     else if (l.type === 'claim' || l.type === 'call') {
@@ -176,6 +181,34 @@ export function openCouncilMembers(projectDir) {
   return members;
 }
 
+/** The IDs of the user records that a line of any council file cites: `create`, user `claim` and `decision` lines. */
+function citedRecords(root) {
+  const cited = new Set();
+  let names;
+  try {
+    names = fs.readdirSync(busPaths(root).bus);
+  } catch {
+    return cited;
+  }
+  for (const file of names) {
+    const id = file.endsWith('.jsonl') ? file.slice(0, -'.jsonl'.length) : '';
+    if (!COUNCIL_NAME.test(id)) continue;
+    for (const l of readLines(root, id) ?? []) if (typeof l.record === 'string') cited.add(l.record);
+  }
+  return cited;
+}
+
+/**
+ * Run `fn` under the lock of the user channel, so two councils cannot take one record at the same time. The caller
+ * holds the council lock first, then this lock: the order is fixed, so no deadlock.
+ */
+const withRecordLock = (root, fn) => withMailboxLock(root, MAIN_LOCK, fn);
+
+/** A user record is for one use: refuse an ID that a line of any council already cites (R35). Call under the lock. */
+function freshRecord(root, recordId) {
+  if (citedRecords(root).has(recordId)) throw refused('record already used');
+}
+
 function newCouncilName(root) {
   for (let i = 0; i < COUNCIL_DRAWS; i++) {
     const name = `council-${crypto.randomBytes(COUNCIL_ID_BYTES).toString('hex')}`;
@@ -210,11 +243,14 @@ function cmdOpen(root, args, cwd, env) {
   ensureIgnored(path.join(root, '.guilda'));
   const name = newCouncilName(root);
   withMailboxLock(root, name, () => {
-    appendLine(
-      root,
-      name,
-      makeLine(name, 'architect', 'create', { question, members, format: f.format, maxRounds, record: f.record }),
-    );
+    withRecordLock(root, () => {
+      freshRecord(root, f.record);
+      appendLine(
+        root,
+        name,
+        makeLine(name, 'architect', 'create', { question, members, format: f.format, maxRounds, record: f.record }),
+      );
+    });
   });
   return [name];
 }
@@ -229,6 +265,8 @@ function phaseRefusal(type, state) {
   return state.opened ? null : 'not open';
 }
 
+// The --from binding is not checked here: the script refuses a --from that is not a member, the Judge or user. Who may
+// write as the Judge, as a lead or as user is the job of the PreToolUse hook (R34, the integration task).
 function checkJudgeLine(type, f, state) {
   const { members, maxRounds } = state.create;
   const fields = {};
@@ -283,16 +321,21 @@ function checkFloorLine(root, type, from, f, state, env) {
     const record = approved(root, f, env);
     const claim = text(f, 'claim');
     if (claim.trim() !== String(record.text).trim()) throw refused('the text is not the record');
+    freshRecord(root, f.record);
     return { claim, record: f.record };
   }
   return { claim: text(f, 'claim'), evidence: text(f, 'evidence'), reason: text(f, 'reason') };
 }
 
-function checkDecision(root, from, f, env) {
+function checkDecision(root, from, f, env, state) {
   if (from !== USER) throw refused('not the user');
   const record = approved(root, f, env);
   const decision = text(f, 'decision');
   if (decision.trim() !== String(record.text).trim()) throw refused('the text is not the record');
+  freshRecord(root, f.record);
+  // A decision record is newer than the open of this council, so an old record cannot decide it (R35).
+  const asked = Date.parse(record.time);
+  if (!Number.isFinite(asked) || asked < Date.parse(state.openTime)) throw refused('record is older than the council');
   return { decision, why: text(f, 'why'), record: f.record };
 }
 
@@ -304,7 +347,7 @@ function cmdSay(root, args, cwd, env) {
   if (!SAY_TYPES.includes(f.type)) throw usage('bad type');
   const type = f.type;
   const isJudgeType = JUDGE_TYPES.includes(type);
-  return withMailboxLock(root, id, () => {
+  return withMailboxLock(root, id, () => withRecordLock(root, () => {
     const { state } = readCouncil(root, id);
     if (isJudgeType && from !== JUDGE) throw refused('not the Judge');
     if (!isJudgeType && from === JUDGE && type !== 'decision') throw refused('no floor');
@@ -317,12 +360,12 @@ function cmdSay(root, args, cwd, env) {
     } else {
       const phase = phaseRefusal(type, state);
       if (phase) throw refused(phase);
-      fields = type === 'decision' ? checkDecision(root, from, f, env) : checkJudgeLine(type, f, state);
+      fields = type === 'decision' ? checkDecision(root, from, f, env, state) : checkJudgeLine(type, f, state);
     }
     const line = makeLine(id, from, type, fields);
     appendLine(root, id, line);
     return [JSON.stringify({ id: line.id })];
-  });
+  }));
 }
 
 function cmdRead(root, args) {
@@ -361,6 +404,29 @@ export function registerEntry(lines, state) {
   return out;
 }
 
+/**
+ * The real path of the register file: the folder is resolved with realpath, so a link cannot move the write. The
+ * target must be inside the project and outside .guilda/bus (the channel files). Else exit 2 `bad register`.
+ */
+function registerTarget(root, cwd, value) {
+  if (typeof value !== 'string' || value === '') throw usage('bad register');
+  const inside = (base, target) => {
+    const rel = path.relative(base, target);
+    return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  };
+  try {
+    const wanted = path.resolve(cwd, value);
+    const real = path.join(fs.realpathSync(path.dirname(wanted)), path.basename(wanted));
+    const target = fs.existsSync(real) ? fs.realpathSync(real) : real;
+    const project = fs.realpathSync(root);
+    const bus = path.join(project, '.guilda', 'bus');
+    if (!inside(project, target) || target === bus || inside(bus, target)) throw usage('bad register');
+    return target;
+  } catch {
+    throw usage('bad register');
+  }
+}
+
 function cmdRecord(root, args, cwd) {
   const f = parseFlags(args, ['--id', '--register']);
   const id = councilId(f);
@@ -368,9 +434,7 @@ function cmdRecord(root, args, cwd) {
   if (!state.decided) throw refused('not decided');
   const entry = registerEntry(lines, state);
   if (f.register !== undefined) {
-    const file = path.resolve(cwd, f.register);
-    const rel = path.relative(busPaths(root).bus, file);
-    if (f.register === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) throw usage('bad register');
+    const file = registerTarget(root, cwd, f.register);
     try {
       fs.appendFileSync(file, `${entry.join('\n')}\n`);
     } catch {

@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
-import { writeUserRecord, makeRecord, appendRecord, loadKey } from '../scripts/lib/records.mjs';
+import { writeUserRecord, makeRecord, appendRecord, loadKey, signRecord } from '../scripts/lib/records.mjs';
 import { mailboxAddresses, readMailbox, appendLine, readLines, withMailboxLock } from '../scripts/lib/bus.mjs';
 import { main, councilState, DEFAULT_MAX_ROUNDS, JUDGE } from '../scripts/council.mjs';
 
@@ -313,8 +313,99 @@ test('S5-35: the claim of the user is the text of its record', () => {
   assert.deepEqual(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite. and more', '--record', forged.id).lines, ['refused: no approval']);
   assert.deepEqual(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.').lines, ['refused: no approval']);
   // The user needs the floor too.
-  say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.', '--record', rec);
-  assert.deepEqual(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.', '--record', rec).lines, ['refused: no floor']);
+  assert.deepEqual(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.', '--record', rec).lines, ['refused: record already used']);
+  const rec2 = userRecord(ctx, 'Keep SQLite.');
+  assert.equal(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.', '--record', rec2).code, 0);
+  assert.deepEqual(say(ctx, id, 'user', 'claim', '--claim', 'Keep SQLite.', '--record', userRecord(ctx, 'Keep SQLite.')).lines, ['refused: no floor']);
+});
+
+// Security: one use for a record, and a decision bound to its council.
+test('a user record opens one council, and makes one claim or decision in one council', () => {
+  const ctx = setup();
+  const rec = userRecord(ctx);
+  const open = () => run(ctx, 'open', '--question', 'q.md', '--members', `${ARCH},${SEC},user`, '--format', 'debate', '--record', rec);
+  const first = open();
+  assert.equal(first.code, 0);
+  const second = open();
+  assert.deepEqual([second.code, second.lines], [1, ['refused: record already used']]);
+  assert.equal(fs.readdirSync(path.join(ctx.dir, '.guilda', 'bus')).filter((f) => /^council-[0-9a-f]{4}\.jsonl$/.test(f)).length, 1);
+  // The record of an open cannot make a claim or a decision in another council.
+  const other = started(ctx, `${ARCH},${SEC},user`);
+  judge(ctx, other, 'floor', '--to', 'user');
+  assert.deepEqual(say(ctx, other, 'user', 'claim', '--claim', 'Yes, open it.', '--record', rec).lines, ['refused: record already used']);
+  // A record that decided one council cannot decide another.
+  const id = other;
+  const c = JSON.parse(say(ctx, id, 'user', 'claim', '--claim', 'Keep it.', '--record', userRecord(ctx, 'Keep it.')).lines[0]).id;
+  judge(ctx, id, 'floor', '--to', SEC);
+  const s = JSON.parse(say(ctx, id, SEC, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id, 'floor', '--to', ARCH);
+  const a = JSON.parse(say(ctx, id, ARCH, 'claim', ...claimArgs).lines[0]).id;
+  assert.ok(c && s && a);
+  const pos = ['--position', `${SEC}=${s}`, '--position', `${ARCH}=${a}`];
+  assert.equal(judge(ctx, id, 'close', ...pos).code, 0);
+  const dec = userRecord(ctx, 'Go.');
+  assert.equal(say(ctx, id, 'user', 'decision', '--decision', 'Go.', '--why', 'w', '--record', dec).code, 0);
+  const id2 = started(ctx, `${ARCH},${SEC},user`);
+  judge(ctx, id2, 'floor', '--to', SEC);
+  const s2 = JSON.parse(say(ctx, id2, SEC, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id2, 'floor', '--to', ARCH);
+  const a2 = JSON.parse(say(ctx, id2, ARCH, 'claim', ...claimArgs).lines[0]).id;
+  assert.equal(judge(ctx, id2, 'close', '--position', `${SEC}=${s2}`, '--position', `${ARCH}=${a2}`).code, 0);
+  assert.deepEqual(say(ctx, id2, 'user', 'decision', '--decision', 'Go.', '--why', 'w', '--record', dec).lines, ['refused: record already used']);
+});
+
+test('a decision record must be newer than the open of its council', () => {
+  const ctx = setup();
+  const old = userRecord(ctx, 'Go.');
+  const id = started(ctx, `${ARCH},${SEC}`);
+  // The old record was made before the open line: written 5 ms before at least.
+  const lines = raw(ctx, id);
+  const openTime = Date.parse(lines.find((l) => l.type === 'open').time);
+  const oldTime = Date.parse(JSON.parse(fs.readFileSync(path.join(ctx.dir, '.guilda', 'bus', 'user.jsonl'), 'utf8').split('\n')[0]).time);
+  assert.ok(oldTime <= openTime);
+  judge(ctx, id, 'floor', '--to', SEC);
+  const s = JSON.parse(say(ctx, id, SEC, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id, 'floor', '--to', ARCH);
+  const a = JSON.parse(say(ctx, id, ARCH, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id, 'close', '--position', `${SEC}=${s}`, '--position', `${ARCH}=${a}`);
+  // Make the record older than the open on purpose: a record with an earlier time.
+  const key = loadKey(ctx.dir, ctx.env);
+  const rec = makeRecord({ session: 's1', kind: 'answer', text: 'Go.', question: null }, key, () => Buffer.from('00000042', 'hex'));
+  rec.time = new Date(openTime - 60000).toISOString();
+  rec.mac = signRecord(rec, key);
+  assert.ok(old);
+  appendRecord(ctx.dir, rec);
+  assert.deepEqual(say(ctx, id, 'user', 'decision', '--decision', 'Go.', '--why', 'w', '--record', rec.id).lines, ['refused: record is older than the council']);
+  assert.equal(raw(ctx, id).at(-1).type, 'close');
+});
+
+test('--register: a target outside the project, in the bus folder or through a link is refused', () => {
+  const ctx = setup();
+  const id = started(ctx, `${ARCH},${SEC},user`);
+  judge(ctx, id, 'floor', '--to', SEC);
+  const s = JSON.parse(say(ctx, id, SEC, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id, 'floor', '--to', ARCH);
+  const a = JSON.parse(say(ctx, id, ARCH, 'claim', ...claimArgs).lines[0]).id;
+  judge(ctx, id, 'close', '--position', `${SEC}=${s}`, '--position', `${ARCH}=${a}`);
+  say(ctx, id, 'user', 'decision', '--decision', 'Go.', '--why', 'w', '--record', userRecord(ctx, 'Go.'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'guilda out '));
+  const bus = path.join(ctx.dir, '.guilda', 'bus');
+  fs.symlinkSync(bus, path.join(ctx.dir, 'buslink'));
+  fs.symlinkSync(outside, path.join(ctx.dir, 'outlink'));
+  fs.writeFileSync(path.join(outside, 'target.md'), '');
+  fs.symlinkSync(path.join(outside, 'target.md'), path.join(ctx.dir, 'filelink.md'));
+  for (const target of [path.join(outside, 'r.md'), path.join(bus, 'r.md'), 'buslink/r.md', 'outlink/r.md', 'filelink.md', '../r.md', bus, ctx.dir]) {
+    assert.deepEqual(run(ctx, 'record', '--id', id, '--register', target), { code: 2, lines: ['bad register'] }, target);
+  }
+  assert.equal(fs.readFileSync(path.join(outside, 'target.md'), 'utf8'), '');
+  assert.equal(fs.existsSync(path.join(outside, 'r.md')), false);
+  assert.equal(run(ctx, 'record', '--id', id, '--register', 'docs-register.md').code, 0);
+});
+
+test('say refuses a --from that is not a member, the Judge or user', () => {
+  const ctx = setup();
+  const id = started(ctx);
+  for (const from of ['guilda:Bad', 'someone', 'main', '']) assert.equal(say(ctx, id, from, 'claim', ...claimArgs).code, 2, from);
 });
 
 // R34 and the bus
