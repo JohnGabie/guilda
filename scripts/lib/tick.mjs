@@ -52,6 +52,13 @@ export function gitLogArgs(dir) {
   ];
 }
 
+/** The environment of the git read: no system config, and no variable that points git at another repository. */
+export function gitEnv(env = process.env) {
+  const out = { ...env, GIT_CONFIG_NOSYSTEM: '1' };
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete out[k];
+  return out;
+}
+
 /** { exists, outside, commitAt } of a task worktree. No shell; a git error gives commitAt null. */
 export function worktreeInfo(projectDir, worktree) {
   const w = worktreeDir(projectDir, worktree);
@@ -59,7 +66,7 @@ export function worktreeInfo(projectDir, worktree) {
   try {
     const out = execFileSync('git', gitLogArgs(w.dir), {
       encoding: 'utf8',
-      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' },
+      env: gitEnv(),
       timeout: GIT_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();

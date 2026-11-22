@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG, runHook } from './helpers.mjs';
 import { runWriter, queuePaths } from '../scripts/lib/queue.mjs';
+import { nextStep, readFacts } from '../scripts/lib/tick.mjs';
 
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
 const HOOK = 'scripts/hooks/stop.mjs';
@@ -94,8 +95,15 @@ test('does not block on a read error', () => {
 test('does not block on watch, pause or finish', () => {
   const watch = project('running');
   assert.equal(runHook(HOOK, { session_id: 's1', cwd: watch }, watch).stdout, '');
-  // finish: each task is done. The hook never reads usage, so the pace is the plan slots and pause cannot arise in it;
-  // the pause rule is in tests/tick.test.mjs (rule 1).
+  // pause: the slots decision 0 gives state.slots 0, and with usage off the pace is 0.
+  const pause = project('ready');
+  const sl = spawnSync(process.execPath, [QUEUE, pause, 'slots', '0', '--session', 's1'], { encoding: 'utf8' });
+  assert.equal(sl.status, 0, sl.stdout + sl.stderr);
+  assert.equal(nextStep(readFacts(pause, { session: 's1', git: false, run: () => ({ status: 1, stdout: '' }) })).step, 'pause');
+  const p = runHook(HOOK, { session_id: 's1', cwd: pause }, pause);
+  assert.equal(p.code, 0);
+  assert.equal(p.stdout, '');
+  // finish: each task is done.
   const finish = project('done');
   const f = runHook(HOOK, { session_id: 's1', cwd: finish }, finish);
   assert.equal(f.code, 0);

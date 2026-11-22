@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
 import { runWriter } from '../scripts/lib/queue.mjs';
-import { nextStep, readFacts, gitLogArgs } from '../scripts/lib/tick.mjs';
+import { nextStep, readFacts, gitLogArgs, gitEnv } from '../scripts/lib/tick.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'tick.mjs');
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
@@ -429,6 +429,8 @@ test('the git read holds the hardening values', () => {
     assert.ok(i > 0 && args[i - 1] === '-c', v);
   }
   assert.deepEqual(args.slice(args.indexOf('-C')), ['-C', '/some/dir', 'log', '-1', '--no-show-signature', '--format=%cI']);
+  const env = gitEnv({ PATH: 'p', GIT_DIR: 'x', GIT_WORK_TREE: 'y', GIT_INDEX_FILE: 'z' });
+  assert.deepEqual(env, { PATH: 'p', GIT_CONFIG_NOSYSTEM: '1' });
 });
 
 test('readFacts with git false makes no worktree data', () => {
