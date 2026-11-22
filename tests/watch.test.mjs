@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
-import { runWriter, readClaim } from '../scripts/lib/queue.mjs';
+import { runWriter, readClaim, queuePaths } from '../scripts/lib/queue.mjs';
 
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'watch.mjs');
 const QUEUE = path.join(REPO_ROOT, 'scripts', 'queue.mjs');
@@ -131,4 +131,43 @@ test('reads usage at most once in 300 s', { timeout: TIMEOUT }, async () => {
   assert.equal(r.code, 0);
   assert.equal(r.out, '');
   assert.equal(fs.readFileSync(count, 'utf8').trim().split('\n').length, 1);
+});
+
+test('an expired claim of the same session gives claim-lost', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject();
+  const file = queuePaths(dir).writer;
+  const old = JSON.parse(fs.readFileSync(file, 'utf8'));
+  old.aliveAt = new Date(Date.now() - 2 * old.ttlSec * 1000).toISOString();
+  fs.writeFileSync(file, JSON.stringify(old));
+  const r = await watch(dir).exited;
+  assert.equal(r.code, 3);
+  assert.equal(r.out, 'claim-lost\n');
+});
+
+test('an I/O error gives exit 2 and an io-error line', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject();
+  const folder = path.dirname(queuePaths(dir).writer);
+  fs.chmodSync(folder, 0o555); // touchClaim cannot write its temp file in a read-only folder
+  try {
+    const r = await watch(dir).exited;
+    assert.equal(r.code, 2);
+    assert.match(r.out, /^io-error /);
+  } finally {
+    fs.chmodSync(folder, 0o755);
+  }
+});
+
+test('the sleep stops at --until even with a long interval', { timeout: TIMEOUT }, async () => {
+  const dir = runningProject();
+  const until = Date.now() + 2000;
+  const child = spawn(process.execPath, [SCRIPT, dir, '--session', 's1', '--interval', '30', '--until', new Date(until).toISOString()], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  child.stdout.on('data', (d) => (out += d));
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  const late = Date.now() - until;
+  assert.equal(code, 0);
+  assert.equal(out.trim(), 'until');
+  assert.ok(late < 1000, `printed ${late} ms after --until`);
 });

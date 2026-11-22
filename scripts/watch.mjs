@@ -5,7 +5,7 @@
 // Exit codes: 0 a line was printed (or SIGTERM), 1 refused, 2 I/O error, 3 claim lost.
 import { setTimeout as sleep } from 'node:timers/promises';
 import { spawnSync } from 'node:child_process';
-import { readClaim, touchClaim } from './lib/queue.mjs';
+import { readClaim, touchClaim, queuePaths } from './lib/queue.mjs';
 import { readFacts, nextStep } from './lib/tick.mjs';
 import { USAGE_TIMEOUT_MS } from './lib/usage.mjs';
 
@@ -52,6 +52,18 @@ function cachedRun() {
   };
 }
 
+const TOUCH_TRIES = 3;
+const TOUCH_RETRY_MS = 100;
+
+/** touchClaim, tried again a few times: a busy queue lock gives false for a short time. */
+async function touched(projectDir, session) {
+  for (let i = 0; i < TOUCH_TRIES; i++) {
+    if (touchClaim(projectDir, session, { pid: process.pid })) return true;
+    if (i + 1 < TOUCH_TRIES) await sleep(TOUCH_RETRY_MS);
+  }
+  return false;
+}
+
 /** The one line of a step that is not `watch`. */
 function stepLine(s) {
   const what = s.task ?? s.why ?? (Array.isArray(s.ids) ? s.ids.join(',') : s.slots);
@@ -85,9 +97,16 @@ async function main() {
         process.exitCode = 3;
         return;
       }
-      if (!touchClaim(projectDir, session, { now, pid: process.pid })) {
-        line('claim-lost');
-        process.exitCode = 3;
+      if (!(await touched(projectDir, session))) {
+        // The claim is still live and ours, so the write failed: an I/O error, not a lost claim.
+        const again = readClaim(projectDir);
+        if (again && again.session === session && again.live) {
+          line(`io-error ${queuePaths(projectDir).writer}`);
+          process.exitCode = 2;
+        } else {
+          line('claim-lost');
+          process.exitCode = 3;
+        }
         return;
       }
       const step = nextStep(readFacts(projectDir, { now, session, run }));
@@ -104,7 +123,8 @@ async function main() {
       process.exitCode = 2;
       return;
     }
-    await sleep(intervalSec * MS_PER_SECOND);
+    const left = untilMs === null ? Infinity : untilMs - Date.now();
+    await sleep(Math.max(1, Math.min(intervalSec * MS_PER_SECOND, left)));
   }
 }
 
