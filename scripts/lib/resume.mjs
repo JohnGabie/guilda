@@ -51,7 +51,7 @@ export function recordPath(projectDir, id) {
 }
 
 /** The pure form of the resume record (5e). */
-export function makeRecord({ id, projectPath, session, notBefore, method, job = null, now }) {
+export function makeRecord({ id, projectPath, session, notBefore, method, job = null, claude, now }) {
   return {
     schemaVersion: RECORD_VERSION,
     id,
@@ -62,8 +62,18 @@ export function makeRecord({ id, projectPath, session, notBefore, method, job = 
     unit: unitName(id),
     method,
     job,
+    claude,
     state: 'armed',
   };
+}
+
+/** True for an absolute path to an existing regular file named `claude`. */
+export function validClaudePath(p) {
+  try {
+    return typeof p === 'string' && path.isAbsolute(p) && path.basename(p) === 'claude' && fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /** Check a parsed record; returns null when it is valid, else the reason. */
@@ -75,6 +85,7 @@ export function checkRecord(r) {
   }
   if (!SESSION_UUID.test(r.supervisorSession)) return 'bad supervisorSession';
   if (Number.isNaN(Date.parse(r.notBefore))) return 'bad notBefore';
+  if (typeof r.claude !== 'string' || !path.isAbsolute(r.claude) || path.basename(r.claude) !== 'claude') return 'bad claude';
   if (!RECORD_STATES.includes(r.state)) return 'bad state';
   return null;
 }

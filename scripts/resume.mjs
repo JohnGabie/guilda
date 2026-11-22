@@ -4,12 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { readJournal } from './lib/queue.mjs';
+import { readJournal, readClaim } from './lib/queue.mjs';
 import { projectState } from './lib/project.mjs';
 import { readUsage } from './lib/usage.mjs';
 import { paceOf } from './lib/pace.mjs';
 import {
-  BIN_DIR_ENV, TEST_ENV, SESSION_UUID, JOB_ID, RESUME_PROMPT, TIMER_ACCURACY, mainRoot, projectId, unitName, makeRecord, readRecord, writeRecord,
+  MIN_PAUSE_MIN, validClaudePath, BIN_DIR_ENV, TEST_ENV, SESSION_UUID, JOB_ID, RESUME_PROMPT, TIMER_ACCURACY, mainRoot, projectId, unitName, makeRecord, readRecord, writeRecord,
 } from './lib/resume.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
@@ -68,7 +68,7 @@ function setTrigger(projectDir, id, whenMs) {
   const cmd = [process.execPath, SELF, projectDir, 'run', id];
   const sd = findBin('systemd-run');
   if (sd) {
-    const r = call(sd, ['--user', `--on-active=${secs}s`, `--timer-property=AccuracySec=${TIMER_ACCURACY}`, `--unit=${unitName(id)}`, ...cmd]);
+    const r = call(sd, ['--user', `--on-active=${secs}s`, `--timer-property=AccuracySec=${TIMER_ACCURACY}`, `--unit=${unitName(id)}`, '--expand-environment=no', ...cmd]);
     if (r.status === 0) return { method: 'systemd', job: null };
   }
   const at = findBin('at');
@@ -92,11 +92,18 @@ function arm(projectDir, root, id, session, at) {
   const ms = Date.parse(at ?? '');
   if (!session || !at || !ZONE.test(at) || Number.isNaN(ms)) fail(1, 'invalid arguments: need --session and --at with a zone');
   if (!SESSION_UUID.test(session)) fail(1, 'invalid session id');
+  if (ms - Date.now() < MIN_PAUSE_MIN * 60000) fail(1, `refused: --at must be at least ${MIN_PAUSE_MIN} minutes ahead`);
+  const claude = findBin('claude');
+  if (!claude || !validClaudePath(claude)) fail(1, 'refused: no claude');
   const old = readRecord(projectDir, id);
-  if (old && old.state === 'armed') stopTrigger(old, id);
+  if (old && old.state === 'armed') {
+    stopTrigger(old, id);
+    // The old trigger is gone: the old record must not stay armed, whatever happens next.
+    writeRecord(projectDir, { ...old, state: 'removed' });
+  }
   const trig = setTrigger(projectDir, id, ms);
   if (!trig) fail(1, 'refused: no trigger');
-  writeRecord(projectDir, makeRecord({ id, projectPath: root, session, notBefore: ms, method: trig.method, job: trig.job, now: Date.now() }));
+  writeRecord(projectDir, makeRecord({ id, projectPath: root, session, notBefore: ms, method: trig.method, job: trig.job, claude, now: Date.now() }));
   out(`armed ${id} ${new Date(ms).toISOString()}`);
 }
 
@@ -134,6 +141,18 @@ function run(projectDir, root, id) {
   let limit = false;
   try { limit = lastStopIsLimit(projectDir); } catch { limit = false; }
   if (!limit) fail(5, 'refused: not a limit stop');
+  // The claim: a live claim of this session means the first supervisor still runs. Another session holds the queue.
+  const claim = readClaim(projectDir);
+  if (claim && claim.live) {
+    if (claim.session === rec.supervisorSession) {
+      out(`session live ${id}`);
+      return;
+    }
+    stopTrigger(rec, id);
+    writeRecord(projectDir, { ...rec, state: 'waiting-user' });
+    out('the work can go on; start the supervisor');
+    return;
+  }
   // Step 5: no usage left means a new trigger for the next reset. Off or error counts as unknown, so go on.
   const st = projectState(projectDir);
   const cswap = findBin('cswap');
@@ -151,7 +170,8 @@ function run(projectDir, root, id) {
     return;
   }
   // Step 6: resume the session of the record (the same session_id, L5-2), then remove the trigger.
-  const claude = findBin('claude');
+  const claude = rec.claude;
+  if (!validClaudePath(claude)) fail(5, 'refused: no claude');
   writeRecord(projectDir, { ...rec, state: 'resumed' });
   stopTrigger(rec, id);
   const r = claude
