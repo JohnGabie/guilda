@@ -46,9 +46,10 @@ Never run `signal.mjs`. If no signal comes, the `tick` rules for no-ack and for 
      On REJECTED-LARGE, or on the third rejection of a task (R11), run these commands in this order. Do not dispatch that task again.
      A held task does not block other tasks.
      1. `S/queue.mjs <dir> reject <task> --session <session id>`.
-     2. `S/queue.mjs <dir> hold <task> --session <session id>`.
-     3. `S/tick.mjs <dir> --record needs-user --task <task> --attempt <the new attempt> --reason <one line> --session <session id>`.
-     4. One message to `architect` with the findings, as in `needs-user`.
+     2. Read the output line of `reject`: `<task>: review → <state>`.
+     3. If the state is `ready`, run `S/queue.mjs <dir> hold <task> --session <session id>`. Then run `S/tick.mjs <dir> --record needs-user --task <task> --attempt <the new attempt> --reason <one line> --session <session id>`.
+     4. If the state is `dead`, do not run `hold`. Run the same `needs-user` record with the current attempt, which is the attempt of the review.
+     5. One message to `architect` with the findings, as in `needs-user`.
      After an approve, run `git merge --no-ff <branch of the approved attempt> -m "merge <branch>"` in `<dir>`. This merges into your work branch only.
      Then run `S/queue.mjs <dir> sync --session <session id>` before the next `tick --json`. Without the sync, tick does not see the next task as ready.
      On a merge conflict, run `git merge --abort`. Run `tick --record needs-user` with `--task <task> --attempt <attempt> --reason "merge conflict"`. Send one message to `architect` as in `needs-user`.
