@@ -7,7 +7,7 @@ import { resolveProjectDir } from '../lib/hook-io.mjs';
 import { scanText, globMatch } from '../lib/scan.mjs';
 import { findGitCommits, parseAddedLines, resolveDir, splitCommands, stripPrefix, isVariable } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
-import { queueFileWrites, queueScriptCall, queueClaimOnly, liveClaim, isQueueFile } from '../lib/queue-guard.mjs';
+import { queueFileWrites, queueScriptCall, queueClaimOnly, queueCallHasNow, liveClaim, isQueueFile } from '../lib/queue-guard.mjs';
 import { busPaths, MAIN } from '../lib/bus.mjs';
 import { readBindings, validId, queuePaths } from '../lib/queue.mjs';
 import { keyFolder, TYPED_ENTRYPOINT } from '../lib/records.mjs';
@@ -37,6 +37,7 @@ const R32 = {
     reason: 'R32: only the writer role calls the queue script; that is the Architect in the main session, never an agent',
   },
   error: { action: 'hook error: cannot check the call', reason: 'R32: cannot check the call' },
+  now: { action: 'queue script call refused: --now', reason: 'R32: --now is for tests only' },
   claimed: {
     action: 'queue script call refused: another session holds the claim',
     reason: 'R32: the supervisor session holds the queue; send a request to supervisor',
@@ -57,9 +58,10 @@ function queueCallProblem(projectDir, input, call, command) {
   const own = typeof input.session_id === 'string' && input.session_id !== '' ? input.session_id : null;
   if (!call.sessions.every((s) => own !== null && s === own)) return 'session';
   // The claim row (0.5.0): while another session holds a live claim, only the claim session writes. A read error refuses.
-  if (queueClaimOnly(command)) return null;
+  if (queueCallHasNow(command)) return 'now';
   const held = liveClaim(projectDir);
   if (held.error) return 'error';
+  if (queueClaimOnly(command)) return null;
   return held.claim && held.claim.session !== own ? 'claimed' : null;
 }
 

@@ -1116,3 +1116,32 @@ test('the claim session cannot send --from main', () => {
   const other = hookEnv(dir, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: sendCmd('supervisor') }, cwd: dir, session_id: 's2' });
   assert.equal(assertDeny(other), 'R34: --from supervisor is not your address (main)');
 });
+
+// T2 review: the claim exemption bypasses.
+test('--now in a queue script call is refused for each script', () => {
+  const dir = queueProject();
+  const NOW = 'R32: --now is for tests only';
+  for (const c of [
+    'node scripts/queue.mjs . claim --now 2099-01-01T00:00:00.000Z --session s1',
+    'node scripts/queue.mjs . sync --session s1 --now 2099-01-01T00:00:00.000Z',
+    'node scripts/tick.mjs . --now 2099-01-01T00:00:00.000Z --session s1',
+    'node scripts/watch.mjs . --now 2099-01-01T00:00:00.000Z --session s1',
+  ]) {
+    assert.equal(assertDeny(queueCall(dir, c, {})), NOW, c);
+  }
+  writeClaim(dir, 's9');
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/queue.mjs . claim --now 2099-01-01T00:00:00.000Z --session s2', { session_id: 's2' })), NOW);
+});
+
+test('a bad writer.json refuses a claim call too', () => {
+  const dir = queueProject();
+  fs.writeFileSync(queuePath(dir, 'writer.json'), '{ not json');
+  assert.equal(assertDeny(queueCall(dir, 'node scripts/queue.mjs . claim --session s1', {})), 'R32: cannot check the call');
+});
+
+test('a claim call hidden next to a sync in a substitution is refused during another live claim', () => {
+  const dir = queueProject();
+  writeClaim(dir, 's9');
+  const command = `node scripts/que''ue.mjs . claim --session s1; echo "$(node scripts/queue.mjs . sync --session s1)"`;
+  assert.equal(assertDeny(queueCall(dir, command, {})), CLAIM_REASON);
+});

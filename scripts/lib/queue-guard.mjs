@@ -395,13 +395,18 @@ function isClaimCommand(script, args) {
   return positional[1] === 'claim';
 }
 
-/** One { session, claim } for each queue script call in the simple commands. */
+/** True when an argument is the test-only flag --now (R32: a hook input never sets the clock of a script). */
+function hasNow(args) {
+  return args.some((a) => a === '--now' || a.startsWith('--now='));
+}
+
+/** One { session, claim, now } for each queue script call in the simple commands. */
 function callsIn(commands) {
   const calls = [];
   for (const words of commands) {
     const { rest } = stripPrefix(words);
     if (rest.length > 0 && canBeQueueScript(rest[0], { direct: true })) {
-      calls.push({ session: readSession(rest.slice(1)), claim: isClaimCommand(rest[0], rest.slice(1)) });
+      calls.push({ session: readSession(rest.slice(1)), claim: isClaimCommand(rest[0], rest.slice(1)), now: hasNow(rest.slice(1)) });
       continue;
     }
     const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
@@ -409,20 +414,26 @@ function callsIn(commands) {
     const scriptAt = rest.findIndex((w, i) => i > nodeAt && canBeQueueScript(w));
     if (scriptAt < 0) continue;
     const args = rest.slice(scriptAt + 1);
-    calls.push({ session: readSession(args), claim: isClaimCommand(rest[scriptAt], args) });
+    calls.push({ session: readSession(args), claim: isClaimCommand(rest[scriptAt], args), now: hasNow(args) });
   }
   return calls;
 }
 
 /**
  * True when each queue script call of the command is a `queue.mjs ... claim` call (R32: the script decides a claim,
- * exit 3). A call that only the reading without quotes finds is never a claim call.
+ * exit 3). Both readings must find the same calls, and each call must be a claim call.
  */
 export function queueClaimOnly(command) {
   if (typeof command !== 'string' || command === '') return false;
   const quoted = callsIn(quotedCommands(command));
   const flat = callsIn(splitCommands(flatten(command)));
-  return quoted.length > 0 && flat.length <= quoted.length && quoted.every((c) => c.claim);
+  return quoted.length > 0 && flat.length === quoted.length && quoted.every((c) => c.claim) && flat.every((c) => c.claim);
+}
+
+/** True when any queue script call of the command, in either reading, has the flag --now. */
+export function queueCallHasNow(command) {
+  if (typeof command !== 'string' || command === '') return false;
+  return [...callsIn(quotedCommands(command)), ...callsIn(splitCommands(flatten(command)))].some((c) => c.now);
 }
 
 /**
