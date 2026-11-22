@@ -23,6 +23,14 @@ const ago = (dir, b, min = 31) => {
   fs.writeFileSync(path.join(b, 'log'), '');
 };
 const armPast = (dir, b) => ago(dir, b, 1);
+/** The argv of a run, as the timer gives it: the id and the --claude path of the record. */
+const runArgs = (dir) => {
+  let claude = '/none/claude';
+  try {
+    claude = JSON.parse(fs.readFileSync(path.join(dir, '.guilda', 'resume', `${projectId(dir)}.json`), 'utf8')).claude;
+  } catch { /* no record */ }
+  return ['run', projectId(dir), '--claude', claude];
+};
 
 /** A folder of stand-in programs. Each one logs its arguments (and stdin for `at`) to `log`. */
 function bins(list, { atJob = '7', claudeFail = false, noClaude = false } = {}) {
@@ -177,7 +185,7 @@ test('S5-17: a restart is not a limit stop', () => {
   armPast(dir, b);
   const before = fs.readFileSync(recFile(dir), 'utf8');
   fs.writeFileSync(b + '/log', '');
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 5);
   assert.match(r.out, /refused: not a limit stop/);
   assert.equal(logOf(b), '');
@@ -197,7 +205,7 @@ test('S5-16: run waits when no account has usage and arms the next reset', () =>
   seed(dir, LIMIT);
   armPast(dir, b);
   fs.writeFileSync(b + '/log', '');
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   const log = logOf(b);
   assert.doesNotMatch(log, /^claude /m);
@@ -213,7 +221,7 @@ test('run resumes the session by claude with -p, removes the trigger, and counts
   seed(dir, LIMIT);
   armPast(dir, b);
   fs.writeFileSync(b + '/log', '');
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   const log = logOf(b);
   assert.match(log, new RegExp(`^claude --resume ${SESSION} -p .+`, 'm'));
@@ -226,7 +234,7 @@ test('run with a claude that fails sets waiting-user and exits 0', () => {
   const b = bins(['systemd-run', 'systemctl'], { claudeFail: true });
   seed(dir, LIMIT);
   armPast(dir, b);
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   assert.equal(recOf(dir).state, 'waiting-user');
 });
@@ -269,7 +277,7 @@ test('F1: an edited record with an option token as session never reaches the cla
   const rec = recOf(dir);
   fs.writeFileSync(recFile(dir), JSON.stringify({ ...rec, supervisorSession: '--dangerously-skip-permissions' }));
   fs.writeFileSync(b + '/log', '');
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 5);
   assert.match(r.out, /refused: no armed record/);
   assert.equal(logOf(b), '');
@@ -307,7 +315,7 @@ test('run does nothing before notBefore', () => {
   resume(dir, ['arm', '--session', SESSION, '--at', FUTURE()], b);
   const before = fs.readFileSync(recFile(dir), 'utf8');
   fs.writeFileSync(b + '/log', '');
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   assert.equal(logOf(b), '');
   assert.equal(fs.readFileSync(recFile(dir), 'utf8'), before);
@@ -371,13 +379,13 @@ test('review 2: a live claim of the same session means session live, and nothing
   seed(dir, LIMIT);
   armPast(dir, b);
   writeClaimFile(dir, { session: SESSION, ttlSec: 600, aliveAt: new Date().toISOString(), pid: process.pid });
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /session live/);
   assert.equal(logOf(b), '');
   assert.equal(recOf(dir).state, 'fired');
   // A second run finds no armed record.
-  assert.equal(resume(dir, ['run', projectId(dir)], b).code, 5);
+  assert.equal(resume(dir, runArgs(dir), b).code, 5);
 });
 
 test('review 2: a live claim of another session gives waiting-user, and claude does not start', () => {
@@ -386,7 +394,7 @@ test('review 2: a live claim of another session gives waiting-user, and claude d
   seed(dir, LIMIT);
   armPast(dir, b);
   writeClaimFile(dir, { session: SESSION2, ttlSec: 600, aliveAt: new Date().toISOString(), pid: process.pid });
-  const r = resume(dir, ['run', projectId(dir)], b);
+  const r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 0, r.out);
   assert.equal(recOf(dir).state, 'waiting-user');
   assert.doesNotMatch(logOf(b), /^claude /m);
@@ -398,7 +406,7 @@ test('review 2: an expired claim lets the run go on', () => {
   seed(dir, LIMIT);
   armPast(dir, b);
   writeClaimFile(dir, { session: SESSION2, ttlSec: 60, aliveAt: new Date(Date.now() - 3600000).toISOString(), pid: process.pid });
-  assert.equal(resume(dir, ['run', projectId(dir)], b).code, 0);
+  assert.equal(resume(dir, runArgs(dir), b).code, 0);
   assert.match(logOf(b), /^claude --resume /m);
 });
 
@@ -418,12 +426,12 @@ test('review 3: the record keeps the absolute claude path, and run uses only tha
   const rec = recOf(dir);
   // A relative name in the record is refused.
   fs.writeFileSync(recFile(dir), JSON.stringify({ ...rec, claude: 'claude' }));
-  let r = resume(dir, ['run', projectId(dir)], b);
+  let r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 5);
   assert.match(r.out, /refused: no armed record/);
   // An absolute path to a file that is not there is refused, and the record stays armed.
   fs.writeFileSync(recFile(dir), JSON.stringify({ ...rec, claude: path.join(b, 'gone', 'claude') }));
-  r = resume(dir, ['run', projectId(dir)], b);
+  r = resume(dir, runArgs(dir), b);
   assert.equal(r.code, 5);
   assert.match(r.out, /refused: no claude/);
   assert.equal(recOf(dir).state, 'armed');
@@ -461,6 +469,62 @@ test('review 4: when arm fails after it stopped the old trigger, the record is r
   assert.match(r.out, /refused: no trigger/);
   assert.match(logOf(b2), /systemctl --user stop/);
   assert.equal(recOf(dir).state, 'removed');
+});
+
+test('F3: the systemd-run argv and the at command carry --claude', () => {
+  const d1 = tempProject({ config: MINIMAL_CONFIG });
+  const b1 = bins(['systemd-run']);
+  assert.equal(resume(d1, ['arm', '--session', SESSION, '--at', FUTURE()], b1).code, 0);
+  assert.ok(logOf(b1).includes(`run ${projectId(d1)} --claude ${path.join(b1, 'claude')}`), logOf(b1));
+  const d2 = tempProject({ config: MINIMAL_CONFIG });
+  const b2 = bins(['at']);
+  assert.equal(resume(d2, ['arm', '--session', SESSION, '--at', FUTURE()], b2).code, 0);
+  assert.match(logOf(b2), /'--claude' '[^']*\/claude'/);
+});
+
+test('F3: run refuses a --claude that is missing or differs from the record', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  seed(dir, LIMIT);
+  armPast(dir, b);
+  for (const args of [['run', projectId(dir)], ['run', projectId(dir), '--claude', '/usr/bin/claude']]) {
+    const r = resume(dir, args, b);
+    assert.equal(r.code, 5);
+    assert.match(r.out, /refused: no claude/);
+  }
+  assert.equal(logOf(b), '');
+  assert.equal(recOf(dir).state, 'armed');
+});
+
+test('F3: an edited record that points to a claude inside the project refuses', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  seed(dir, LIMIT);
+  armPast(dir, b);
+  const evil = path.join(fs.realpathSync(dir), 'x', 'claude');
+  fs.mkdirSync(path.dirname(evil));
+  fs.writeFileSync(evil, '#!/bin/sh\ntouch "$0.ran"\n', { mode: 0o755 });
+  fs.writeFileSync(recFile(dir), JSON.stringify({ ...recOf(dir), claude: evil }));
+  const r = resume(dir, runArgs(dir), b);
+  assert.equal(r.code, 5);
+  assert.match(r.out, /refused: no claude/);
+  assert.equal(fs.existsSync(`${evil}.ran`), false);
+});
+
+test('F3: a claude that group or others can write refuses at run, and at arm', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const b = bins(['systemd-run', 'systemctl']);
+  seed(dir, LIMIT);
+  armPast(dir, b);
+  fs.chmodSync(path.join(b, 'claude'), 0o777);
+  const r = resume(dir, runArgs(dir), b);
+  assert.equal(r.code, 5);
+  assert.match(r.out, /refused: no claude/);
+  assert.equal(logOf(b), '');
+  const d2 = tempProject({ config: MINIMAL_CONFIG });
+  const a = resume(d2, ['arm', '--session', SESSION, '--at', FUTURE()], b);
+  assert.equal(a.code, 1);
+  assert.match(a.out, /refused: no claude/);
 });
 
 test('pure parts: unit name, record form, pause limit', () => {

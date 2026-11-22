@@ -63,9 +63,9 @@ function stopTrigger(record, id) {
 }
 
 /** Set one trigger. Returns { method, job } or null (no method works). */
-function setTrigger(projectDir, id, whenMs) {
+function setTrigger(projectDir, id, whenMs, claude) {
   const secs = Math.max(1, Math.ceil((whenMs - Date.now()) / 1000));
-  const cmd = [process.execPath, SELF, projectDir, 'run', id];
+  const cmd = [process.execPath, SELF, projectDir, 'run', id, '--claude', claude];
   const sd = findBin('systemd-run');
   if (sd) {
     const r = call(sd, ['--user', `--on-active=${secs}s`, `--timer-property=AccuracySec=${TIMER_ACCURACY}`, `--unit=${unitName(id)}`, '--expand-environment=no', ...cmd]);
@@ -94,14 +94,14 @@ function arm(projectDir, root, id, session, at) {
   if (!SESSION_UUID.test(session)) fail(1, 'invalid session id');
   if (ms - Date.now() < MIN_PAUSE_MIN * 60000) fail(1, `refused: --at must be at least ${MIN_PAUSE_MIN} minutes ahead`);
   const claude = findBin('claude');
-  if (!claude || !validClaudePath(claude)) fail(1, 'refused: no claude');
+  if (!claude || !validClaudePath(claude, root)) fail(1, 'refused: no claude');
   const old = readRecord(projectDir, id);
   if (old && old.state === 'armed') {
     stopTrigger(old, id);
     // The old trigger is gone: the old record must not stay armed, whatever happens next.
     writeRecord(projectDir, { ...old, state: 'removed' });
   }
-  const trig = setTrigger(projectDir, id, ms);
+  const trig = setTrigger(projectDir, id, ms, claude);
   if (!trig) fail(1, 'refused: no trigger');
   writeRecord(projectDir, makeRecord({ id, projectPath: root, session, notBefore: ms, method: trig.method, job: trig.job, claude, now: Date.now() }));
   out(`armed ${id} ${new Date(ms).toISOString()}`);
@@ -126,7 +126,7 @@ function lastStopIsLimit(projectDir) {
   return false;
 }
 
-function run(projectDir, root, id) {
+function run(projectDir, root, id, claudeArg) {
   // Steps 1 to 3 (R41): the record belongs to this folder, the folder exists, the state is armed. A read error refuses.
   if (id !== projectId(projectDir)) fail(5, 'refused: project mismatch');
   const rec = readRecord(projectDir, id);
@@ -137,6 +137,8 @@ function run(projectDir, root, id) {
     out(`too early ${id} ${rec.notBefore}`);
     return;
   }
+  // The record is a project file, so it is not trusted for the program to run: the timer command must carry the same path.
+  if (claudeArg !== rec.claude || !validClaudePath(rec.claude, root)) fail(5, 'refused: no claude');
   // Step 4: a restart is not a limit stop.
   let limit = false;
   try { limit = lastStopIsLimit(projectDir); } catch { limit = false; }
@@ -165,7 +167,7 @@ function run(projectDir, root, id) {
   if (pace.slots === 0) {
     const when = Date.parse(pace.resumeAt);
     stopTrigger(rec, id);
-    const trig = setTrigger(projectDir, id, when);
+    const trig = setTrigger(projectDir, id, when, rec.claude);
     if (!trig) fail(1, 'refused: no trigger');
     writeRecord(projectDir, { ...rec, method: trig.method, job: trig.job, notBefore: new Date(when).toISOString() });
     out(`waiting ${id} ${new Date(when).toISOString()}`);
@@ -173,7 +175,7 @@ function run(projectDir, root, id) {
   }
   // Step 6: resume the session of the record (the same session_id, L5-2), then remove the trigger.
   const claude = rec.claude;
-  if (!validClaudePath(claude)) fail(5, 'refused: no claude');
+  if (!validClaudePath(claude, root)) fail(5, 'refused: no claude');
   writeRecord(projectDir, { ...rec, state: 'resumed' });
   stopTrigger(rec, id);
   const r = claude
@@ -210,7 +212,7 @@ function main(argv) {
       out(r ? `${r.state} ${id} ${r.notBefore} ${r.method}` : 'none');
     } else if (cmd === 'run') {
       if (rest[0] === undefined) fail(1, USAGE);
-      run(projectDir, root, rest[0]);
+      run(projectDir, root, rest[0], flag('--claude'));
     } else fail(1, USAGE);
   } catch (err) {
     fail(2, `I/O error: ${err?.message ?? err}`);

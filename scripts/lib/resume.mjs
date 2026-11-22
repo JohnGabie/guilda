@@ -68,9 +68,21 @@ export function makeRecord({ id, projectPath, session, notBefore, method, job = 
 }
 
 /** True for an absolute path to an existing regular file named `claude`. */
-export function validClaudePath(p) {
+export function validClaudePath(p, projectRoot) {
   try {
-    return typeof p === 'string' && path.isAbsolute(p) && path.basename(p) === 'claude' && fs.statSync(p).isFile();
+    if (typeof p !== 'string' || !path.isAbsolute(p) || path.basename(p) !== 'claude') return false;
+    const st = fs.statSync(p);
+    if (!st.isFile()) return false;
+    // The user owns the file, and neither the group nor others can write it.
+    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return false;
+    if ((st.mode & 0o022) !== 0) return false;
+    // A program inside the project is not trusted.
+    if (typeof projectRoot === 'string') {
+      const real = fs.realpathSync(p);
+      const root = fs.realpathSync(projectRoot);
+      if (real === root || real.startsWith(root + path.sep) || p.startsWith(root + path.sep)) return false;
+    }
+    return true;
   } catch {
     return false;
   }
