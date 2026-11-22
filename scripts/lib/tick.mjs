@@ -118,6 +118,14 @@ export function readFacts(projectDir, { now, session, run, git = true } = {}) {
   return { now: at, session: session ?? null, claim, state, pace, usage, unread, records, worktrees };
 }
 
+const KEY_FORM = /#(?:Part([0-9]+)\.)?([A-Za-z0-9]+)$/;
+/** The plan file, the id of the task in the plan and the Part of a task: from its work and its key `<stem>#[Part<n>.]<id>`. */
+function planTaskOf(t, works) {
+  const m = KEY_FORM.exec(typeof t.key === 'string' ? t.key : '');
+  const plan = (t.work && works?.[t.work]?.plan) || null;
+  return { plan, planTask: m ? m[2] : null, part: m && m[1] !== undefined ? Number(m[1]) : null };
+}
+
 /** The pure decision (spec 7a, T4): the first rule that applies wins. No I/O. */
 export function nextStep(facts) {
   const { now, state, pace, unread = [], records = [], worktrees = {} } = facts;
@@ -205,7 +213,7 @@ export function nextStep(facts) {
         tool: 'claude',
         tier: t.tier ?? null,
         lowTier: pace.lowTier === true,
-        briefFile: t.briefFile ?? null,
+        ...planTaskOf(t, state.works),
         worktree: `${WORKTREE_ROOT}/${id}`,
       });
     }

@@ -470,10 +470,22 @@ test('a bad message ID in --ids is refused', () => {
 test('the dispatch step carries the fields of the dispatch command', () => {
   const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'journeyman' }) }, { pace: { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null } }));
   assert.deepEqual(
-    { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, briefFile: s.briefFile, worktree: s.worktree },
-    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, briefFile: null, worktree: '.guilda/worktrees/T1' },
+    { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, hasBrief: 'briefFile' in s, worktree: s.worktree },
+    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1' },
   );
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) })).tier, null);
+});
+
+test('the dispatch step carries the plan, the plan task and the Part', () => {
+  const works = { 'w-00000001': { plan: 'docs/plans/p.md', part: null } };
+  const step = (key) => {
+    const f = facts({ T1: task({ state: 'ready', key, work: 'w-00000001' }) });
+    return nextStep({ ...f, state: { ...f.state, works } });
+  };
+  const a = step('p#T3');
+  assert.deepEqual({ plan: a.plan, planTask: a.planTask, part: a.part }, { plan: 'docs/plans/p.md', planTask: 'T3', part: null });
+  const b = step('p#Part2.T3');
+  assert.deepEqual({ plan: b.plan, planTask: b.planTask, part: b.part }, { plan: 'docs/plans/p.md', planTask: 'T3', part: 2 });
 });
 
 test('the dispatch-check step carries its fields', () => {
