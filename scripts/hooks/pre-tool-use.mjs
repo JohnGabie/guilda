@@ -44,8 +44,6 @@ const R32 = {
   },
 };
 
-const ARCHITECT_TYPE = 'guilda:architect';
-const ARCHITECT = 'architect';
 const hasAgentId = (input) => input.agent_id !== undefined && input.agent_id !== null;
 
 /** The R32 problem of a queue script call, or null. The writer role: the Architect in the main session, with no agent_id (X2, 0.3.0 row). */
@@ -349,7 +347,6 @@ function bindingsReadable(projectDir) {
 function callerOf(projectDir, input) {
   if (!bindingsReadable(projectDir)) return { problem: 'noRead' };
   if (hasAgentId(input)) {
-    if (input.agent_type === ARCHITECT_TYPE) return { address: ARCHITECT };
     const bound = Object.values(readBindings(projectDir)).find((b) => b.state === 'bound' && b.agentId === input.agent_id);
     return bound ? { address: bound.address } : { problem: 'noBinding' };
   }
