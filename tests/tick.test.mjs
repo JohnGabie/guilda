@@ -514,9 +514,49 @@ test('a missing or unknown tier word gives null', () => {
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { planTiers: { T1: null } })).tier, null);
 });
 
-test('lowTier gives apprentice', () => {
+test('lowTier gives apprentice only when no tier is known', () => {
   const pace = { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null };
-  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, planTiers: { T1: 'master' } })).tier, 'apprentice');
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, planTiers: { T1: null } })).tier, 'apprentice');
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, planTiers: { T1: 'master' } })).tier, 'master');
+});
+
+test('the tier of the fold wins over the tier of the plan', () => {
+  const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'apprentice' }) }, { planTiers: { T1: 'master' } }));
+  assert.equal(s.tier, 'apprentice');
+});
+
+test('the tier line accepts both forms and only an exact word', () => {
+  const plan = (line) => `### T1 — a\n${line}\n`;
+  assert.equal(tierInPlan(plan('Tier: master'), 'T1', null), 'master');
+  assert.equal(tierInPlan(plan('Suggested tier: journeyman.'), 'T1', null), 'journeyman');
+  assert.equal(tierInPlan(plan('Tier: apprentice, simple'), 'T1', null), 'apprentice');
+  assert.equal(tierInPlan(plan('Tier: master;'), 'T1', null), 'master');
+  assert.equal(tierInPlan(plan('Tier: master-ish'), 'T1', null), null);
+  assert.equal(tierInPlan(plan('Tier: masterful'), 'T1', null), null);
+});
+
+test('the block of a plan task: code fences, the next level-3 heading and a longer task id', () => {
+  const fenced = '### T1 — a\n```\n### T2 — x\n```\nTier: master\n';
+  assert.equal(tierInPlan(fenced, 'T1', null), 'master');
+  assert.equal(tierInPlan('```\n### T1 — a\nTier: master\n```\n', 'T1', null), null);
+  assert.equal(tierInPlan('### T1 — a\n#### note\nTier: master\n', 'T1', null), 'master');
+  assert.equal(tierInPlan('### T1 — a\n### T2 — b\nTier: master\n', 'T1', null), null);
+  assert.equal(tierInPlan('### T1 — a\n## Other\nTier: master\n', 'T1', null), null);
+  assert.equal(tierInPlan('### T10 — a\nTier: master\n', 'T1', null), null);
+});
+
+test('the plan read is bounded: a symlink out, a FIFO and a big file give null', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const outside = tempProject({ config: MINIMAL_CONFIG });
+  fs.writeFileSync(path.join(outside, 'p.md'), '### T1 — a\nTier: master\n');
+  fs.symlinkSync(path.join(outside, 'p.md'), path.join(dir, 'link.md'));
+  assert.equal(planTier(dir, 'link.md', 'T1', null), null);
+  fs.writeFileSync(path.join(dir, 'ok.md'), '### T1 — a\nTier: master\n');
+  assert.equal(planTier(dir, 'ok.md', 'T1', null), 'master');
+  fs.writeFileSync(path.join(dir, 'big.md'), `### T1 — a\nTier: master\n${'x'.repeat(1048576)}`);
+  assert.equal(planTier(dir, 'big.md', 'T1', null), null);
+  const mk = spawnSync('mkfifo', [path.join(dir, 'fifo.md')]);
+  if (mk.status === 0) assert.equal(planTier(dir, 'fifo.md', 'T1', null), null);
 });
 
 test('sleep without --until is refused', () => {
@@ -554,7 +594,7 @@ test('the dispatch step carries the fields of the dispatch command', () => {
   const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'journeyman' }) }, { pace: { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null } }));
   assert.deepEqual(
     { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, hasBrief: 'briefFile' in s, worktree: s.worktree },
-    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'apprentice', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1-1' },
+    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1-1' },
   );
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) })).tier, null);
 });

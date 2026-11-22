@@ -136,9 +136,10 @@ function planTaskOf(t, works) {
 
 /** The tier words of a brief. Only one of these words leaves the plan file. */
 export const TIER_WORDS = Object.freeze(['apprentice', 'journeyman', 'master']);
-const MAX_PLAN_BYTES = 2000000;
+const MAX_PLAN_BYTES = 1048576;
 const HEADING = /^(#{1,6})\s+(.*)$/;
-const TIER_LINE = /^Suggested tier:\s*([A-Za-z]+)\b/;
+const TIER_LINE = /^(?:Suggested tier|Tier):\s*(.*)$/;
+const TIER_VALUE = /^(apprentice|journeyman|master)(?:$|[ .,;])/;
 
 /** The tier word of the block of a plan task, or null. Pure: it takes the plan text. */
 export function tierInPlan(text, planTask, part) {
@@ -162,7 +163,7 @@ export function tierInPlan(text, planTask, part) {
     }
     if (inTask) {
       const m = TIER_LINE.exec(line);
-      if (m) return TIER_WORDS.includes(m[1]) ? m[1] : null;
+      if (m) return TIER_VALUE.exec(m[1])?.[1] ?? null;
     }
   }
   return null;
@@ -177,7 +178,8 @@ export function planTier(projectDir, plan, planTask, part) {
     const file = fs.realpathSync(path.join(rootReal, plan));
     const rel = path.relative(rootReal, file);
     if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
-    if (fs.statSync(file).size > MAX_PLAN_BYTES) return null;
+    const st = fs.statSync(file);
+    if (!st.isFile() || st.size > MAX_PLAN_BYTES) return null;
     return tierInPlan(fs.readFileSync(file, 'utf8'), planTask, part);
   } catch {
     return null;
@@ -272,7 +274,7 @@ export function nextStep(facts) {
         task: id,
         role: 'exe',
         tool: 'claude',
-        tier: pace.lowTier === true ? 'apprentice' : t.tier ?? planTiers[id] ?? null,
+        tier: t.tier ?? planTiers[id] ?? (pace.lowTier === true ? 'apprentice' : null),
         lowTier: pace.lowTier === true,
         ...planTaskOf(t, state.works),
         worktree: `${WORKTREE_ROOT}/${id}-${t.attempt}`,
