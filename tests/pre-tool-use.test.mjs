@@ -1262,6 +1262,32 @@ test('R38 wrapper forms are refused', () => {
     '!(x)swap list',
     'c[swap list',
     'cswap\nbudget',
+    "env -S 'cs?ap list'",
+    "env --split-string='cs?ap list'",
+    "script -qc 'cs?ap list' /dev/null",
+    "script -c 'cs?ap list' /dev/null",
+    'unbuffer cs?ap list',
+    'parallel cs?ap ::: list',
+    'echo list | parallel cs?ap',
+    'taskset -c 0 cs?ap list',
+    'flock x cs?ap list',
+    'ionice -c3 cs?ap list',
+    'chrt -f 1 cs?ap list',
+    'watch -n1 cs?ap list',
+    'unshare -n cs?ap list',
+    'strace -f cs?ap list',
+    'coproc cs?ap list',
+    'sudo --user root cs?ap list',
+    'timeout --signal KILL 5 cs?ap list',
+    'env --chdir /x cs?ap list',
+    'exec -a x cs?ap list',
+    'function f { cs?ap list; }',
+    "trap 'cs?ap list' EXIT",
+    'bash <<EOF\ncs?ap list\nEOF',
+    "echo 'cs?ap list' | bash",
+    "echo 'cs?ap list' | sh",
+    'eval "cs?ap list"',
+    'ls * | bash',
     'X=$(ls /usr/local/bin/c*p); $X list',
     '$(echo c*p) list',
     'sudo env c*p list',
@@ -1278,6 +1304,12 @@ test('R38 lets a glob in an argument and a plain dynamic command pass', () => {
     const reason = r.stdout === '' ? '' : JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason;
     assert.ok(!reason.startsWith('R38'), command);
   }
+});
+
+test('a command that hits both R34 and R38 is refused', () => {
+  const dir = tempProject({ config: MINIMAL_CONFIG });
+  const r = bash(dir, 'cswap list > .guilda/bus/x.jsonl');
+  assert.match(assertDeny(r), /^R3[48]:/);
 });
 
 test('R38 runs in a folder with no .guilda', () => {

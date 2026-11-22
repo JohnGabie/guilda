@@ -297,6 +297,20 @@ function commandWritesBus(projectDir, command, startCwd) {
 function innerText(rest) {
   const names = rest.map((w) => path.basename(w));
   if (names[0] === 'eval') return rest.slice(1).join(' ');
+  // env -S TEXT and script -c TEXT run TEXT as a command line (R38).
+  const envAt = names.indexOf('env');
+  if (envAt >= 0) {
+    for (let i = envAt + 1; i < rest.length; i += 1) {
+      if (rest[i] === '-S' || rest[i] === '--split-string') return rest[i + 1] ?? null;
+      if (rest[i].startsWith('--split-string=')) return rest[i].slice('--split-string='.length);
+      if (/^-S./.test(rest[i])) return rest[i].slice(2);
+    }
+  }
+  const scriptAt = names.indexOf('script');
+  if (scriptAt >= 0) {
+    const i = rest.findIndex((w, k) => k > scriptAt && (/^-[a-z]*c$/.test(w) || w === '--command'));
+    if (i >= 0 && rest[i + 1] !== undefined) return rest[i + 1];
+  }
   const shellAt = names.findIndex((n) => SHELLS.has(n));
   if (shellAt < 0) return null;
   const flag = rest.findIndex((w, i) => i > shellAt && /^-[a-z]*c[a-z]*$/.test(w));
@@ -307,11 +321,12 @@ function innerText(rest) {
 
 // R38: a command is refused when it can run `cswap` for an account command. Three rules, on the text:
 // 1. A word that is `cswap` or a path that ends in /cswap is refused, anywhere in the text.
-// 2. A glob word (also with a brace range, a bracket class or an extglob) that can match cswap is refused at the
-//    command position: the first word of a simple command, after the wrapper words, and after find -exec. A glob
-//    in an argument passes (`ls *`). An extglob word is refused at any position, because the parser splits it.
+// 2. A glob word (also with a brace range, a bracket class or an extglob) that can match cswap is refused at each
+//    position, except in the arguments of a known command (ls, cat, grep, git, find with no -exec, ...). An extglob
+//    word is refused at any position, because the parser splits it.
 // 3. When a command position is built at run time (a $ or a backtick in it), any glob word that can match cswap, or
-//    any word with the letters cswap, refuses the command.
+//    any word with the letters cswap, refuses the command. The same holds when the text has a shell runner (bash,
+//    sh, eval, source, trap, function, coproc, a heredoc), also inside quoted strings and heredoc bodies.
 // The one exception: the exact command `cswap budget` or `cswap budget --json` (with an optional path to cswap,
 // and no $ or backtick), alone or as the first part of a pipe. A false refusal is accepted. Accepted limit (as
 // R32): a binary copied under another name, and an interpreter that builds the name at run time (node -e,
@@ -389,8 +404,9 @@ function namesCswap(word) {
   return globMatchesCswap(word);
 }
 
-function globMatchesCswap(word) {
-  if (!GLOB_SIGN.test(word)) return false;
+function globMatchesCswap(raw) {
+  const word = raw.replace(/\{\}/g, ''); // {} is the literal placeholder of find, xargs and parallel
+  if (!GLOB_SIGN.test(word) || SYNTAX_WORDS.has(word)) return false;
   const last = word.slice(word.lastIndexOf('/') + 1);
   try {
     return globRegex(word).test('cswap') || globRegex(last).test('cswap');
@@ -421,23 +437,37 @@ function commandWordAt(words) {
   return i;
 }
 
-/** The command words of a shell text: of each simple command, of each shell text inside it, and after find -exec. */
-function commandWords(command, depth = 0, out = []) {
+// Commands whose glob arguments are safe: they run no other program from their arguments.
+const GLOB_SAFE = new Set([
+  'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'find', 'du', 'stat', 'file', 'git', 'diff', 'cp', 'mv', 'rm', 'mkdir',
+  'touch', 'chmod', 'tar', 'zip', 'unzip', 'echo', 'printf', 'sort', 'jq', 'sed', 'awk', 'node', 'npm', 'npx', 'pytest', 'make',
+]);
+const FIND_RUNS = new Set([...FIND_EXEC, '-delete']);
+// Shell runners: a command that runs text as shell code, or makes a command word from text.
+const SHELL_RUNNERS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'eval', 'source', '.', 'trap', 'function', 'coproc']);
+const HEREDOC = /<<-?[ \t]*['"\\]?\w/;
+// Words that look like a glob but are shell syntax.
+const SYNTAX_WORDS = new Set(['[', '[[', ']', ']]', '{', '}']);
+
+/** The words of each simple command of a shell text, and of each shell text inside it. */
+function simpleCommands(command, depth = 0, out = []) {
   if (depth > MAX_DEPTH) return out;
   for (const words of splitCommands(command)) {
     const { rest } = stripPrefix(words);
     const inner = innerText(rest);
-    if (inner !== null) commandWords(inner, depth + 1, out);
-    const at = commandWordAt(rest);
-    if (at < rest.length) out.push(rest[at]);
-    rest.forEach((w, j) => {
-      if (!FIND_EXEC.has(w)) return;
-      const sub = rest.slice(j + 1);
-      const k = commandWordAt(sub);
-      if (k < sub.length) out.push(sub[k]);
-    });
+    if (inner !== null) simpleCommands(inner, depth + 1, out);
+    if (rest.length > 0) out.push(rest);
   }
   return out;
+}
+
+/** True when the glob arguments of this simple command are safe: its command word is a known command. */
+function globSafe(rest, at) {
+  const name = baseName(rest[at]);
+  const args = rest.slice(at + 1);
+  if (name === 'find') return !args.some((w) => FIND_RUNS.has(w));
+  if (name === 'node') return args[0] === '--test';
+  return GLOB_SAFE.has(name);
 }
 
 /** True when the text names cswap by rule 1, 2 or 3 above. */
@@ -446,12 +476,16 @@ function mentionsCswap(text) {
   const tokens = [...new Set([...flat.split(WORD_SPLIT), ...flat.split(GLOB_WORD_SPLIT)])].filter((w) => w !== '');
   if (tokens.some((w) => w === 'cswap' || w.endsWith('/cswap'))) return true;
   if (tokens.some((w) => EXTGLOB.test(w) && globMatchesCswap(w))) return true;
-  const positions = commandWords(text);
-  if (positions.some((w) => globMatchesCswap(w))) return true;
-  if (positions.some((w) => DYNAMIC.test(w))) {
-    return tokens.some((w) => w.includes('cswap') || globMatchesCswap(w));
-  }
-  return false;
+  const commands = simpleCommands(text).map((rest) => ({ rest, at: commandWordAt(rest) })).filter((c) => c.at < c.rest.length);
+  const hardText = () => tokens.some((w) => w.includes('cswap') || globMatchesCswap(w));
+  const runner = HEREDOC.test(text) || commands.some((c) => SHELL_RUNNERS.has(baseName(c.rest[c.at])));
+  const dynamic = commands.some((c) => DYNAMIC.test(c.rest[c.at]));
+  if ((runner || dynamic) && hardText()) return true;
+  // A glob is refused at each position, except in the arguments of a known command.
+  return commands.some((c) => {
+    const checked = globSafe(c.rest, c.at) ? c.rest.slice(0, c.at + 1) : c.rest;
+    return checked.some((w) => globMatchesCswap(w));
+  });
 }
 
 /** True when a shell command must be refused by R38. */
