@@ -104,6 +104,9 @@ test('each read form of the away file is refused for an agent with the exact tex
     ['Bash', { command: `find ${state} -name '*.json'` }],
     ['Bash', { command: `ls -R ${state}` }],
     ['Bash', { command: `ls -lR ${state}/guilda` }],
+    ['Bash', { command: `ls -1R ${state}/guilda` }],
+    ['Bash', { command: `ls --recur ${state}` }],
+    ['Bash', { command: `ls --rec ${state}` }],
     ['Bash', { command: `ls --recursive ${state}` }],
     ['Bash', { command: `ls ${path.dirname(F)}` }],
     ['Bash', { command: `ls -l ${F}` }],
@@ -182,7 +185,8 @@ test('S5-30: actions that need the user wait while away (R40)', () => {
   const dir = project({ git: true });
   const vc = { agent_id: 'a-2', agent_type: 'guilda:version-control' };
   const actions = ['git push', 'git push origin main', 'git -C /tmp push', 'gh pr create --title x', 'gh release create v1', 'gh pr merge 3', 'gh -R a/b pr create',
-    'node scripts/council.mjs open --x', 'node scripts/report-send.mjs draft.json', 'cd sub && git push', "sh -c 'git push'"];
+    'node scripts/council.mjs open --x', 'echo x | xargs node scripts/council.mjs open', 'printf open | xargs node scripts/council.mjs',
+    'xargs -a list node scripts/council.mjs open', 'env X=1 node scripts/council.mjs open', 'nohup node scripts/council.mjs open &','node scripts/report-send.mjs draft.json', 'cd sub && git push', "sh -c 'git push'"];
   // with the file cleared: an agent is refused too (no sign of the absence); the Architect side passes
   for (const c of actions) {
     const g = awayGuard(dir, bash(dir, c, vc));
