@@ -371,12 +371,13 @@ test('review 2: a live claim of the same session means session live, and nothing
   seed(dir, LIMIT);
   armPast(dir, b);
   writeClaimFile(dir, { session: SESSION, ttlSec: 600, aliveAt: new Date().toISOString(), pid: process.pid });
-  const before = fs.readFileSync(recFile(dir), 'utf8');
   const r = resume(dir, ['run', projectId(dir)], b);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /session live/);
   assert.equal(logOf(b), '');
-  assert.equal(fs.readFileSync(recFile(dir), 'utf8'), before);
+  assert.equal(recOf(dir).state, 'fired');
+  // A second run finds no armed record.
+  assert.equal(resume(dir, ['run', projectId(dir)], b).code, 5);
 });
 
 test('review 2: a live claim of another session gives waiting-user, and claude does not start', () => {

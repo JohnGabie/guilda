@@ -35,7 +35,12 @@ Never run `signal.mjs`. If no signal comes, the `tick` rules for no-ack and for 
    On any other branch, use that branch. It is your work branch. Never switch to main.
    Then run `S/queue.mjs <dir> claim --session <session id>`. Run `S/queue.mjs <dir> sync --session <session id>`. Run `S/tick.mjs <dir> --json --session <session id>`.
 2. Read the `step` of the tick output. Do the action of the step:
-   - `pause`: run `S/tick.mjs <dir> --record sleep --until <until of the step> --session <session id>`. If the `why` of the step is `floor` or `blocked`, and `until` is more than 30 minutes after now, run these three commands in this order (D38): first `S/tick.mjs <dir> --record limit-stop --until <until of the step> --reason <why of the step> --session <session id>`, then the `sleep` record above, then `S/resume.mjs <dir> arm --session <session id> --at <until of the step>`. The `arm` command writes the resume record and arms one timer. Then do the `watch` action with that `until`. When the work goes on before the reset, run `S/resume.mjs <dir> remove --session <session id>`.
+   - `pause`: if `why` is `floor` or `blocked`, and `until` is over 30 minutes ahead (D38), do these steps in order:
+     1. Run `S/tick.mjs <dir> --record limit-stop --until <until of the step> --reason <why of the step> --session <session id>`.
+     2. Run `S/tick.mjs <dir> --record sleep --until <until of the step> --session <session id>`.
+     3. Run `S/resume.mjs <dir> arm --session <session id> --at <until of the step>`. The command writes the resume record and arms one timer.
+     Else run only `S/tick.mjs <dir> --record sleep --until <until of the step> --session <session id>`.
+     Then do the `watch` action with that `until`. When a later tick gives a step other than `pause` or `watch` before the `until` time, the work goes on. Then run `S/resume.mjs <dir> remove --session <session id>`.
    - `save-request`: send "commit your work in progress now" with `SendMessage` to the agent of the `address` of the step. Run `S/tick.mjs <dir> --record save-request --task <task> --attempt <attempt> --session <session id>`.
    - `stop`: run `S/tick.mjs <dir> --record stop --task <task> --attempt <attempt> --session <session id>`. Then stop the agent of the `address` of the step with `TaskStop`. The next tick gives `retry`.
    - `needs-user`: run `S/tick.mjs <dir> --record needs-user --task <task> --attempt <attempt> --reason <reason> --session <session id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to architect --type question --task <task> --text <text>` (SUP1, SUP2).

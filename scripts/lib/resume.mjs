@@ -13,7 +13,7 @@ export const SESSION_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 /** An at job number. */
 export const JOB_ID = /^\d+$/;
 export const RECORD_VERSION = 1;
-export const RECORD_STATES = Object.freeze(['armed', 'resumed', 'removed', 'waiting-user']);
+export const RECORD_STATES = Object.freeze(['armed', 'resumed', 'removed', 'waiting-user', 'fired']);
 /** The accuracy of the timer. */
 export const TIMER_ACCURACY = '1s';
 /** The pause, in minutes, above which the supervisor arms the trigger. */

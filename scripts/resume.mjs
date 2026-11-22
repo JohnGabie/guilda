@@ -145,6 +145,8 @@ function run(projectDir, root, id) {
   const claim = readClaim(projectDir);
   if (claim && claim.live) {
     if (claim.session === rec.supervisorSession) {
+      // The trigger fired and is used up: the record must not stay armed.
+      writeRecord(projectDir, { ...rec, state: 'fired' });
       out(`session live ${id}`);
       return;
     }
