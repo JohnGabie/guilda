@@ -43,6 +43,7 @@ test('the other entries of hooks.json keep their matchers', () => {
     ['PostToolUse', '*', 'agent-trace.mjs'],
     ['UserPromptSubmit', null, 'user-prompt-submit.mjs'],
     ['PreCompact', 'manual|auto', 'pre-compact.mjs'],
+    ['Stop', null, 'stop.mjs'],
     ['SubagentStop', '^guilda:(reviewer|security|qa)$', 'subagent-stop.mjs'],
     ['SubagentStop', null, 'agent-end.mjs'],
   ]);
