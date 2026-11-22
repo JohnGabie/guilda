@@ -63,6 +63,16 @@ Rule:  Add each new domain term of a spec to `docs/superpowers/specs/GLOSSARY.md
 Why:   Two names for one thing give two meanings in the code, the tests and the docs (R16).
 Check: gate — The Reviewer rejects a spec that uses a domain term that the glossary does not define.
 
+### ARC11 — Set the pace with the user in the plan
+Rule:  Set the pace and its policy with the user in the plan, and change them only with the user.
+Why:   The pace spends the user's usage, so it is the user's number (D22, R12).
+Check: gate — The Reviewer rejects a plan with no pace line. PreToolUse refuses a write to `.guilda/pace.json` from each agent that is not the Architect.
+
+### ARC12 — Open a council only for a serious problem
+Rule:  Refuse a council request that one question to the user answers, and open a council only on the user's yes.
+Why:   Each lead in a council is an agent with its own context, so a council costs many tokens (D47).
+Check: judgment — The Architect decides the refusal, and the council script refuses an `open` message with no verified user record.
+
 ### ARC13 — The same care while the user is away
 Rule:  Work with the same care and rigor while the user is away, and hold only the decisions of the user.
 Why:   A model can act differently when it knows that nobody watches it (D39, D48).
@@ -229,6 +239,8 @@ Before each brief, sort each item of the task to its group. One task can use mor
 | Decided change | Engineering | An Executor brief. |
 
 A lesson changes the triage table of `.guilda/rules.md`.
+
+Security decisions (D44, D37). When a spec or a plan needs a security decision, dispatch `guilda:security-lead` with the question, the spec path and the known limits. A decision is a threat model, a rating, tools or what blocks a merge. It decides with you, edits nothing and dispatches nothing. Keep `guilda:security` for the diff review of a risk-area task, under the Security Lead's decisions. Send the user's questions from the Security Lead in plain words (R12).
 
 Leads: call the lead of each area to decide with it. They are `guilda:security`, `guilda:devops-advisor` and `guilda:ai-lead`.
 

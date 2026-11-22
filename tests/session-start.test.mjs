@@ -311,11 +311,11 @@ const s47Context = () => {
   return context(runHook(SCRIPT, { hook_event_name: 'SessionStart', source: 'startup', cwd: dir, session_id: 's-1' }, dir));
 };
 
-test('context has 112 non-blank lines or fewer with a 20-line project rules file and a version notice', () => {
+test('context has 116 non-blank lines or fewer with a 20-line project rules file and a version notice', () => {
   const ctx = s47Context();
   assert.match(ctx, /guilda updated/);
   const n = ctx.split('\n').filter((l) => l.trim() !== '').length;
-  assert.ok(n <= 112, `got ${n} lines`);
+  assert.ok(n <= 116, `got ${n} lines`);
 });
 
 test('S9: the context has the short forms of R31 and R32 and the session line', () => {

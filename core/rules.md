@@ -173,7 +173,27 @@ Rule:  Start the supervisor session only on the request of the user, and let no 
 Why:   A start with no user acts with no consent, and after a restart only the user starts the work again (D15 G5).
 Check: judgment — The Reviewer rejects a hook, a skill or an agent that starts a supervisor session or a `/loop`. It also rejects an offer to start one.
 
+### R37 — Red team limits are laws
+Rule:  Run red team work only on this project's code, in a local test environment, after the user approves the task.
+Why:   A skill text is no safety control, and an attack on a foreign host harms other people (D16, D28).
+Check: law — The `tools` list of the Security Executor and a PreToolUse hook refuse an outside host, a credential read and a persistence step. They refuse a run with no approval.
+
 ### R38 — Read usage only, never switch accounts
 Rule:  Read usage only through the read-only `cswap` MCP tools or `cswap budget`, and never switch or list accounts.
 Why:   A switch or a list from an agent acts on the user's accounts and can leak an email or a token (D22).
 Check: law — PreToolUse refuses a `Bash` command that runs `cswap switch` or `cswap list`, from each session and each agent.
+
+### R39 — Only the Architect reads the away state
+Rule:  Keep the away state in its file outside the project, and let no agent except the Architect read it.
+Why:   An agent that knows the user is away can act differently, and a compaction can drop the Architect's memory (D48, D39).
+Check: law — PreToolUse refuses a read of the away folder, and a run of the away script, from each agent that is not the Architect.
+
+### R40 — Actions that need the user wait
+Rule:  Make agents wait for each action that needs the user, and make the Architect wait while the user is away.
+Why:   A decision of the user cannot come from an agent, and a reason that names the absence leaks it (D48, R12).
+Check: law — PreToolUse refuses a council open, a publish command and a merge to the main branch. It refuses them from each caller that is not the Architect side. It refuses them from the Architect side while the away file is set.
+
+### R41 — A resume runs only in its own project
+Rule:  Resume stopped work only in the project folder and for the work ID that the trigger record names.
+Why:   A trigger in another folder or for other work starts agents that the user did not ask for (D38).
+Check: law — PreToolUse refuses a resume run for another project. The resume script exits with no action when the path or the work ID is not that of the record.

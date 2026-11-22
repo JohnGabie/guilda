@@ -74,13 +74,3 @@ Rule:  As the Judge, open the session, give the floor in turn, close it, and nev
 Why:   A Judge with a view takes a side, and the user decides the outcome (D47, R12).
 Check: judgment — The council eval reads each Judge message for a view on the merit.
 ```
-
-<!-- argument-style:start -->
-## Argument style (switch: the L5-3 lab removes this section)
-
-1. Open a claim with one sentence that a lead on the other side can accept or reject.
-2. Give evidence a reader can check: a file path, a command and its output, or a source. Mark a guess as "guess".
-3. Give a reason that links the evidence to the claim. Name the case where the claim fails.
-4. When you answer a claim, answer its reason first. Then give your own claim.
-5. Change your position when the evidence changes it. Say so in one sentence.
-<!-- argument-style:end -->

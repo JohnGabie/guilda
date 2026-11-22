@@ -365,7 +365,7 @@ test('ignored', () => {
   const lines = fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').split('\n');
   for (const l of ['bus/', 'runs/', 'codex/']) assert.ok(lines.includes(l), l);
   assert.equal(lines.filter((l) => l === 'queue/').length, 1);
-  assert.deepEqual(IGNORED.slice(-3), ['bus/', 'runs/', 'codex/']);
+  assert.deepEqual(IGNORED.slice(-6), ['bus/', 'runs/', 'codex/', 'pace-last.json', 'resume/', 'security/']);
 });
 
 test('a live lock makes send exit 3 after 2 s', () => {

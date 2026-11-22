@@ -214,14 +214,14 @@ test('architect skill rules pass lintRules with prefix ARC', () => {
   assert.deepEqual(lintRules(rules, { prefix: 'ARC' }), []);
 });
 
-test('the Architect skill has ARC1 to ARC10, each heading one time (S15)', () => {
+test('the Architect skill has ARC1 to ARC13, each heading one time (S15)', () => {
   const rules = section(parse(SKILL).body, 'Rules');
-  for (let n = 1; n <= 10; n++) {
+  for (let n = 1; n <= 13; n++) {
     const heads = rules.split('\n').filter((l) => l.startsWith(`### ARC${n} — `));
     assert.equal(heads.length, 1, `ARC${n} has one heading`);
   }
   for (const key of ['Rule:', 'Why:', 'Check:']) {
-    assert.equal(rules.split('\n').filter((l) => l.startsWith(key)).length, 10, `ten ${key} lines`);
+    assert.equal(rules.split('\n').filter((l) => l.startsWith(key)).length, 13, `13 ${key} lines`);
   }
 });
 

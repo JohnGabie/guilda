@@ -15,7 +15,7 @@ const LEVELS = {
   R10: 'gate', R11: 'gate', R12: 'gate', R13: 'judgment', R14: 'judgment', R15: 'gate', R16: 'gate', R17: 'gate',
   R18: 'law', R19: 'law', R20: 'law', R21: 'gate', R22: 'gate', R23: 'gate', R24: 'gate', R25: 'judgment',
   R26: 'gate', R27: 'judgment', R28: 'law', R30: 'law', R31: 'gate', R32: 'law',
-  R34: 'law', R35: 'gate', R36: 'judgment', R38: 'law',
+  R34: 'law', R35: 'gate', R36: 'judgment', R37: 'law', R38: 'law', R39: 'law', R40: 'law', R41: 'law',
 };
 
 /** Map rule ID → full block text (heading + 3 lines). */
@@ -36,10 +36,10 @@ test('R15 mechanism names the ste-check report', () => {
   assert.match(blocks(read('core/rules.md')).R15.text, /Check: gate — .*ste-check/);
 });
 
-test('the full files have 162 lines or fewer', () => {
-  // core/rules.md + core/writing.md; the limit of 0.4.0 (spec X1).
+test('the full files have 186 lines or fewer', () => {
+  // core/rules.md + core/writing.md; the limit of 0.5.0 (spec X1).
   const n = nonBlank(read('core/rules.md')) + nonBlank(read('core/writing.md'));
-  assert.ok(n <= 162, `got ${n} lines`);
+  assert.ok(n <= 186, `got ${n} lines`);
 });
 
 test('R28 has the level law', () => {
@@ -125,7 +125,7 @@ test('glossary has the process terms in the fixed line format', () => {
     'verdict', 'process level', 'security zone', 'review unit', 'domain skill', 'triage', 'mutant', 'field report',
     'lab report', 'Lab group', 'block', 'agent ID', 'address', 'mailbox', 'binding table',
     'user channel', 'user record', 'queue journal', 'signal', 'audit log', 'block index',
-    'cost record', 'supervisor', 'claim'];
+    'cost record', 'supervisor', 'claim', 'pace', 'usage source', 'Security Lead', 'Security Executor', 'council', 'Judge', 'away mode', 'held'];
   const lines = read('core/glossary.md').split(/\r?\n/).filter((l) => l.startsWith('- **'));
   const re = /^- \*\*([^*]+)\*\*: .+?\. Forbidden: [^.,]+(?:, [^.,]+)*\.$/;
   for (const line of lines) assert.match(line, re);

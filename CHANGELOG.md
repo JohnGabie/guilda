@@ -18,6 +18,12 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - `scripts/watch.mjs`: the sleep with no tokens, which keeps the claim alive.
 - The pace: the supervisor reads the budget and sets the slots. It stops at the 5% floor.
 - The Stop hook branch for the supervisor session.
+- New rules: R37, R39, R40 and R41, and the Architect rules ARC11 and ARC12. R37: red team limits are laws.
+  R39: only the Architect reads the away state. R40: actions that need the user wait. R41: a resume runs only in its project.
+- New glossary terms: pace, usage source, Security Lead, Security Executor, council, Judge, away mode and held.
+- The Architect skill calls the Security Lead for a security decision (D44).
+- The ignore list of `.guilda/.gitignore` has `resume/` and `security/`.
+- The council skill has no argument style section (the L5-3 lab did not run).
 
 ## [0.4.1] - 2026-11-22
 

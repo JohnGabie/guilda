@@ -80,6 +80,14 @@ another branch, the supervisor uses that branch. You merge the branch of the sup
 The supervisor stops at the 5% floor of the budget. It also stops when only items for you are left.
 The summary of the run is in `.guilda/supervisor-summary.md`.
 
+## Security, council and away mode
+
+The Security Lead decides security questions with the Architect. It points and never edits.
+The Security Executor runs red team work only on the project code, in a local test environment, after you approve the task (R37).
+A council is a live chat of the leads about one serious problem. A Judge runs it, and it opens only on your yes.
+While you are away, the Architect holds each action that needs you (R40). Only the Architect reads the away state (R39).
+A resume of stopped work runs only in its own project (R41).
+
 ## Update from 0.1.x
 
 The 0.1.x layer of a project works as it is. Run `guilda:update`: it saves the new version in

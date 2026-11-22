@@ -35,7 +35,7 @@ test('appendViolation creates .guilda/.gitignore', () => {
   appendViolation(dir, V);
   assert.deepEqual(
     fs.readFileSync(path.join(dir, '.guilda', '.gitignore'), 'utf8').trim().split('\n'),
-    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md', 'decisions-pending.md', 'eval-cache/', 'bus/', 'runs/', 'codex/', 'pace-last.json'],
+    ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md', 'decisions-pending.md', 'eval-cache/', 'bus/', 'runs/', 'codex/', 'pace-last.json', 'resume/', 'security/'],
   );
 });
 
@@ -94,8 +94,8 @@ test('ensureIgnored adds .hooks-live.json and reports/ one time', () => {
   }
 });
 
-test('IGNORED has the 0.4.0 lines', () => {
-  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md', 'decisions-pending.md', 'eval-cache/', 'bus/', 'runs/', 'codex/', 'pace-last.json']);
+test('IGNORED has the 0.4.0 and 0.5.0 lines', () => {
+  assert.deepEqual(IGNORED, ['violations.jsonl', 'format-retries.json', '.hooks-live.json', '.extension-live.json', 'reports/', 'queue/', 'audit.jsonl', 'transcripts/', 'trace/', 'status.md', 'logs/', '.doctor-last.json', '.init-progress.json', 'costs/', 'handoff.md', 'decisions-pending.md', 'eval-cache/', 'bus/', 'runs/', 'codex/', 'pace-last.json', 'resume/', 'security/']);
 });
 
 test('IGNORED has handoff.md', () => {

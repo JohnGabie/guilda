@@ -18,7 +18,7 @@ Source: guilda design, sections 6 and 7.
 - **QA**: the agent that tests the running product and reports one result for each Acceptance scenario. Forbidden: tester.
 - **security**: the optional agent that reviews the diff of a task in a risk area, and points at problems but never edits. Forbidden: auditor, pentester.
 - **architect**: the role that writes the spec, the plan and the briefs, and runs in the main session. Forbidden: planner, designer.
-- **controller**: the main Claude Code session, which dispatches each role as a subagent and integrates the results. Forbidden: orchestrator, coordinator.
+- **controller**: the agent or session that dispatches each role as a subagent and integrates the results. It is the supervisor session for the tasks of the queue while its claim is live. In each other case, it is the Architect in the main session. Forbidden: orchestrator, coordinator.
 - **lab**: an experiment in an isolated branch that tests a concept with a measurable PASS before the build starts. Forbidden: playground, POC.
 - **verdict**: the fixed output of the Reviewer or Security, with a `Result:` line and a `Violations:` line. Forbidden: feedback, opinion.
 - **process level**: the value of the process field in .guilda/config.json, light or full, that sets the review cycle and the gates but never a law. Forbidden: process mode, process profile.
@@ -44,6 +44,14 @@ Source: guilda design, sections 6 and 7.
 - **cost record**: the file that the cost script writes at the end of a build, with the tokens and the cost of each task, block and build. Forbidden: bill, invoice.
 - **supervisor**: the session that holds the claim of the queue and keeps the pace of the build; it is not the owner of the product. Forbidden: boss, manager, overseer.
 - **claim**: the file writer.json of the queue, which names the one session that may write the queue while that session is live. Forbidden: lock, lease.
+- **pace**: the number of agents that run at the same time. It comes from the usage left on the accounts and the hours that the user wants (D22). Forbidden: throttle, speed.
+- **usage source**: the read-only cswap MCP tools for an agent, or the cswap budget command for a script, or off. They give the usage of each account (X10). Forbidden: quota API, account list.
+- **Security Lead**: the agent that decides security questions with the Architect, points and never edits (D37). Forbidden: security manager, CISO.
+- **Security Executor**: the Executor with the red team or blue team skills, in its own agent definition with restricted tools (D28). Forbidden: hacker, pentester.
+- **council**: a live chat of the leads of one serious problem, with the user and the Architect, that a Judge runs (D47). Forbidden: meeting, committee.
+- **Judge**: the council agent that opens the session, gives the floor and closes it, with no view on the merit. Forbidden: moderator, chair.
+- **away mode**: the state, held by code, in which the user is not present and the decisions of the user wait (D48). Forbidden: offline mode, idle mode.
+- **held**: the queue state of a task that waits, with no reason in the queue (D14, D48). Forbidden: frozen, parked.
 
 ## Approval of the terms
 
