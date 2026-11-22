@@ -42,7 +42,7 @@ Never run `signal.mjs`. If no signal comes, the `tick` rules for no-ack and for 
    - `retry`: run `S/queue.mjs <dir> retry <task> --session <session id>`. The next tick gives `dispatch`.
    - `dispatch-check`: run `S/queue.mjs <dir> dispatch <task> --check --role rev --tool claude --tier <tier> --session <session id>`. The output line is `dispatched <task> attempt <n> address <address>`. Start `guilda:reviewer` with the Agent tool in the background. Put the line `Address: <address>` alone on its own line in the prompt. Give it the brief, the spec path and the diff range. The range is `<base>..<branch>`. Take `<base>` and `<branch>` from your dispatch step. If you lost them, read `baseCommit` in the `dispatch` event of `.guilda/queue/journal.jsonl`, because no queue command prints it. The branch is `task/<task>-<attempt>` of the attempt in review.
      On the verdict APPROVED, run `S/queue.mjs <dir> approve <task> --session <session id>`.
-     On REJECTED-SMALL, run `S/queue.mjs <dir> reject <task> --session <session id>`. On the next `dispatch` step of that task, put the Reviewer problems in the Agent prompt after the brief, under a line `Review findings:`.
+     On REJECTED-SMALL, run `S/queue.mjs <dir> reject <task> --session <session id>`. On the next `dispatch` step of that task, add a line `Review findings:` after the brief in the Agent prompt. Put the Reviewer problems under it.
      On REJECTED-LARGE, or on the third rejection of a task (R11), run these commands in this order. Do not dispatch that task again.
      A held task does not block other tasks.
      1. `S/queue.mjs <dir> reject <task> --session <session id>`.
