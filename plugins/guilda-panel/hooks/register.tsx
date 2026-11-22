@@ -356,6 +356,12 @@ const QUEUE_DIR = '.guilda/queue'
 const STATE_FILE = `${QUEUE_DIR}/state.json`
 const JOURNAL_FILE = `${QUEUE_DIR}/journal.jsonl`
 const DOCTOR_FILE = '.guilda/.doctor-last.json'
+// The pace file (5k): read only, at most 64 KiB. Older than 15 min, the line says so.
+const PACE_FILE = '.guilda/pace-last.json'
+const PACE_MAX_BYTES = 64 * 1024
+const PACE_OLD_MS = 15 * 60 * 1000
+const PACE_MAX_SLOTS = 8
+const PACE_WHY = ['floor', 'blocked', 'slow_down', 'ok', 'can_speed_up', 'unknown', 'off']
 const INIT_FILE = '.guilda/.init-progress.json'
 
 // One entry of the `bindings` key of state.json, as the panel keeps it (section 4b).
@@ -376,7 +382,7 @@ type PanelBinding = {
 // The snapshot of the types file, with the binding entries. The types file is not in this task's file list.
 type PanelSnapshot = GuildaPanelSnapshot & { bindings?: PanelBinding[] }
 
-const EMPTY: GuildaPanelSnapshot = { at: 0, hasQueue: false, tasks: [], doctorFail: null, init: null }
+const EMPTY: GuildaPanelSnapshot = { at: 0, hasQueue: false, tasks: [], doctorFail: null, init: null, pace: null }
 const NO_DIAGNOSTICS: GuildaPanelDiagnostics = { folder: '', at: 0, errors: [] }
 const NO_LOG: GuildaPanelLog = { address: null, isFound: false, lines: [] }
 
@@ -437,7 +443,13 @@ async function findRoot($: EngineInterface): Promise<Root | null> {
 
 // Reads one file of the project. A missing file is undefined. A file that lands outside the project folder
 // throws, and nothing is read. `tail` reads only that many bytes from the end.
-async function readInside($: EngineInterface, root: Root, rel: string, tail?: number): Promise<Found | undefined> {
+async function readInside(
+  $: EngineInterface,
+  root: Root,
+  rel: string,
+  tail?: number,
+  maxBytes: number = MAX_JSON_BYTES,
+): Promise<Found | undefined> {
   const path = `${root.folder}/${rel}`
   if (!(await $.fs.exists(path))) return undefined
   const stat = await $.fs.stat(path, { resolve: true })
@@ -449,7 +461,7 @@ async function readInside($: EngineInterface, root: Root, rel: string, tail?: nu
     // The first line can be cut: drop it.
     return { text: text.slice(text.indexOf('\n') + 1), mtimeMs: stat.mtimeMs }
   }
-  if (stat.size > MAX_JSON_BYTES) throw new Error(`${rel}: larger than ${MAX_JSON_BYTES} bytes`)
+  if (stat.size > maxBytes) throw new Error(`${rel}: larger than ${maxBytes} bytes`)
   return { text: await $.fs.read(path), mtimeMs: stat.mtimeMs }
 }
 
@@ -711,6 +723,30 @@ async function placeInitPane($: EngineInterface, init: GuildaPanelInit | null): 
   await update($, initPlaced, () => pane?.isPlaced === true)
 }
 
+// The pace line of .guilda/pace-last.json, or null. A file that does not fit the form gives no line, and no error.
+async function readPace($: EngineInterface, root: Root, now: number): Promise<string | null> {
+  try {
+    const found = await readInside($, root, PACE_FILE, undefined, PACE_MAX_BYTES)
+    if (found === undefined) return null
+    const body: unknown = JSON.parse(found.text)
+    if (!isRecord(body) || body.schemaVersion !== 1 || body.source === 'off') return null
+    const { slots, why, resumeAt, fetchedAt } = body
+    if (typeof slots !== 'number' || !Number.isInteger(slots) || slots < 0 || slots > PACE_MAX_SLOTS) return null
+    if (typeof why !== 'string' || !PACE_WHY.includes(why)) return null
+    let line = `pace: ${slots} agents — ${clean(why)}`
+    const resume = typeof resumeAt === 'string' ? Date.parse(resumeAt) : Number.NaN
+    if (Number.isFinite(resume)) {
+      const at = new Date(resume)
+      line += ` until ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+    }
+    const fetched = typeof fetchedAt === 'string' ? Date.parse(fetchedAt) : Number.NaN
+    if (!Number.isFinite(fetched) || now - fetched > PACE_OLD_MS) line += ' — old data'
+    return line
+  } catch {
+    return null
+  }
+}
+
 async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
   if (isPolling) return read($, snapshot)
   isPolling = true
@@ -729,6 +765,7 @@ async function poll($: EngineInterface): Promise<GuildaPanelSnapshot> {
         bindings: queue.bindings,
         doctorFail: await readDoctor($, root, errors),
         init: await readInit($, root, now, errors),
+        pace: await readPace($, root, now),
       }
       const log = await read($, logView)
       if (log.address !== null) {
@@ -1016,8 +1053,9 @@ export const register: Register = on => {
     const boundRows = bindingRows(snap)
     const showsBlock = snap.hasQueue && (rows.length > 0 || boundRows.length > 0 || snap.doctorFail !== null)
     const init = snap.init
+    const showsPace = snap.pace !== null && snap.pace !== undefined
     const showsInit = init !== null && (lastColumns < INIT_PANE_COLUMNS || !isPlaced)
-    if (!showsBlock && !showsInit) return next(e)
+    if (!showsBlock && !showsInit && !showsPace) return next(e)
     const line = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const heading = snap.doctorFail === null ? HEADING : `${HEADING} · doctor: ${snap.doctorFail} FAIL`
@@ -1104,6 +1142,11 @@ export const register: Register = on => {
         {showsBlock && (
           <Text key="work" dimColor wrap="truncate-end">
             {workText(snap.tasks)}
+          </Text>
+        )}
+        {showsPace && (
+          <Text key="pace" dimColor wrap="truncate-end">
+            {snap.pace}
           </Text>
         )}
         {showsInit && init !== null && (

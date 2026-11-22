@@ -624,3 +624,83 @@ test('binding rows: the mod reads no file in .guilda/bus', async ($, on) => {
   expect(seen.reads).toContain(STATE_PATH)
   expect(seen.touched.filter(path => path.includes('/.guilda/bus'))).toEqual([])
 })
+
+// Section 5k: the pace line, from .guilda/pace-last.json.
+const PACE_PATH = `${PROJECT}/.guilda/pace-last.json`
+const hhmm = (ms: number) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function paceFile(fields: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    source: 'usage',
+    fetchedAt: iso(T0 - 60_000),
+    slots: 3,
+    lowTier: false,
+    why: 'ok',
+    resumeAt: null,
+    writtenAt: iso(T0 - 30_000),
+    ...fields,
+  })
+}
+
+async function paceTexts(on: On, $: Parameters<Parameters<typeof test>[1]>[0], pace: string | undefined) {
+  mock.clock(on, { now: T0 })
+  const files: Files = { [STATE_PATH]: fileOf(stateText(s26Tasks())) }
+  if (pace !== undefined) files[PACE_PATH] = fileOf(pace)
+  const seen = engine(on, files)
+  engineDraws(on)
+  await $.session.start({ cwd: PROJECT, surface: 'terminal', isInteractive: true })
+  const hint = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  const texts = (await textsOf(hint)).filter(one => one.startsWith('pace:'))
+  await hint.unmount()
+  return { texts, seen }
+}
+
+test('pace line: a fresh file shows the line', async ($, on) => {
+  const one = await paceTexts(on, $, paceFile({ slots: 2, why: 'slow_down' }))
+  expect(one.texts).toEqual(['pace: 2 agents — slow_down'])
+})
+
+test('pace line: resumeAt adds the local time', async ($, on) => {
+  const resume = T0 + 3_600_000
+  const one = await paceTexts(on, $, paceFile({ slots: 0, why: 'blocked', resumeAt: iso(resume) }))
+  expect(one.texts).toEqual([`pace: 0 agents — blocked until ${hhmm(resume)}`])
+})
+
+test('pace line: no file gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, undefined)).texts).toEqual([])
+})
+
+test('pace line: a bad file gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, '{ not json')).texts).toEqual([])
+})
+
+test('pace line: schemaVersion 2 gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ schemaVersion: 2 }))).texts).toEqual([])
+})
+
+test('pace line: source off gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ source: 'off', why: 'off' }))).texts).toEqual([])
+})
+
+test('pace line: an old fetchedAt ends with old data', async ($, on) => {
+  const one = await paceTexts(on, $, paceFile({ fetchedAt: iso(T0 - 16 * 60_000) }))
+  expect(one.texts).toEqual(['pace: 3 agents — ok — old data'])
+})
+
+test('pace line: an unknown why gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ why: 'panic' }))).texts).toEqual([])
+})
+
+test('pace line: slots 9 gives no line', async ($, on) => {
+  expect((await paceTexts(on, $, paceFile({ slots: 9 }))).texts).toEqual([])
+})
+
+test('pace line: a huge file is not read', async ($, on) => {
+  const one = await paceTexts(on, $, paceFile({ pad: 'x'.repeat(70 * 1024) }))
+  expect(one.texts).toEqual([])
+  expect(one.seen.reads).not.toContain(PACE_PATH)
+})

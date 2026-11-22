@@ -38,6 +38,8 @@ export type GuildaPanelSnapshot = {
   /** The check of the first FAIL line of `.guilda/.doctor-last.json`. */
   doctorFail: string | null
   init: GuildaPanelInit | null
+  /** The pace line of `.guilda/pace-last.json`, or null when the file gives no line. */
+  pace?: string | null
 }
 
 export type GuildaPanelLogLine = {
