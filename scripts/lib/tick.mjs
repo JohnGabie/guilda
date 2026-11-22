@@ -141,7 +141,8 @@ export function nextStep(facts) {
   for (const [id, t] of entries) {
     let cause = null;
     if (t.state === 'done') continue;
-    if (asked(id, t) || ((t.state === 'stalled' || t.state === 'failed') && t.attempt > 1 && t.cause !== 'no-ack')) cause = 'waits-user';
+    const holds = !['review', 'ready'].includes(t.state);
+    if ((holds && asked(id, t)) || ((t.state === 'stalled' || t.state === 'failed') && t.attempt > 1 && t.cause !== 'no-ack')) cause = 'waits-user';
     else if (isLateRunning(t, now)) cause = 'stuck';
     else if (t.state === 'failed') cause = 'failed-check';
     else if (['ready', 'pending'].includes(t.state)) cause = pace.slots === 0 ? 'waits-reset' : 'no-ready';
@@ -218,7 +219,8 @@ export function nextStep(facts) {
         tier: t.tier ?? null,
         lowTier: pace.lowTier === true,
         ...planTaskOf(t, state.works),
-        worktree: `${WORKTREE_ROOT}/${id}`,
+        worktree: `${WORKTREE_ROOT}/${id}-${t.attempt}`,
+        branch: `task/${id}-${t.attempt}`,
       });
     }
   }

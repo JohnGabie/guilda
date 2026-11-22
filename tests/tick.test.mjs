@@ -451,6 +451,34 @@ test('a pause with a past resumeAt gives an until 30 min ahead', () => {
   }
 });
 
+const asks = (attempt) => ({ type: 'needs-user', task: 'T1', attempt, reason: 'x', t: at(5) });
+
+test('a task in review after a needs-user record gives dispatch-check', () => {
+  const s = nextStep(facts({ T1: task({ state: 'review' }) }, { records: [asks(1)] }));
+  assert.equal(s.step, 'dispatch-check');
+  assert.deepEqual(s.idle, []);
+  const r = nextStep(facts({ T1: task({ state: 'ready' }) }, { records: [asks(1)] }));
+  assert.equal(r.step, 'dispatch');
+  assert.deepEqual(r.idle, [{ task: 'T1', cause: 'no-ready' }]);
+});
+
+test('a needs-user record of attempt 1 does not hide attempt 2', () => {
+  const s = nextStep(facts({ T1: task({ state: 'failed', attempt: 2, cause: 'check' }) }, { records: [asks(1)] }));
+  assert.equal(s.step, 'needs-user');
+  assert.equal(s.attempt, 2);
+  const late = nextStep(facts({ T1: { ...lateRunning(), attempt: 2 } }, { records: [asks(1)] }));
+  assert.equal(late.step, 'save-request');
+  assert.equal(late.attempt, 2);
+});
+
+test('the dispatch step suggests a worktree and a branch for each attempt', () => {
+  const s = nextStep(facts({ T1: task({ state: 'ready', attempt: 2 }) }));
+  assert.equal(s.worktree, '.guilda/worktrees/T1-2');
+  assert.equal(s.branch, 'task/T1-2');
+  const first = nextStep(facts({ T1: task({ state: 'ready' }) }));
+  assert.deepEqual({ w: first.worktree, b: first.branch }, { w: '.guilda/worktrees/T1-1', b: 'task/T1-1' });
+});
+
 test('sleep without --until is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   const r = tick(dir, 3, '--record', 'sleep');
@@ -486,7 +514,7 @@ test('the dispatch step carries the fields of the dispatch command', () => {
   const s = nextStep(facts({ T1: task({ state: 'ready', tier: 'journeyman' }) }, { pace: { slots: 2, lowTier: true, why: 'slow_down', resumeAt: null } }));
   assert.deepEqual(
     { step: s.step, task: s.task, role: s.role, tool: s.tool, tier: s.tier, lowTier: s.lowTier, hasBrief: 'briefFile' in s, worktree: s.worktree },
-    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1' },
+    { step: 'dispatch', task: 'T1', role: 'exe', tool: 'claude', tier: 'journeyman', lowTier: true, hasBrief: false, worktree: '.guilda/worktrees/T1-1' },
   );
   assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) })).tier, null);
 });
