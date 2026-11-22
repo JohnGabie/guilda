@@ -31,7 +31,7 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - The Security Executor needs the project sandbox on (U5-8). The pre-agent hook refuses it with the sandbox off.
 - The red team and blue team skills wait for the curation of the user (U5-7).
 - U5-1 is open, so `usage.source` stays `off` by default.
-- The matcher of the hook on skills and agents changes to `Skill|Agent`.
+- The matcher of the hook on skills, agents and notebook edits changes to `Skill|Agent|NotebookEdit`.
 
 ## [0.4.1] - 2026-11-22
 
