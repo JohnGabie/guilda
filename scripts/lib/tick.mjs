@@ -195,7 +195,7 @@ export function nextStep(facts) {
 
   // 5. A task in review with no check run.
   for (const [id, t] of entries) {
-    if (t.state === 'review' && (t.checks ?? []).length === 0) {
+    if (t.state === 'review' && !(t.checks ?? []).some((c) => c.attempt === t.attempt)) {
       return done({ step: 'dispatch-check', task: id, role: 'rev', tool: 'claude' });
     }
   }

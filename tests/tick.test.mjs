@@ -129,7 +129,7 @@ test('rule 4: a no-ack stall retries up to MAX_ATTEMPTS', () => {
 test('rule 5: a task in review with no check run gives dispatch-check', () => {
   const s = nextStep(facts({ T1: task({ state: 'review' }) }));
   assert.deepEqual({ step: s.step, task: s.task, role: s.role }, { step: 'dispatch-check', task: 'T1', role: 'rev' });
-  assert.equal(nextStep(facts({ T1: task({ state: 'review', checks: [{ role: 'rev' }] }) })).step, 'watch');
+  assert.equal(nextStep(facts({ T1: task({ state: 'review', checks: [{ role: 'rev', attempt: 1 }] }) })).step, 'watch');
 });
 
 test('rule 6: unread supervisor messages give read-bus', () => {
@@ -477,6 +477,14 @@ test('the dispatch step suggests a worktree and a branch for each attempt', () =
   assert.equal(s.branch, 'task/T1-2');
   const first = nextStep(facts({ T1: task({ state: 'ready' }) }));
   assert.deepEqual({ w: first.worktree, b: first.branch }, { w: '.guilda/worktrees/T1-1', b: 'task/T1-1' });
+});
+
+test('a task in review on attempt 2, with a check run of attempt 1 only, gives dispatch-check', () => {
+  const old = { address: 'T1-rev-aaaa', role: 'rev', agentId: null, attempt: 1 };
+  const s = nextStep(facts({ T1: task({ state: 'review', attempt: 2, checks: [old] }) }));
+  assert.equal(s.step, 'dispatch-check');
+  const now = nextStep(facts({ T1: task({ state: 'review', attempt: 2, checks: [old, { ...old, address: 'T1-rev-bbbb', attempt: 2 }] }) }));
+  assert.notEqual(now.step, 'dispatch-check');
 });
 
 test('sleep without --until is refused', () => {
