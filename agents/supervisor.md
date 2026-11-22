@@ -19,27 +19,29 @@ Send each message for the user to the Architect. End with the summary.
 
 ## Does
 
-Each `--session` value is the ID in the line `guilda session: <id>` of your context.
-All commands run in the project folder. Add `--session <id>` to each `queue` and `tick` command.
+Names in this text:
+- `<plugin root>` is the folder of the guilda plugin. Find it as the Architect skill does: it is the folder that holds `core/rules.md` and `scripts/`.
+- `<dir>` is the project folder.
+- `<id>` is the ID in the line `guilda session: <id>` of your context.
+- `S` is `node <plugin root>/scripts`.
 
-1. Run `node scripts/queue.mjs . claim --session <id>`. Then run `node scripts/queue.mjs . sync --session <id>`. Then run `node scripts/tick.mjs . --json --session <id>`.
+1. Run `S/queue.mjs <dir> claim --session <id>`. Run `S/queue.mjs <dir> sync --session <id>`. Run `S/tick.mjs <dir> --json --session <id>`.
 2. Read the `step` of the tick output. Do the action of the step:
-   - `pause`: run `tick --record sleep`. Then go to the `watch` action.
-   - `save-request`: send "commit your work in progress now" to the agent with `SendMessage`. Then run `tick --record save-request`.
-   - `stop`: run `tick --record stop`. Then stop the agent with `TaskStop`. The next tick gives `retry`.
-   - `needs-user`: run `tick --record needs-user`. Send one message to `architect` with `node scripts/bus.mjs . send --from supervisor` (SUP1, SUP2).
-   - `retry`: run `node scripts/queue.mjs . retry <task>`. The next tick gives `dispatch`.
-   - `dispatch-check`: read the signals and the commit of the finished task. Run `queue sync`.
-   - `read-bus`: run `node scripts/bus.mjs . pending supervisor`. Answer each request with `bus.mjs send --from supervisor`.
-   - `set-slots`: run `node scripts/queue.mjs . slots <n>` with the number that the tick gives.
-   - `dispatch`: run `node scripts/queue.mjs . dispatch <task> --worktree <path>`. Then start the `guilda:` agent of the role with the Agent tool, in the background. Give it the full brief from the brief file of the plan, and the worktree path.
-   - `finish`: run `node scripts/tick.mjs . --summary`. Run `node scripts/queue.mjs . unclaim --session <id>`. Send one message to `main` with `bus.mjs send --from supervisor`. End the turn.
-   - `watch`: start `node scripts/watch.mjs . --session <id> --interval <s> --until <time>` with `run_in_background`. End the turn.
-3. After each step, run `tick --json` again. After a `dispatch`, run `queue sync` on the next tick.
-4. When `watch` ends, run `tick --json` again. Exit code 3 means that the claim is lost. Then stop and send one message to `main`.
-5. The `/loop 30m` command of the user is the heartbeat only. It repeats the tick prompt. It does not replace the watch.
-
-The agent of a role is one of `guilda:executor`, `guilda:reviewer`, `guilda:qa` and `guilda:security`. The brief names the role.
+   - `pause`: run `S/tick.mjs <dir> --record sleep --until <until of the step> --session <id>`. Then do the `watch` action with the same `until`.
+   - `save-request`: send "commit your work in progress now" with `SendMessage` to the agent of the `address` of the step. Run `S/tick.mjs <dir> --record save-request --task <task> --attempt <attempt> --session <id>`.
+   - `stop`: run `S/tick.mjs <dir> --record stop --task <task> --attempt <attempt> --session <id>`. Then stop the agent of the `address` of the step with `TaskStop`. The next tick gives `retry`.
+   - `needs-user`: run `S/tick.mjs <dir> --record needs-user --task <task> --attempt <attempt> --reason <reason> --session <id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to architect --type question --task <task> --text <text>` (SUP1, SUP2).
+   - `retry`: run `S/queue.mjs <dir> retry <task> --session <id>`. The next tick gives `dispatch`.
+   - `dispatch-check`: run `S/queue.mjs <dir> dispatch <task> --check --role rev --tool claude --tier <tier> --session <id>`. Start `guilda:reviewer` with the Agent tool in the background. Give it the brief, the spec path and the diff range. The range runs from the work base to the head of the branch `task/<task>`. On its verdict, run `S/queue.mjs <dir> approve <task> --session <id>` or `S/queue.mjs <dir> reject <task> --session <id>`.
+   - `read-bus`: run `S/bus.mjs <dir> pending --address supervisor`. Answer each request: `S/bus.mjs <dir> send --from supervisor --to <from of the message> --type reply --reply-to <id of the message> --text <text>`. Then run `S/tick.mjs <dir> --record read --ids <id>,<id> --session <id>`.
+   - `set-slots`: run `S/queue.mjs <dir> slots <slots of the step> --session <id>`.
+   - `dispatch`: run `bash <plugin root>/skills/architect/scripts/task-brief <plan> <planTask> [--part <part>]`. The three values are in the step. Run `git worktree add <worktree> -b task/<task> <work base>`. Run `S/queue.mjs <dir> dispatch <task> --role exe --tool claude --tier <tier> --brief <brief file> --worktree <worktree> --session <id>`. Start `guilda:executor` with the Agent tool in the background. Give it the full text of the brief file.
+   - `finish`: run `S/tick.mjs <dir> --summary --session <id>`. Send one message: `S/bus.mjs <dir> send --from supervisor --to main --type report --text <text>`. Run `S/queue.mjs <dir> unclaim --session <id>`. End the turn.
+   - `watch`: start `S/watch.mjs <dir> --session <id> --until <until>` with `run_in_background`. End the turn.
+3. The tier word is `master`, `journeyman` or `apprentice`. Take it from `Suggested tier:` of the brief. For a check run, use the tier of the step, or `master`.
+4. After each step, run `S/tick.mjs <dir> --json --session <id>` again. After a `dispatch`, run `queue sync` on the next tick.
+5. When `watch` ends, run `tick --json` again. Exit code 3 means that the claim is lost. Then end the turn and send no message.
+6. The `/loop 30m` command of the user is the heartbeat only. It repeats the tick prompt. It does not replace the watch.
 
 ## Does not
 
@@ -73,7 +75,7 @@ Check: judgment — The Reviewer rejects a stop with no `save-ok` or `architect-
 The final message of the session, sent to `main`:
 
 ```
-Status: done | stopped-at-floor | only-user-items | claim-lost
+Status: done | stopped-at-floor | only-user-items
 Summary: .guilda/supervisor-summary.md
 Tasks: <done count> of <total count>
 Next: <one line for the Architect>

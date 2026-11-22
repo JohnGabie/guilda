@@ -67,7 +67,8 @@ Run `node scripts/status.mjs <project>` to see the state, or add `--agent <name>
 The supervisor is a session that runs the queue of a build at the pace of your budget. Only you start it (R36).
 
 1. In the project folder, run `claude --agent guilda:supervisor`.
-2. In that session, run `/loop 30m` with the prompt `node scripts/tick.mjs . --json --session <id>`.
+2. In that session, run `/loop 30m` with the prompt `node <plugin root>/scripts/tick.mjs . --json --session <id>`.
+   The `<plugin root>` is the folder of the guilda plugin.
    The `<id>` is in the line `guilda session: <id>` of the session start.
 
 The supervisor claims the queue and dispatches each task of the plan. It saves the work of an agent
