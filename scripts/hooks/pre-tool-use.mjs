@@ -8,7 +8,11 @@ import { scanText, globMatch } from '../lib/scan.mjs';
 import { findGitCommits, parseAddedLines, resolveDir, splitCommands, stripPrefix, isVariable } from '../lib/git-command.mjs';
 import { findCreatedFiles } from '../lib/shell-writes.mjs';
 import { queueFileWrites, queueScriptCall, queueClaimOnly, queueCallHasNow, liveClaim, isQueueFile } from '../lib/queue-guard.mjs';
-import { busPaths, MAIN } from '../lib/bus.mjs';
+import { busPaths, MAIN, COUNCIL_NAME, readLines, appendMessage } from '../lib/bus.mjs';
+import { redteamGuard } from '../lib/redteam-guard.mjs';
+import { awayGuard, architectSide } from '../lib/away.mjs';
+import { resumeGuard } from '../lib/resume.mjs';
+import { councilState, JUDGE, USER } from '../council.mjs';
 import { readBindings, validId, queuePaths } from '../lib/queue.mjs';
 import { keyFolder, TYPED_ENTRYPOINT } from '../lib/records.mjs';
 
@@ -83,8 +87,25 @@ const R34 = {
   },
   printMode: { action: 'bus send refused: a print-mode session', reason: 'R34: this print-mode session has no address' },
   from: { action: 'bus send refused: the sender is not the caller' },
+  councilFrom: { action: 'council say refused: the sender is not the caller', reason: 'R34: --from is not the address of this caller' },
 };
 const BUS_SCRIPT = 'bus.mjs';
+const COUNCIL_SCRIPT = 'council.mjs';
+const ARCHITECT = 'architect';
+const FLOOR_TYPES = ['claim', 'call'];
+
+// 0.5.0 refusals. A record never holds the command text.
+const R37_ACTION = 'red team call refused';
+const R41_ACTION = 'resume run refused';
+const R4_LEAD = {
+  action: 'shell write refused for the Security Lead',
+  reason: 'R4: the Security Lead points and never edits; a redirection, tee, cp, mv or touch is refused',
+};
+const COUNCIL_R34 = {
+  from: { action: 'council say refused: the sender is not the caller', reason: 'R34: --from is not the address of this caller' },
+  floor: { action: 'council say refused: the caller does not hold the floor', reason: 'CNL1: speak only with the floor' },
+  read: { action: 'council say refused: cannot read the council channel', reason: 'CNL1: cannot read the council channel' },
+};
 const SUPERVISOR = 'supervisor';
 const NODE_WORD = /^node(?:js)?(?:\.exe)?$/;
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash']);
@@ -621,13 +642,96 @@ function sendProblem(projectDir, input, command) {
   return { key: 'from', reason: `R34: --from ${shown} is not your address (${caller.address})` };
 }
 
-function deny(reason) {
+const isCouncilScript = (word) => path.basename(word.replace(/\\/g, '/')) === COUNCIL_SCRIPT;
+
+/**
+ * The `say` calls of `council.mjs` in a shell command: { froms, type, id }. A value is null when it is missing or a
+ * variable can stand for it (fail closed). A call whose subcommand is a variable counts as a say.
+ */
+function councilSayCalls(command, depth = 0, out = []) {
+  if (depth > MAX_DEPTH) return out;
+  for (const words of splitCommands(command)) {
+    const { rest } = stripPrefix(words);
+    const inner = innerText(rest);
+    if (inner !== null) councilSayCalls(inner, depth + 1, out);
+    let at = rest.length > 0 && isCouncilScript(rest[0]) ? 0 : -1;
+    if (at < 0) {
+      const nodeAt = rest.findIndex((w) => NODE_WORD.test(path.basename(w)) || isVariable(w));
+      if (nodeAt >= 0) at = rest.findIndex((w, i) => i > nodeAt && isCouncilScript(w));
+    }
+    if (at < 0) continue;
+    const args = rest.slice(at + 1);
+    const sayAt = [0, 1].find((i) => args[i] === 'say' || (args[i] !== undefined && isVariable(args[i])));
+    if (sayAt === undefined) continue;
+    const call = { froms: [], type: undefined, id: undefined, open: false };
+    for (let i = sayAt + 1; i < args.length; i += 1) {
+      if (isVariable(args[i])) call.open = true;
+      if (!args[i].startsWith('--')) continue;
+      const value = args[i + 1] ?? null;
+      if (args[i] === '--from') call.froms.push(value);
+      else if (args[i] === '--type') call.type = value;
+      else if (args[i] === '--id') call.id = value;
+      i += 1;
+    }
+    out.push(call);
+  }
+  return out;
+}
+
+const agentTypeOf = (input) => (typeof input.agent_type === 'string' ? input.agent_type.trim().toLowerCase() : '');
+
+/** True when `from` is bound to the caller of a council say (5h): the Judge, a lead, the Architect or the user. */
+function councilFromBound(projectDir, input, from) {
+  if (typeof from !== 'string') return false;
+  const type = agentTypeOf(input);
+  if (from === JUDGE) return type === JUDGE;
+  if (from === USER) {
+    if (hasAgentId(input) || process.env.CLAUDE_CODE_ENTRYPOINT !== TYPED_ENTRYPOINT) return false;
+    const held = liveClaim(projectDir);
+    return !held.error && !(held.claim && held.claim.session === input.session_id);
+  }
+  if (from === ARCHITECT) return !hasAgentId(input) && type === '' && architectSide(projectDir, input);
+  return /^guilda:[a-z0-9-]+$/.test(from) && type === from;
+}
+
+/** The refusal key of the council says of a shell command (R34 binding, CNL1 floor), or null. */
+function councilProblem(projectDir, input, command) {
+  for (const call of councilSayCalls(command)) {
+    if (call.open || call.froms.length === 0 || !call.froms.every((f) => councilFromBound(projectDir, input, f))) return 'from';
+    if (call.type !== undefined && call.type !== null && !FLOOR_TYPES.includes(call.type)) continue;
+    // A claim or a call: the floor holder is read from the channel. A missing or variable type, or an unreadable
+    // channel, refuses (X9).
+    if (typeof call.id !== 'string' || !COUNCIL_NAME.test(call.id)) return 'read';
+    let holder;
+    try {
+      const lines = readLines(projectDir, call.id);
+      holder = lines === null ? null : councilState(lines).holder;
+    } catch {
+      return 'read';
+    }
+    if (holder !== call.froms[0]) return 'floor';
+  }
+  return null;
+}
+
+/** The notice to the architect mailbox for a refusal of a caller that is not the Architect side (R40). */
+function noticeArchitect(projectDir, input, action) {
+  const who = agentTypeOf(input) || (typeof input.session_id === 'string' && input.session_id ? `session ${input.session_id}` : 'a session');
+  try {
+    appendMessage(projectDir, { from: MAIN, to: ARCHITECT, type: 'notice', text: `${who} was refused: ${action}`, hops: 0 });
+  } catch {
+    // The refusal stands when the notice cannot be written.
+  }
+}
+
+function deny(reason, additionalContext) {
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason: reason,
+        ...(additionalContext ? { additionalContext } : {}),
       },
     }) + '\n',
   );
@@ -774,10 +878,34 @@ async function main(input) {
       return 0;
     }
   }
+  // R37 (5g): the Security Executor runs only inside its limits. The guard fails closed itself.
+  const red = redteamGuard(projectDir, input);
+  if (red) {
+    record('R37', R37_ACTION);
+    deny(red.reason);
+    return 0;
+  }
   // R34: the key folder is refused in each project, also one with no .guilda folder (the record needs one).
   if (namesKeyFolder(input.tool_name, toolInput, startCwd)) return refuse34('key');
   // R34: the hook runs from Claude Code, never from a shell, so the refusal holds for a subagent and the main session.
   if (input.tool_name === 'Bash' && typeof toolInput.command === 'string' && forgesRecord(toolInput.command)) return refuse34('forge');
+  // R39, R40 (5i): the away state and the actions that need the user.
+  const away = awayGuard(projectDir, input);
+  if (away) {
+    record(away.rule, 'away guard refusal');
+    if (away.rule === 'R40' && away.reason === undefined && projectState(projectDir).state !== 'none') noticeArchitect(projectDir, input, away.action);
+    deny(away.refusal, away.reason);
+    return 0;
+  }
+  // R41 (5e): a resume run is only for the project of this session.
+  if (input.tool_name === 'Bash' && typeof toolInput.command === 'string') {
+    const resume = resumeGuard(projectDir, toolInput.command);
+    if (!resume.allow) {
+      record('R41', R41_ACTION);
+      deny(resume.reason);
+      return 0;
+    }
+  }
   if (['Read', 'Grep', 'Glob'].includes(input.tool_name)) return 0;
 
   // A broken project layer runs the laws with the safe defaults (D40). Only a project with no .guilda folder is skipped.
@@ -795,6 +923,18 @@ async function main(input) {
     if (commandWritesBus(projectDir, command, startCwd)) return refuse34('write');
     const send = sendProblem(projectDir, input, command);
     if (send) return refuse34(send.key, send.reason);
+    const councilKey = councilProblem(projectDir, input, command);
+    if (councilKey === 'from') return refuse34('councilFrom');
+    if (councilKey) {
+      record('CNL1', COUNCIL_R34[councilKey].action);
+      deny(COUNCIL_R34[councilKey].reason);
+      return 0;
+    }
+    if (agentTypeOf(input) === 'guilda:security-lead' && findCreatedFiles(command, startCwd).some((e) => e.path !== '/dev/null')) {
+      record('R4', R4_LEAD.action);
+      deny(R4_LEAD.reason);
+      return 0;
+    }
     if (queueFileWrites(command, startCwd, projectDir).length > 0) return refuse32('file');
     const call = queueScriptCall(command);
     if (call) {

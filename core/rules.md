@@ -171,7 +171,7 @@ Check: gate — The Reviewer runs `verify` on the record that each new `@decided
 ### R36 — Only the user starts the supervisor
 Rule:  Start the supervisor session only on the request of the user, and let no hook and no agent start it.
 Why:   A start with no user acts with no consent, and after a restart only the user starts the work again (D15 G5).
-Check: judgment — The Reviewer rejects a hook, a skill or an agent that starts a supervisor session or a `/loop`. It also rejects an offer to start one.
+Check: gate — The hooks test fails when a hook command starts a Claude Code session or a `/loop`, or prints an offer to start the supervisor.
 
 ### R37 — Red team limits are laws
 Rule:  Run red team work only on this project's code, in a local test environment, after the user approves the task.
