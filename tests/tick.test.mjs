@@ -559,6 +559,36 @@ test('the plan read is bounded: a symlink out, a FIFO and a big file give null',
   if (mk.status === 0) assert.equal(planTier(dir, 'fifo.md', 'T1', null), null);
 });
 
+test('a limit-stop record writes one limit-stop event and keeps the step rules', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  const r = tick(dir, 3, '--record', 'limit-stop', '--until', '2026-11-22T12:00:00-03:00', '--reason', 'floor');
+  assert.equal(r.code, 0, r.out);
+  const ev = readFacts(dir, { now: at(4), session: 's1' });
+  assert.equal(ev.records.filter((x) => x.type === 'limit-stop').length, 0, 'not a step record');
+  const lines = fs.readFileSync(path.join(dir, '.guilda', 'queue', 'journal.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const stops = lines.filter((e) => e.type === 'limit-stop');
+  assert.equal(stops.length, 1);
+  assert.deepEqual({ resetsAt: stops[0].resetsAt, why: stops[0].why }, { resetsAt: '2026-11-22T15:00:00.000Z', why: 'floor' });
+  assert.equal(tick(dir, 5, '--record', 'limit-stop', '--until', '2026-11-22T12:00:00Z', '--reason', 'blocked').code, 0);
+});
+
+test('a limit-stop record with a missing or bad --until or reason is refused', () => {
+  const { dir } = runningProject({ withWorktree: false });
+  const ok = ['--until', '2026-11-22T12:00:00Z', '--reason', 'floor'];
+  assert.match(tick(dir, 3, '--record', 'limit-stop', '--reason', 'floor').out, /^refused: limit-stop needs --until/);
+  for (const bad of ['1', '2026-11-22 10:00', '2026-11-22T10:00']) {
+    const r = tick(dir, 3, '--record', 'limit-stop', '--until', bad, '--reason', 'floor');
+    assert.equal(r.code, 1, bad);
+    assert.match(r.out, /^refused: bad --until/);
+  }
+  for (const reason of [undefined, 'other', 'Floor', '']) {
+    const args = reason === undefined ? ok.slice(0, 2) : [...ok.slice(0, 2), '--reason', reason];
+    const r = tick(dir, 3, '--record', 'limit-stop', ...args);
+    assert.equal(r.code, 1, String(reason));
+    assert.match(r.out, /^refused: bad --reason/);
+  }
+});
+
 test('sleep without --until is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   const r = tick(dir, 3, '--record', 'sleep');

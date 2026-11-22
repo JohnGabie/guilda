@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The decision engine of the supervisor (0.5.0 supervisor, T4).
 // Usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>]
-//          (--json | --record <type> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] [--ids <m-id,...>] | --summary)
+//          (--json | --record <type> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text|floor|blocked>] [--ids <m-id,...>] | --summary)
 // Exit codes: 0 done, 1 refused or bad input, 2 I/O error.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +15,7 @@ const USAGE =
 const VALUE_FLAGS = ['--session', '--now', '--record', '--task', '--attempt', '--until', '--reason', '--ids'];
 const BOOL_FLAGS = ['--json', '--summary'];
 const ISO_ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+const LIMIT_REASONS = ['floor', 'blocked'];
 const SUMMARY_FILE = 'supervisor-summary.md';
 const MAX_REASON_CHARS = 500;
 const TMP_BYTES = 6;
@@ -46,8 +47,14 @@ function parseArgs(argv) {
 /** The checked fields of a record command. */
 function recordFields(flags, taskOf) {
   const type = flags.record;
-  if (![...RECORD_TYPES, 'stop', ...HOLD_RECORDS].includes(type)) throw refuse(`unknown record type ${type}`);
+  if (![...RECORD_TYPES, 'stop', 'limit-stop', ...HOLD_RECORDS].includes(type)) throw refuse(`unknown record type ${type}`);
   if (HOLD_RECORDS.includes(type)) return { type };
+  if (type === 'limit-stop') {
+    if (flags.until === undefined) throw refuse('limit-stop needs --until');
+    if (typeof flags.until !== 'string' || !ISO_ZONED.test(flags.until) || Number.isNaN(Date.parse(flags.until))) throw refuse('bad --until');
+    if (!LIMIT_REASONS.includes(flags.reason)) throw refuse('bad --reason');
+    return { type, resetsAt: new Date(flags.until).toISOString(), why: flags.reason };
+  }
   if (type === 'read') {
     const ids = typeof flags.ids === 'string' ? flags.ids.split(',') : [];
     if (ids.length === 0 || !ids.every((id) => MESSAGE_ID.test(id))) throw refuse('bad --ids');
@@ -86,6 +93,10 @@ function cmdRecord(root, flags, now, session) {
       emit({ type: 'decision', decision: 'release-all', by: SUPERVISOR_ROLE });
       for (const id of ids) emit({ type: 'state', task: id, from: 'held', to: 'pending', cause: 'release-all' });
       return `release-all ${ids.length}`;
+    }
+    if (f.type === 'limit-stop') {
+      emit({ type: 'limit-stop', resetsAt: f.resetsAt, why: f.why, by: SUPERVISOR_ROLE });
+      return `limit-stop until ${f.resetsAt}`;
     }
     if (f.type === 'read') {
       emit({ type: 'read', ids: f.ids, by: SUPERVISOR_ROLE });
