@@ -1262,6 +1262,11 @@ test('R38 wrapper forms are refused', () => {
     '!(x)swap list',
     'c[swap list',
     'cswap\nbudget',
+    'git -c alias.x=!cs?ap x list',
+    "cs$'w'ap list",
+    'cs$"w"ap list',
+    "$'\\x63swap' list",
+    "echo $'\\x63'",
     "sed '1e cs?ap list' f",
     `awk 'BEGIN { system("cs?ap list") }'`,
     `git -c alias.x="!cs?ap list" x`,
@@ -1314,7 +1319,7 @@ test('R38 wrapper forms are refused', () => {
 
 test('R38 lets a glob in an argument and a plain dynamic command pass', () => {
   const dir = tempProject({ config: MINIMAL_CONFIG });
-  for (const command of ['ls *', 'git add *', 'cat src/*', 'grep -rn foo *', 'du -sh ~/projects/*', "find . -name '*'", 'ls ?????', '$EDITOR file', 'ls "*.md"', "git commit -m 'fix: all *'", 'sudo -u root ls *', 'env FOO=1 ls *', 'xargs -n 1 ls *']) {
+  for (const command of ['ls *', 'git add *', 'cat src/*', 'grep -rn foo *', 'du -sh ~/projects/*', "find . -name '*'", 'ls ?????', '$EDITOR file', "awk '{print $1}' f.txt", 'git commit -m "feat: add {id} field"', 'echo "x {a,b}"', 'ls "*.md"', "git commit -m 'fix: all *'", 'sudo -u root ls *', 'env FOO=1 ls *', 'xargs -n 1 ls *']) {
     const r = bash(dir, command);
     const reason = r.stdout === '' ? '' : JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason;
     assert.ok(!reason.startsWith('R38'), command);

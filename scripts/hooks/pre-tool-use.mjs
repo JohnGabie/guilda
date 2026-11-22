@@ -188,7 +188,8 @@ const reachesKeyFolder = (abs, folders) =>
   inKeyFolder(abs, folders) || formsOf(abs).some((f) => folders.some((d) => formsOf(d).some((k) => inside(k, f))));
 
 /** The text with its quotes and backslashes taken out, and each `/` doubled sign made one. */
-const plain = (text) => text.replace(/['"\\]/g, '').replace(/\/{2,}/g, '/');
+// A $ right before a quote ($'...' and $"...") is part of the quote, so it goes with the quote.
+const plain = (text) => text.replace(/\$(?=['"])/g, '').replace(/['"\\]/g, '').replace(/\/{2,}/g, '/');
 
 /** True when a text names the key folder: its name, its path, or the guilda state folder with the word `keys`. */
 function textNamesKeyFolder(text, folders) {
@@ -330,7 +331,8 @@ function innerText(rest) {
 // The one exception: the exact command `cswap budget` or `cswap budget --json` (with an optional path to cswap,
 // and no $ or backtick), alone or as the first part of a pipe. A false refusal is accepted. Accepted limit (as
 // R32): a binary copied under another name, and an interpreter that builds the name at run time (node -e,
-// python3 -c, a script file made with Write), are not seen.
+// python3 -c, a script file made with Write), are not seen. Also not seen: an option of a listed command that runs
+// a program (tar --checkpoint-action, git -c core.pager, zip -TT, sort --compress-program).
 const BUDGET_COMMAND = /^(?:[A-Za-z0-9_.~+\/-]*\/)?cswap[ \t]+budget(?:[ \t]+--json)?$/;
 const WORD_SPLIT = /[\s;&|()<>=:,`$]+/;
 // The same split that keeps a comma and parentheses, so {cswap,x} and @(c)swap stay one glob word.
@@ -412,7 +414,7 @@ function globMatchesCswap(raw) {
   const last = word.slice(word.lastIndexOf('/') + 1);
   try {
     const value = word.includes('=') ? word.slice(word.indexOf('=') + 1) : null; // --option=glob
-    return globRegex(word).test('cswap') || globRegex(last).test('cswap') || (value !== null && globMatchesCswap(value));
+    return globRegex(word).test('cswap') || globRegex(last).test('cswap') || (value !== null && globMatchesCswap(value.replace(/^!/, '')));
   } catch {
     return true; // a glob that cannot be read fails closed
   }
@@ -485,7 +487,7 @@ function globArgsPass(rest, at) {
   const args = rest.slice(at + 1);
   if (name === 'find') return !args.some((w) => FIND_RUNS.has(w));
   if (name === 'node') return args[0] === '--test';
-  if (name === 'git') return !args.some((w) => w.startsWith('!') || w.includes('=!'));
+  if (name === 'git') return !args.some((w) => w.startsWith('!') || /^alias\.[^=]*=!/.test(w) || w.includes('=!'));
   if (name === 'tar') return !args.some((w) => TAR_RUNS.test(w));
   return GLOB_ARG_COMMANDS.has(name);
 }
@@ -500,8 +502,8 @@ function quotedWords(raw) {
   for (const w of raw.split(/\s+/)) if (w.includes('\\')) texts.push(w.replace(/\\/g, ''));
   return texts
     .flatMap((t) => [...t.split(/[\s;&|<>=:`$!]+/), ...t.split(/[\s;&|<>=:`$!(),]+/)])
-    .map((w) => w.replace(/['"]/g, ''))
-    .filter((w) => /[A-Za-z0-9]/.test(w));
+    .map((w) => w.replace(/['"{}]/g, '')) // in a quoted word a brace and a $ are literal: no brace group
+    .filter((w) => /[A-Za-z0-9]/.test(w) && /[*?[]/.test(w));
 }
 
 /** True when the text names cswap by rule 1, 2 or 3 above. */
@@ -530,6 +532,8 @@ function mentionsCswap(text) {
 function runsCswapAccountCommand(raw) {
   // A backslash-newline pair joins two lines, so `cs\<newline>wap` is the word cswap.
   const command = raw.replace(/\\\r?\n/g, '');
+  // A $'...' word with a backslash escape can spell any name (`$'\x63swap'`): refused at any position.
+  if (/\$'(?:[^'\\]|\\.)*\\/.test(command)) return true;
   if (!mentionsCswap(command)) return false;
   if (DYNAMIC.test(command)) return true;
   const parts = command.trim().split(/(?<!\|)\|(?!\|)/);
