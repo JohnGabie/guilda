@@ -436,6 +436,12 @@ test('a sleep record that covers now gives watch, not pause', () => {
   assert.equal(ended.until, at(90));
 });
 
+test('a sleep record whose until equals now gives pause', () => {
+  const pace = { slots: 0, lowTier: false, why: 'blocked', resumeAt: at(90) };
+  const sleep = { type: 'sleep', until: at(30), t: at(10) };
+  assert.equal(nextStep(facts({ T1: task({ state: 'ready' }) }, { pace, records: [sleep] })).step, 'pause');
+});
+
 test('sleep without --until is refused', () => {
   const { dir } = runningProject({ withWorktree: false });
   const r = tick(dir, 3, '--record', 'sleep');
