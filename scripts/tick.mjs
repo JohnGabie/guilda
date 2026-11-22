@@ -11,7 +11,7 @@ import { MESSAGE_ID } from './lib/bus.mjs';
 import { readFacts, nextStep, renderSummary, worktreeInfo, isLateRunning, RECORD_TYPES } from './lib/tick.mjs';
 
 const USAGE =
-  'usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>] (--json | --record <save-request|stop|needs-user|sleep|read> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] [--ids <m-id,...>] | --summary)';
+  'usage: node scripts/tick.mjs <projectDir> --session <id> [--now <ISO>] (--json | --record <save-request|stop|needs-user|sleep|read|hold-all|release-all> [--task <id>] [--attempt <n>] [--until <ISO>] [--reason <text>] [--ids <m-id,...>] | --summary)';
 const VALUE_FLAGS = ['--session', '--now', '--record', '--task', '--attempt', '--until', '--reason', '--ids'];
 const BOOL_FLAGS = ['--json', '--summary'];
 const ISO_ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
@@ -19,6 +19,7 @@ const SUMMARY_FILE = 'supervisor-summary.md';
 const MAX_REASON_CHARS = 500;
 const TMP_BYTES = 6;
 const SUPERVISOR_ROLE = 'sup';
+const HOLD_RECORDS = ['hold-all', 'release-all'];
 
 const refuse = (message) => new QueueError(1, message.startsWith('refused:') ? message : `refused: ${message}`);
 
@@ -45,7 +46,8 @@ function parseArgs(argv) {
 /** The checked fields of a record command. */
 function recordFields(flags, taskOf) {
   const type = flags.record;
-  if (![...RECORD_TYPES, 'stop'].includes(type)) throw refuse(`unknown record type ${type}`);
+  if (![...RECORD_TYPES, 'stop', ...HOLD_RECORDS].includes(type)) throw refuse(`unknown record type ${type}`);
+  if (HOLD_RECORDS.includes(type)) return { type };
   if (type === 'read') {
     const ids = typeof flags.ids === 'string' ? flags.ids.split(',') : [];
     if (ids.length === 0 || !ids.every((id) => MESSAGE_ID.test(id))) throw refuse('bad --ids');
@@ -73,6 +75,18 @@ function recordFields(flags, taskOf) {
 function cmdRecord(root, flags, now, session) {
   const run = runWriter(root, { now, session }, ({ state, events, emit }) => {
     const f = recordFields(flags, (id) => (Object.hasOwn(state.tasks, id) ? state.tasks[id] : null));
+    if (f.type === 'hold-all') {
+      const ids = Object.keys(state.tasks).filter((id) => ['pending', 'ready'].includes(state.tasks[id].state));
+      emit({ type: 'decision', decision: 'hold-all', tasks: [], by: SUPERVISOR_ROLE });
+      for (const id of ids) emit({ type: 'state', task: id, from: state.tasks[id].state, to: 'held', cause: 'hold-all' });
+      return `hold-all ${ids.length}`;
+    }
+    if (f.type === 'release-all') {
+      const ids = Object.keys(state.tasks).filter((id) => state.tasks[id].state === 'held' && state.tasks[id].cause === 'hold-all');
+      emit({ type: 'decision', decision: 'release-all', by: SUPERVISOR_ROLE });
+      for (const id of ids) emit({ type: 'state', task: id, from: 'held', to: 'pending', cause: 'release-all' });
+      return `release-all ${ids.length}`;
+    }
     if (f.type === 'read') {
       emit({ type: 'read', ids: f.ids, by: SUPERVISOR_ROLE });
       return `read ${f.ids.length}`;

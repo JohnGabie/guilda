@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO_ROOT, tempProject, MINIMAL_CONFIG } from './helpers.mjs';
-import { runWriter } from '../scripts/lib/queue.mjs';
+import { runWriter, readJournal } from '../scripts/lib/queue.mjs';
 import { appendMessage } from '../scripts/lib/bus.mjs';
 import { nextStep, readFacts, gitLogArgs, gitEnv, tierInPlan, planTier } from '../scripts/lib/tick.mjs';
 
@@ -632,4 +632,63 @@ test('readFacts with git false makes no worktree data', () => {
   seed(dir, [{ type: 'save-request', task: 'T1', attempt: 1, address: 'T1-exe-ab12', t: at(20) }]);
   assert.deepEqual(readFacts(dir, { now: at(30), session: 's1', git: false }).worktrees, {});
   assert.deepEqual(Object.keys(readFacts(dir, { now: at(30), session: 's1' }).worktrees), ['T1']);
+});
+
+// ---- 5j: hold-all and release-all ----
+function holdProject() {
+  const dir = tempProject({ config: MINIMAL_CONFIG, git: true });
+  seed(dir, [
+    { type: 'plan', slots: 4, work: 'w-00000001' },
+    { type: 'task', task: 'T1', work: 'w-00000001', title: 'a' },
+    { type: 'task', task: 'T2', work: 'w-00000001', title: 'b' },
+    { type: 'task', task: 'T3', work: 'w-00000001', title: 'c' },
+    { type: 'task', task: 'T4', work: 'w-00000001', title: 'd' },
+    { type: 'state', task: 'T2', from: 'pending', to: 'ready', cause: 'deps-done' },
+    { type: 'state', task: 'T3', from: 'pending', to: 'ready', cause: 'deps-done' },
+    { type: 'dispatch', task: 'T3', attempt: 1, address: 'T3-exe-ab12', role: 'exe', tool: 'claude', check: false, worktree: 'wt/T3' },
+    { type: 'state', task: 'T3', from: 'ready', to: 'dispatched', cause: 'dispatch' },
+    { type: 'state', task: 'T3', from: 'dispatched', to: 'running', cause: 'started' },
+  ]);
+  claim(dir);
+  return dir;
+}
+const journalOf = (dir) => readJournal(dir).events;
+const stateOf = (dir) => Object.fromEntries(Object.entries(readFacts(dir, { now: at(1), session: 's1' }).state.tasks).map(([id, t]) => [id, t.state]));
+
+test('hold-all holds each pending and ready task and leaves running ones', () => {
+  const dir = holdProject();
+  const r = tick(dir, 1, '--record', 'hold-all');
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'held', T3: 'running', T4: 'held' });
+  const ev = journalOf(dir);
+  const d = ev.filter((e) => e.type === 'decision');
+  assert.equal(d.length, 1);
+  assert.deepEqual({ decision: d[0].decision, tasks: d[0].tasks, by: d[0].by }, { decision: 'hold-all', tasks: [], by: 'sup' });
+  const moves = ev.filter((e) => e.type === 'state' && e.to === 'held');
+  assert.deepEqual(moves.map((e) => [e.task, e.cause]), [['T1', 'hold-all'], ['T2', 'hold-all'], ['T4', 'hold-all']]);
+  for (const e of [...d, ...moves]) assert.equal('reason' in e, false);
+});
+
+test('release-all releases only the tasks that hold-all held', () => {
+  const dir = holdProject();
+  assert.equal(tick(dir, 1, '--record', 'hold-all').code, 0);
+  const r = tick(dir, 2, '--record', 'release-all');
+  assert.equal(r.code, 0, r.out);
+  assert.deepEqual(stateOf(dir), { T1: 'pending', T2: 'pending', T3: 'running', T4: 'pending' });
+  const ev = journalOf(dir);
+  const d = ev.filter((e) => e.type === 'decision' && e.decision === 'release-all');
+  assert.equal(d.length, 1);
+  assert.equal(d[0].by, 'sup');
+  assert.equal('reason' in d[0], false);
+  const moves = ev.filter((e) => e.type === 'state' && e.cause === 'release-all');
+  assert.deepEqual(moves.map((e) => [e.task, e.from, e.to]), [['T1', 'held', 'pending'], ['T2', 'held', 'pending'], ['T4', 'held', 'pending']]);
+});
+
+test('a task held by queue hold stays held after release-all', () => {
+  const dir = holdProject();
+  const h = spawnSync(process.execPath, [QUEUE, dir, 'hold', 'T1', '--session', 's1', '--now', at(1)], { encoding: 'utf8' });
+  assert.equal(h.status, 0, h.stdout + h.stderr);
+  assert.equal(tick(dir, 2, '--record', 'hold-all').code, 0);
+  assert.equal(tick(dir, 3, '--record', 'release-all').code, 0);
+  assert.deepEqual(stateOf(dir), { T1: 'held', T2: 'pending', T3: 'running', T4: 'pending' });
 });

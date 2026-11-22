@@ -948,3 +948,18 @@ test('slots 0 makes dispatch refuse with no free slot', () => {
   assert.equal(r.code, 1);
   assert.match(r.out, /no free slot/);
 });
+
+test('fold keeps the cause hold-all and release-all of a state event', () => {
+  const t = '2026-11-20T10:00:00.000Z';
+  const opts = { now: t, generator: 'guilda test' };
+  const base = [
+    { seq: 1, t, type: 'plan', slots: 2, work: 'w-00000001' },
+    { seq: 2, t, type: 'task', task: 'T1', work: 'w-00000001', title: 'a' },
+    { seq: 3, t, type: 'decision', decision: 'hold-all', tasks: [], by: 'sup' },
+    { seq: 4, t, type: 'state', task: 'T1', from: 'pending', to: 'held', cause: 'hold-all' },
+  ];
+  const held = fold(base, opts).tasks.T1;
+  assert.deepEqual([held.state, held.cause], ['held', 'hold-all']);
+  const back = fold([...base, { seq: 5, t, type: 'state', task: 'T1', from: 'held', to: 'pending', cause: 'release-all' }], opts).tasks.T1;
+  assert.deepEqual([back.state, back.cause], ['pending', 'release-all']);
+});
