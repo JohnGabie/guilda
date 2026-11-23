@@ -1,6 +1,6 @@
 {
   "name": "guilda-panel",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "A panel beside the Claude Code chat that shows the guilda queue and the agents of the project.",
   "author": {
     "name": "USER"

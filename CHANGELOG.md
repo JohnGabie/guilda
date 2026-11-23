@@ -8,6 +8,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-23
+
 ### Added
 
 - New rules: R36 and SUP1 to SUP3. R36: only the user starts the supervisor session. SUP1: one precise question to
@@ -207,7 +209,8 @@ the rule IDs that changed. The plan for the next releases is in `ROADMAP.md`.
 - Core rules, roles, hooks, `guilda:architect`, `guilda:init` and `guilda:update`. New rule IDs: R1 to R25, and ARC1
   to ARC6 in `guilda:architect`. The brief check of the Executor dispatch cites ARC6, not R3.
 
-[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.1...HEAD
+[unreleased]: https://github.com/JohnGabie/guilda/compare/guilda--v0.5.0...HEAD
+[0.5.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.1...guilda--v0.5.0
 [0.4.1]: https://github.com/JohnGabie/guilda/compare/guilda--v0.4.0...guilda--v0.4.1
 [0.4.0]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.1...guilda--v0.4.0
 [0.3.1]: https://github.com/JohnGabie/guilda/compare/guilda--v0.3.0...guilda--v0.3.1

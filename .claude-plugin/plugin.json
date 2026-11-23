@@ -1,6 +1,6 @@
 {
   "name": "guilda",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Shared engineering rules, roles and checks for Claude Code projects.",
   "author": {
     "name": "USER"
