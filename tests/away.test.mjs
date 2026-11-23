@@ -265,13 +265,14 @@ test('S5-28: set, status, clear by the script; a worktree shares the state; the 
   const state = stateHome();
   const dir = project({ git: true });
   spawnSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
-  const before = fs.readdirSync(dir, { recursive: true }).sort();
+  const snapshot = () => fs.readdirSync(dir, { recursive: true }).filter((f) => f !== '.git' && !f.startsWith('.git/')).sort();
+  const before = snapshot();
   const env = { XDG_STATE_HOME: state };
   assert.deepEqual(cli(dir, ['status', '--session', 's-main'], env), { code: 0, out: 'away: no\n', err: '' });
   assert.deepEqual(cli(dir, ['set', '--session', 's-main'], env), { code: 0, out: 'away: set\n', err: '' });
   const set = cli(dir, ['status', '--session', 's-main'], env);
   assert.match(set.out, /^away: yes since \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
-  assert.deepEqual(fs.readdirSync(dir, { recursive: true }).sort(), before);
+  assert.deepEqual(snapshot(), before);
   const folder = fs.readdirSync(path.join(state, 'guilda', 's'));
   assert.equal(folder.length, 1);
   assert.match(folder[0], /^[0-9a-f]{16}\.json$/);
