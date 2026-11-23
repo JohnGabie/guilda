@@ -93,7 +93,10 @@ It does not see a script file made with Write, or a renamed binary.
 It does not see a program that runs the text it gets, or a glob with dotglob.
 For R37, a script that the Security Executor writes and runs is seen only by the sandbox.
 The Security Executor needs the project sandbox on. The red team and blue team skills wait for your curation.
-The usage source is `off` by default until you decide it.
+The usage source is `off` by default. Only you turn it on, with `"usage": { "source": "cswap" }` in
+`.guilda/config.json`. Read the terms first. The Claude Code legal page says that the advertised usage limits
+"assume ordinary, individual usage of Claude Code". A pace across more than one account can conflict with
+that text. guilda never switches accounts (R38).
 
 ## Update from 0.1.x
 
